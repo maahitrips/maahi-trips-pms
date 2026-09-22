@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Room, 
   Booking, 
+  BookingChannel,
   OTAChannelConfig, 
   RoomTypeMapping, 
   ChannelSyncLog, 
@@ -850,6 +851,66 @@ export default function App() {
     }));
   };
 
+  const handleToggleChannelConnect = (channelId: BookingChannel) => {
+    let channelName = '';
+    let isNowConnected = false;
+
+    setChannels(prev => prev.map(ch => {
+      if (ch.id === channelId) {
+        channelName = ch.name;
+        isNowConnected = !ch.isConnected;
+        return {
+          ...ch,
+          isConnected: isNowConnected,
+          status: isNowConnected ? 'active' : 'disconnected',
+          autoSync: isNowConnected,
+          activeReservationsCount: isNowConnected ? ch.activeReservationsCount : 0
+        };
+      }
+      return ch;
+    }));
+
+    // Add sync log
+    const newLog: ChannelSyncLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      channel: channelId,
+      channelName: channelName || channelId,
+      eventType: 'inventory_push',
+      status: isNowConnected ? 'success' : 'warning',
+      message: isNowConnected 
+        ? `${channelName} Extranet connection established.` 
+        : `${channelName} disconnected. Channel is now offline.`
+    };
+    setSyncLogs(prev => [newLog, ...prev]);
+
+    showToast(
+      isNowConnected ? `${channelName} Connected!` : `${channelName} Disconnected`,
+      isNowConnected ? 'Live inventory synchronization active' : 'Channel offline - no bookings will be imported'
+    );
+  };
+
+  const handleDisconnectAllChannels = () => {
+    setChannels(prev => prev.map(ch => ({
+      ...ch,
+      isConnected: false,
+      status: 'disconnected',
+      autoSync: false,
+      activeReservationsCount: 0
+    })));
+    showToast('All Channels Disconnected', 'All OTA portals are now offline for this property');
+  };
+
+  const handleConnectAllChannels = () => {
+    setChannels(prev => prev.map(ch => ({
+      ...ch,
+      isConnected: true,
+      status: 'active',
+      autoSync: true
+    })));
+    showToast('All Channels Connected', 'Two-way sync activated across all OTA portals');
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased">
       {/* Left Sidebar Navigation */}
@@ -920,6 +981,9 @@ export default function App() {
               onToggleStopSell={handleToggleStopSell}
               onUpdateRateModifier={handleUpdateRateModifier}
               onOpenSimulateModal={() => setIsSimulateModalOpen(true)}
+              onToggleChannelConnect={handleToggleChannelConnect}
+              onDisconnectAll={handleDisconnectAllChannels}
+              onConnectAll={handleConnectAllChannels}
             />
           )}
 

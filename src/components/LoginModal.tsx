@@ -94,7 +94,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold tracking-tight">Hotel PMS &amp; Multi-Property Hub</h2>
+                  <h2 className="text-xl font-bold tracking-tight">Maahi Trips - Hotel PMS Hub</h2>
                   <span className="text-[10px] uppercase font-bold tracking-wider bg-teal-400/20 text-teal-200 px-2 py-0.5 rounded-full border border-teal-400/30">
                     Multi-Tenant
                   </span>

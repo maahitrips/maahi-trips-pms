@@ -53,7 +53,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   const handleCopyCredentials = () => {
-    const text = `🏨 *TripMakerz PMS Login Details:*\n👤 *Name:* ${name || 'Friend'}\n🔑 *Username:* ${username}\n🔒 *Password:* ${password}\n🌐 *Role:* ${designation}\n\n👉 *Login Link:* ${window.location.origin}`;
+    const text = `🏨 *Maahi Trips PMS Login Details:*\n👤 *Name:* ${name || 'Friend'}\n🔑 *Username:* ${username}\n🔒 *Password:* ${password}\n🌐 *Role:* ${designation}\n\n👉 *Login Link:* ${window.location.origin}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

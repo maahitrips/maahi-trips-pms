@@ -80,12 +80,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center font-bold text-white text-lg shadow-md shrink-0">
-            T
+            M
           </div>
           {!collapsed && (
             <div className="leading-tight truncate">
               <div className="font-bold text-white text-base tracking-wide flex items-center gap-1.5">
-                Tripmakerz
+                Maahi Trips
                 <span className="text-[10px] bg-teal-900/80 text-teal-300 font-semibold px-1.5 py-0.5 rounded">PMS</span>
               </div>
               <div className="text-xs text-slate-400 truncate">Hotel Cloud Suite</div>

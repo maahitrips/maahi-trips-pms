@@ -144,7 +144,7 @@ export interface OTAChannelConfig {
   color: string;
   tagColor: string;
   isConnected: boolean;
-  status: 'active' | 'syncing' | 'paused' | 'error';
+  status: 'active' | 'syncing' | 'paused' | 'error' | 'disconnected';
   lastSyncedAt: string;
   autoSync: boolean;
   rateMarkupPercent: number; // e.g. 15%
@@ -152,6 +152,8 @@ export interface OTAChannelConfig {
   totalRoomsCount: number;
   activeReservationsCount: number;
   apiEndpoint: string;
+  hotelCode?: string;
+  apiKey?: string;
 }
 
 export interface RoomTypeMapping {

@@ -396,15 +396,20 @@ export const initialHotelBundles: Record<string, HotelDataBundle> = initialHotel
 /**
  * Creates default data bundle when a new hotel is added
  */
-export function createDefaultHotelBundle(hotel: Hotel, roomCountTemplate: number = 8): HotelDataBundle {
-  const defaultRooms: Room[] = [
-    { id: `${hotel.id}-101`, number: '101', name: '101 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi', 'Geyser'] },
-    { id: `${hotel.id}-102`, number: '102', name: '102 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi', 'Geyser'] },
-    { id: `${hotel.id}-103`, number: '103', name: '103 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi', 'Geyser'] },
-    { id: `${hotel.id}-201`, number: '201', name: '201 - Executive Suite', type: 'Executive Suite', floor: 2, baseRate: 3800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Kettle', 'Wi-Fi'] },
-    { id: `${hotel.id}-202`, number: '202', name: '202 - Executive Suite', type: 'Executive Suite', floor: 2, baseRate: 3800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Kettle', 'Wi-Fi'] },
-    { id: `${hotel.id}-203`, number: '203', name: '203 - Family Premium Suite', type: 'Family Premium Suite', floor: 2, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['2 Queen Beds', 'AC', 'Fridge', 'Sofa'] }
-  ];
+export function createDefaultHotelBundle(hotel: Hotel, roomCountTemplate: number = 0): HotelDataBundle {
+  let defaultRooms: Room[] = [];
+
+  if (roomCountTemplate > 0) {
+    const samplePool: Room[] = [
+      { id: `${hotel.id}-101`, number: '101', name: '101 - Deluxe Room', type: 'Deluxe Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi'] },
+      { id: `${hotel.id}-102`, number: '102', name: '102 - Deluxe Room', type: 'Deluxe Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi'] },
+      { id: `${hotel.id}-103`, number: '103', name: '103 - Deluxe Room', type: 'Deluxe Room', floor: 1, baseRate: 2500, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'TV', 'Wi-Fi'] },
+      { id: `${hotel.id}-201`, number: '201', name: '201 - Executive Suite', type: 'Executive Suite', floor: 2, baseRate: 3800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi'] },
+      { id: `${hotel.id}-202`, number: '202', name: '202 - Executive Suite', type: 'Executive Suite', floor: 2, baseRate: 3800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi'] },
+      { id: `${hotel.id}-203`, number: '203', name: '203 - Family Suite', type: 'Family Suite', floor: 2, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['2 Beds', 'AC', 'Fridge'] },
+    ];
+    defaultRooms = samplePool.slice(0, Math.min(roomCountTemplate, samplePool.length));
+  }
 
   const profile: HotelProfile = {
     name: hotel.name,
@@ -423,8 +428,16 @@ export function createDefaultHotelBundle(hotel: Hotel, roomCountTemplate: number
     hotelId: hotel.id,
     rooms: defaultRooms,
     bookings: [],
-    channels: initialOTAChannels.map(c => ({ ...c, activeReservationsCount: 0 })),
-    roomMappings: initialRoomMappings,
+    // New property starts with disconnected OTA channels - owner connects them when ready
+    channels: initialOTAChannels.map(c => ({ 
+      ...c, 
+      isConnected: false, 
+      status: 'disconnected', 
+      mappedRoomsCount: 0,
+      totalRoomsCount: defaultRooms.length,
+      activeReservationsCount: 0 
+    })),
+    roomMappings: defaultRooms.length > 0 ? initialRoomMappings : [],
     syncLogs: [
       {
         id: `log-init-${Date.now()}`,
@@ -433,7 +446,9 @@ export function createDefaultHotelBundle(hotel: Hotel, roomCountTemplate: number
         channelName: 'Channel Engine',
         eventType: 'inventory_push',
         status: 'success',
-        message: `Property ${hotel.name} initialized with ${defaultRooms.length} rooms.`
+        message: defaultRooms.length > 0 
+          ? `Property ${hotel.name} initialized with ${defaultRooms.length} rooms.`
+          : `Property ${hotel.name} initialized with 0 rooms. Ready to add your rooms.`
       }
     ],
     profile

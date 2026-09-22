@@ -38,7 +38,7 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
   const [starCategory, setStarCategory] = useState('3-Star Premium');
   const [checkInTime, setCheckInTime] = useState('12:00 PM');
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
-  const [roomTemplate, setRoomTemplate] = useState<number>(8);
+  const [roomTemplate, setRoomTemplate] = useState<number>(0);
 
   // Manager Credentials
   const [createManager, setCreateManager] = useState(true);
@@ -300,22 +300,23 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
             <span className="text-xs font-bold uppercase tracking-wider text-teal-800 block">
               Initial Room Inventory Setup
             </span>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {[
-                { count: 6, label: '6 Rooms', desc: 'Boutique / B&B Setup' },
-                { count: 10, label: '10 Rooms', desc: 'Standard Midscale' },
-                { count: 15, label: '15 Rooms', desc: 'Full Hotel Setup' },
+                { count: 0, label: '0 Rooms (Empty)', desc: 'Clean slate - Add your real rooms manually', recommended: true },
+                { count: 6, label: '6 Rooms (Demo)', desc: 'Boutique sample template' },
+                { count: 10, label: '10 Rooms (Demo)', desc: 'Midscale sample template' },
+                { count: 15, label: '15 Rooms (Demo)', desc: 'Full hotel sample template' },
               ].map(opt => (
                 <label 
                   key={opt.count}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
+                  className={`p-2.5 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
                     roomTemplate === opt.count 
-                      ? 'bg-teal-50 border-teal-600 ring-2 ring-teal-500/20' 
+                      ? 'bg-teal-50 border-teal-600 ring-2 ring-teal-500/20 shadow-xs' 
                       : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-slate-900">{opt.label}</span>
+                    <span className="font-bold text-slate-900 text-xs">{opt.label}</span>
                     <input
                       type="radio"
                       name="roomTemplate"
@@ -324,10 +325,20 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
                       className="text-teal-700"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-500">{opt.desc}</span>
+                  <span className="text-[10px] text-slate-500 leading-tight">{opt.desc}</span>
+                  {opt.recommended && (
+                    <span className="mt-1 text-[9px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded w-fit">
+                      Recommended
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
+            {roomTemplate === 0 && (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-lg font-medium">
+                ✓ <strong>Clean Setup Selected:</strong> No automatic dummy rooms will be created. You can add your actual hotel rooms and room categories from Front Desk.
+              </p>
+            )}
           </div>
 
           {/* Section 3: Separate Manager Login Credentials */}

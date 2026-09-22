@@ -1,6 +1,6 @@
 {
-  "name": "Hotel PMS & Channel Manager",
-  "description": "Comprehensive Multi-Hotel Property Management System (PMS) with separate logins, property switching, front desk tape chart, guest ID KYC vault, two-way OTA channel manager, and Gmail guest communication center.",
+  "name": "Maahi Trips",
+  "description": "Maahi Trips - Comprehensive Multi-Property Hotel Management System (PMS) with Front Desk Calendar, Guest KYC Vault, and Two-Way OTA Channel Manager.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
