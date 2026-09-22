@@ -163,7 +163,7 @@ export default function App() {
         console.error('Failed to parse current user', e);
       }
     }
-    return initialUsers[0];
+    return null;
   });
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
@@ -910,6 +910,21 @@ export default function App() {
     })));
     showToast('All Channels Connected', 'Two-way sync activated across all OTA portals');
   };
+
+  if (!currentUser) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4 font-sans text-slate-100 antialiased">
+        <LoginModal
+          isOpen={true}
+          currentUser={null}
+          users={users}
+          hotels={hotels}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased">

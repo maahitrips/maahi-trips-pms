@@ -1010,8 +1010,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Quick Access Credentials Banner */}
           <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-between">
             <div className="text-slate-700">
-              <span className="font-bold text-teal-900 block">Super Admin Login for Website Users:</span>
-              <span className="font-mono text-slate-600">Username: <strong className="text-teal-950 font-bold">maahitrips</strong> | Password: <strong className="text-teal-950 font-bold">417905kpj</strong></span>
+              <span className="font-bold text-teal-900 block">Super Admin Access Portal:</span>
+              <span className="text-xs text-slate-600">Master Account Username: <strong className="text-teal-950 font-mono font-bold">maahitrips</strong> (Password is private &amp; secured)</span>
             </div>
             <span className="text-[10px] bg-teal-800 text-white font-bold px-2 py-1 rounded">
               Full Master Access

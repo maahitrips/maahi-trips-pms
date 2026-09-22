@@ -64,7 +64,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
       onConfirmDelete(targetType, targetId);
       onClose();
     } else {
-      setPasswordError('Invalid Super Admin password (use: 417905kpj). Please check with Shahid or submit a formal request.');
+      setPasswordError('Invalid Super Admin authorization key. Please enter your master credentials or submit a deletion request.');
     }
   };
 
