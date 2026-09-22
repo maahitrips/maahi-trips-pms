@@ -19,7 +19,9 @@ import {
   Eye,
   Check,
   Building2,
-  Paperclip
+  Paperclip,
+  Phone,
+  MessageCircle
 } from 'lucide-react';
 import { 
   initAuth, 
@@ -70,6 +72,7 @@ export const GmailView: React.FC<GmailViewProps> = ({
   const [selectedBookingId, setSelectedBookingId] = useState<string>(bookings[0]?.id || '');
   const [templateType, setTemplateType] = useState<'confirmation' | 'welcome' | 'custom'>('confirmation');
   const [recipientEmail, setRecipientEmail] = useState<string>('');
+  const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [emailBody, setEmailBody] = useState<string>('');
   const [emailHtml, setEmailHtml] = useState<string>('');
@@ -143,6 +146,7 @@ export const GmailView: React.FC<GmailViewProps> = ({
 
     const room = rooms.find(r => r.id === booking.roomId);
     setRecipientEmail(booking.guest.email || 'guest@example.com');
+    setRecipientPhone(booking.guest.phone || '');
 
     if (templateType === 'confirmation') {
       const template = generateBookingConfirmationEmail(booking, hotelProfile, room);
@@ -160,6 +164,41 @@ export const GmailView: React.FC<GmailViewProps> = ({
       setEmailHtml('');
     }
   }, [selectedBookingId, templateType, hotelProfile, bookings, rooms]);
+
+  // Send Voucher / Message via WhatsApp directly
+  const handleSendWhatsApp = () => {
+    const booking = bookings.find(b => b.id === selectedBookingId) || bookings[0];
+    const phone = recipientPhone || booking?.guest.phone || '';
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+    let whatsappText = '';
+    if (booking) {
+      whatsappText = `🏨 *${hotelProfile.name.toUpperCase()} - BOOKING VOUCHER*\n\n` +
+        `👤 *Guest Name:* ${booking.guest.fullName}\n` +
+        `🔖 *Booking Reference:* #${booking.bookingCode}\n` +
+        `📅 *Check-In:* ${booking.checkInDate} (Check-in from 12:00 PM)\n` +
+        `📅 *Check-Out:* ${booking.checkOutDate} (Check-out by 11:00 AM)\n` +
+        `🛏️ *Room Allotted:* ${booking.roomNumber ? `Room #${booking.roomNumber}` : 'Standard / Executive'}\n` +
+        `👥 *Guests:* ${booking.guestsCount.adults} Adults${booking.guestsCount.children > 0 ? `, ${booking.guestsCount.children} Children` : ''}\n` +
+        `💰 *Total Booking Amount:* ₹${booking.totalAmount.toLocaleString()}\n` +
+        `✅ *Advance Paid:* ₹${booking.paidAmount.toLocaleString()}\n` +
+        `⚠️ *Balance at Check-in:* ₹${Math.max(0, booking.totalAmount - booking.paidAmount).toLocaleString()}\n\n` +
+        `📍 *Hotel Address:* ${hotelProfile.address}, ${hotelProfile.city}\n` +
+        `📞 *Reception Helpline:* ${hotelProfile.phone}\n` +
+        (hotelProfile.wifiPassword ? `📶 *Complimentary Wi-Fi:* ${hotelProfile.wifiPassword}\n` : '') +
+        `\n_Thank you for choosing ${hotelProfile.name}! We look forward to hosting you._`;
+    } else {
+      whatsappText = emailBody;
+    }
+
+    const targetUrl = cleanPhone
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone}&text=${encodeURIComponent(whatsappText)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+
+    window.open(targetUrl, '_blank');
+    setSentSuccessMsg(`Opening WhatsApp with booking voucher for ${booking?.guest.fullName || 'Guest'}...`);
+    setTimeout(() => setSentSuccessMsg(null), 5000);
+  };
 
   // Load Messages from Gmail API
   const loadMessages = async () => {
@@ -466,7 +505,7 @@ export const GmailView: React.FC<GmailViewProps> = ({
             </div>
 
             {/* Recipient & Subject */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Recipient Email:
@@ -486,6 +525,24 @@ export const GmailView: React.FC<GmailViewProps> = ({
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Guest Mobile / WhatsApp:</span>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">WhatsApp</span>
+                </label>
+                <div className="relative">
+                  <Phone size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    id="input-recipient-phone"
+                    type="tel"
+                    value={recipientPhone}
+                    onChange={(e) => setRecipientPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-hidden font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-1">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Email Subject:
                 </label>
@@ -530,12 +587,12 @@ export const GmailView: React.FC<GmailViewProps> = ({
                   {googleUser ? (
                     <>Sending from authenticated account: <strong className="text-slate-800">{googleUser.email}</strong></>
                   ) : (
-                    <span className="text-amber-700 font-medium">Connect Google account above to send emails directly</span>
+                    <span className="text-amber-700 font-medium">Direct WhatsApp dispatch is instant • Connect Google for Gmail</span>
                   )}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -545,6 +602,17 @@ export const GmailView: React.FC<GmailViewProps> = ({
                   className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                 >
                   View Reservation
+                </button>
+
+                <button
+                  id="btn-send-whatsapp-action"
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Send formatted voucher directly to guest WhatsApp"
+                >
+                  <MessageCircle size={15} />
+                  <span>Send via WhatsApp</span>
                 </button>
 
                 <button

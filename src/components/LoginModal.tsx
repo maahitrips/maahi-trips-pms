@@ -9,7 +9,9 @@ import {
   AlertCircle, 
   ArrowRight,
   Eye,
-  EyeOff
+  EyeOff,
+  PhoneCall,
+  MessageCircle
 } from 'lucide-react';
 
 interface LoginModalProps {
@@ -172,8 +174,54 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </button>
           </form>
 
+          {/* List Your Property / Call Us Section */}
+          <div className="mt-5 p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 via-slate-50 to-teal-50/70 border border-teal-200/80 shadow-2xs">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  <Building2 size={16} className="text-teal-200" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                    <span>List Your Property?</span>
+                    <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.2 rounded border border-teal-200">
+                      Partner
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">Want to connect your hotel to Maahi Trips?</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-2.5 pt-2.5 border-t border-slate-200/70">
+              <a
+                id="link-login-call-us"
+                href="tel:+919876543210"
+                className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-teal-50 border border-slate-300 hover:border-teal-400 text-slate-800 hover:text-teal-900 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                <PhoneCall size={14} className="text-teal-700" />
+                <span>Call Us</span>
+              </a>
+
+              <a
+                id="link-login-whatsapp-us"
+                href="https://api.whatsapp.com/send?phone=919876543210&text=Hello%20Maahi%20Trips%20Team%2C%20I%20want%20to%20list%20my%20hotel%20property%20on%20Maahi%20Trips%20PMS."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                <MessageCircle size={14} />
+                <span>WhatsApp Us</span>
+              </a>
+            </div>
+
+            <div className="text-center mt-2 text-[10px] text-slate-500 font-medium">
+              Helpline: <a href="tel:+919876543210" className="font-mono text-teal-800 font-bold hover:underline">+91 98765 43210</a>
+            </div>
+          </div>
+
           {/* Security Note */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-400 text-xs justify-center">
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-slate-400 text-xs justify-center">
             <ShieldCheck size={14} className="text-teal-600" />
             <span>Secure Hotel Access Portal • Maahi Trips PMS</span>
           </div>
