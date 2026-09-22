@@ -1,0 +1,1024 @@
+import React, { useState } from 'react';
+import { HotelProfile, Hotel, UserAccount, Room, DeletionRequest } from '../types';
+import { 
+  Building2, 
+  Save, 
+  ShieldCheck, 
+  CheckCircle2, 
+  Plus, 
+  Users, 
+  Database, 
+  Download, 
+  Upload, 
+  Crown, 
+  Hotel as HotelIcon, 
+  KeyRound, 
+  Check, 
+  ExternalLink, 
+  BedDouble, 
+  Trash2, 
+  Lock, 
+  AlertTriangle, 
+  UserPlus, 
+  Copy, 
+  Clock, 
+  XCircle, 
+  CheckCircle, 
+  ShieldAlert,
+  Globe,
+  Code
+} from 'lucide-react';
+
+interface SettingsViewProps {
+  hotelProfile: HotelProfile;
+  onUpdateProfile: (updated: HotelProfile) => void;
+  // Multi-hotel props
+  hotels: Hotel[];
+  activeHotelId: string;
+  onSelectHotel: (hotelId: string) => void;
+  onOpenAddHotel: () => void;
+  currentUser: UserAccount | null;
+  users: UserAccount[];
+  onOpenLogin: () => void;
+  onExportBackup?: () => void;
+  onImportBackup?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // Rooms & inventory
+  rooms?: Room[];
+  onOpenAddRoom?: () => void;
+  onRequestDeleteRoom?: (room: Room) => void;
+  onRequestDeleteHotel?: (hotel: Hotel) => void;
+  onOpenCreateUser?: () => void;
+  // Deletion requests workflow
+  deletionRequests?: DeletionRequest[];
+  onApproveDeleteRequest?: (req: DeletionRequest) => void;
+  onRejectDeleteRequest?: (reqId: string) => void;
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  hotelProfile,
+  onUpdateProfile,
+  hotels,
+  activeHotelId,
+  onSelectHotel,
+  onOpenAddHotel,
+  currentUser,
+  users,
+  onOpenLogin,
+  onExportBackup,
+  onImportBackup,
+  rooms = [],
+  onOpenAddRoom,
+  onRequestDeleteRoom,
+  onRequestDeleteHotel,
+  onOpenCreateUser,
+  deletionRequests = [],
+  onApproveDeleteRequest,
+  onRejectDeleteRequest
+}) => {
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>('profile');
+  const [profile, setProfile] = useState<HotelProfile>(hotelProfile);
+  const [saved, setSaved] = useState<boolean>(false);
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const pendingRequests = deletionRequests.filter(r => r.status === 'pending');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateProfile(profile);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const copyCredentials = (u: UserAccount) => {
+    const text = `🏨 Tripmakerz PMS Login:\nUsername: ${u.username}\nPassword: ${u.password || 'password123'}\nRole: ${u.designation}`;
+    navigator.clipboard.writeText(text);
+    setCopiedUserId(u.id);
+    setTimeout(() => setCopiedUserId(null), 2000);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-y-auto bg-slate-50 p-4 md:p-6 space-y-6">
+      {/* Top Banner */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              PMS Control Center &amp; Property Settings
+            </h1>
+            <span className="text-[10px] uppercase font-bold tracking-wider bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full border border-teal-200">
+              Multi-Tenant Architecture
+            </span>
+          </div>
+          <p className="text-xs md:text-sm text-slate-500">
+            Manage hotel properties, room inventories, friend logins, and Super Admin deletion authorizations
+          </p>
+        </div>
+
+        {saved && (
+          <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300 self-start">
+            <CheckCircle2 size={15} />
+            <span>Settings Saved!</span>
+          </div>
+        )}
+      </div>
+
+      {/* Sub Tabs Navigation */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+        <button
+          onClick={() => setActiveSubTab('profile')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'profile'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Building2 size={15} />
+          <span>Active Hotel Profile</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('rooms')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'rooms'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <BedDouble size={15} />
+          <span>Rooms &amp; Inventory ({rooms.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('hotels')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'hotels'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <HotelIcon size={15} />
+          <span>Hotel Properties ({hotels.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('users')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'users'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users size={15} />
+          <span>Staff &amp; Friend Logins ({users.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('requests')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'requests'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <ShieldAlert size={15} className={pendingRequests.length > 0 ? "text-amber-500" : ""} />
+          <span>Delete Requests</span>
+          {pendingRequests.length > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {pendingRequests.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('backup')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'backup'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Database size={15} />
+          <span>Data Backup &amp; Recovery</span>
+        </button>
+
+        <button
+          id="btn-subtab-domain-connect"
+          onClick={() => setActiveSubTab('domain_connect')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'domain_connect'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Globe size={15} />
+          <span>Website &amp; Subdomain Setup</span>
+        </button>
+      </div>
+
+      {/* Tab 1: Profile Form */}
+      {activeSubTab === 'profile' && (
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 max-w-3xl text-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+            <div>
+              <span className="font-bold text-slate-900 text-sm block">Active Property Details</span>
+              <span className="text-[11px] text-slate-500">Currently configuring: <strong>{profile.name}</strong></span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenAddHotel}
+              className="flex items-center gap-1 text-[11px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              <Plus size={13} /> + Add Property
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Hotel Property Name *</label>
+              <input
+                type="text"
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Brand Tagline</label>
+              <input
+                type="text"
+                value={profile.tagline}
+                onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Property Address</label>
+              <input
+                type="text"
+                value={profile.address}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">City, State &amp; PIN</label>
+              <input
+                type="text"
+                value={profile.city}
+                onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">GSTIN (Tax ID)</label>
+              <input
+                type="text"
+                value={profile.gstin}
+                onChange={(e) => setProfile({ ...profile, gstin: e.target.value })}
+                className="w-full text-sm font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Front Desk Phone</label>
+              <input
+                type="text"
+                value={profile.phone}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Official Email</label>
+              <input
+                type="email"
+                value={profile.email}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Standard Check-In Time</label>
+              <input
+                type="text"
+                value={profile.checkInTime}
+                onChange={(e) => setProfile({ ...profile, checkInTime: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Standard Check-Out Time</label>
+              <input
+                type="text"
+                value={profile.checkOutTime}
+                onChange={(e) => setProfile({ ...profile, checkOutTime: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg shadow-md flex items-center gap-2 cursor-pointer"
+            >
+              <Save size={16} />
+              Save Profile Settings
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Tab 2: Rooms & Inventory */}
+      {activeSubTab === 'rooms' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
+                Active Rooms Inventory ({rooms.length} Rooms in {profile.name})
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Add, manage, or request Super Admin deletion of rooms
+              </span>
+            </div>
+
+            {onOpenAddRoom && (
+              <button
+                id="btn-settings-add-room"
+                onClick={onOpenAddRoom}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                <span>+ Add Room</span>
+              </button>
+            )}
+          </div>
+
+          {/* Security policy notice */}
+          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={16} className="text-amber-700 shrink-0" />
+              <span>
+                <strong>Room Deletion Policy:</strong> Room delete karne ke liye Super Admin (Shahid) ko bolna anivarya hai. Regular users directly delete nahi kar sakte.
+              </span>
+            </div>
+            {!isSuperAdmin && (
+              <span className="text-[10px] bg-amber-200/60 font-bold px-2 py-0.5 rounded border border-amber-300 shrink-0">
+                Protected Mode
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {rooms.map(rm => (
+              <div key={rm.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">{rm.name}</div>
+                    <div className="text-[11px] text-slate-500">{rm.type} • Floor {rm.floor}</div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                    rm.status === 'clean' ? 'bg-emerald-100 text-emerald-800' :
+                    rm.status === 'dirty' ? 'bg-amber-100 text-amber-800' :
+                    rm.status === 'cleaning' ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {rm.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-600">
+                  <span>Tariff: <strong className="text-slate-900 font-mono">₹{rm.baseRate}</strong>/nt</span>
+                  <span>Capacity: <strong className="text-slate-900">{rm.maxOccupancy} Guests</strong></span>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex gap-1 flex-wrap">
+                    {rm.amenities.slice(0, 3).map(a => (
+                      <span key={a} className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+
+                  {onRequestDeleteRoom && (
+                    <button
+                      type="button"
+                      onClick={() => onRequestDeleteRoom(rm)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title={isSuperAdmin ? "Delete Room (Super Admin)" : "Delete Room (Super Admin Approval Required)"}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Multi-Hotel Directory */}
+      {activeSubTab === 'hotels' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Registered Hotel Properties ({hotels.length})
+            </span>
+            <button
+              id="btn-settings-add-hotel"
+              onClick={onOpenAddHotel}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              <span>+ Add / Register New Property</span>
+            </button>
+          </div>
+
+          {/* Security policy notice */}
+          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={16} className="text-amber-700 shrink-0" />
+              <span>
+                <strong>Property Deletion Policy:</strong> Hotel property delete karne ka right sirf Super Admin (Shahid) ke pass hai.
+              </span>
+            </div>
+            {!isSuperAdmin && (
+              <span className="text-[10px] bg-amber-200/60 font-bold px-2 py-0.5 rounded border border-amber-300 shrink-0">
+                Protected Mode
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {hotels.map((h) => {
+              const isCurrent = h.id === activeHotelId;
+              const assignedUser = users.find(u => u.hotelId === h.id);
+
+              return (
+                <div
+                  key={h.id}
+                  className={`bg-white rounded-2xl border p-5 shadow-xs flex flex-col justify-between transition-all ${
+                    isCurrent 
+                      ? 'border-teal-500 ring-2 ring-teal-500/20' 
+                      : 'border-slate-200 hover:border-teal-300'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
+                          isCurrent ? 'bg-teal-800 text-white shadow-xs' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {h.code}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 text-sm">{h.name}</div>
+                          <div className="text-[11px] text-slate-500">{h.city}, {h.state}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {isCurrent ? (
+                          <span className="bg-teal-100 text-teal-800 border border-teal-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            {h.starCategory || 'Hotel'}
+                          </span>
+                        )}
+
+                        {onRequestDeleteHotel && hotels.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => onRequestDeleteHotel(h)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            title={isSuperAdmin ? "Delete Hotel (Super Admin)" : "Delete Hotel (Super Admin Approval Required)"}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-600 italic line-clamp-2">
+                      "{h.tagline}"
+                    </p>
+
+                    <div className="text-xs space-y-1 pt-2 border-t border-slate-100 text-slate-600">
+                      <div className="flex justify-between">
+                        <span>GSTIN:</span>
+                        <strong className="font-mono text-slate-800">{h.gstin}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Contact:</span>
+                        <span>{h.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Dedicated Manager:</span>
+                        <span className="font-semibold text-teal-900">{assignedUser?.name || 'Assigned'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                    {isCurrent ? (
+                      <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
+                        <CheckCircle2 size={15} /> Currently Open in PMS
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => onSelectHotel(h.id)}
+                        className="w-full py-2 bg-slate-100 hover:bg-teal-800 hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
+                      >
+                        Switch to {h.name}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Staff & Friend Logins */}
+      {activeSubTab === 'users' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
+                Staff &amp; Friend Login Accounts ({users.length})
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Create dedicated login credentials for your friend or partner hotelier
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {onOpenCreateUser && (
+                <button
+                  id="btn-settings-create-user"
+                  onClick={onOpenCreateUser}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                >
+                  <UserPlus size={15} />
+                  <span>+ Create Friend / Partner ID</span>
+                </button>
+              )}
+
+              <button
+                onClick={onOpenLogin}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg border border-slate-200 transition-colors cursor-pointer"
+              >
+                <KeyRound size={15} />
+                <span>Switch / Test Login</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">User &amp; Designation</th>
+                    <th className="py-3 px-4">Assigned Hotel Property</th>
+                    <th className="py-3 px-4">Login Username</th>
+                    <th className="py-3 px-4">Password</th>
+                    <th className="py-3 px-4">Contact</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {users.map((u) => {
+                    const isCurrent = currentUser?.id === u.id;
+                    const isSuper = u.role === 'super_admin';
+                    const hotel = hotels.find(h => h.id === u.hotelId);
+
+                    return (
+                      <tr key={u.id} className={`hover:bg-slate-50/80 ${isCurrent ? 'bg-teal-50/40' : ''}`}>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                              isSuper ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-teal-800 text-white'
+                            }`}>
+                              {isSuper ? '👑' : u.avatarText || 'U'}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                <span>{u.name}</span>
+                                {isCurrent && (
+                                  <span className="bg-teal-600 text-white text-[9px] px-1.5 py-0.2 rounded font-bold">
+                                    CURRENT USER
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400">{u.designation}</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-teal-900 flex items-center gap-1">
+                            <HotelIcon size={13} className="text-teal-700" />
+                            {isSuper ? 'Centralized (All Hotels)' : hotel?.name || u.hotelName || 'Will Add Property'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                          @{u.username}
+                        </td>
+
+                        <td className="py-3 px-4 font-mono text-slate-600">
+                          {u.password || 'password123'}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-600 font-mono">
+                          {u.phone || '-'}
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => copyCredentials(u)}
+                              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 flex items-center gap-1"
+                              title="Copy login details to send to friend"
+                            >
+                              {copiedUserId === u.id ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                              <span>{copiedUserId === u.id ? 'Copied' : 'Share'}</span>
+                            </button>
+
+                            <button
+                              onClick={onOpenLogin}
+                              className="text-xs font-bold text-teal-700 hover:text-teal-900 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 rounded-md border border-teal-200 transition-colors"
+                            >
+                              Log In
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Deletion Requests Workflow */}
+      {activeSubTab === 'requests' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
+                Pending &amp; Completed Deletion Requests ({deletionRequests.length})
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Super Admin authorization log for room and property removals
+              </span>
+            </div>
+          </div>
+
+          {deletionRequests.length === 0 ? (
+            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-2">
+              <ShieldCheck size={36} className="text-emerald-600 mx-auto" />
+              <h3 className="font-bold text-slate-800 text-sm">No Pending Deletion Requests</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                All room inventories and hotel properties are active and secure. When a partner or manager requests a deletion, it will appear here for Super Admin approval.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {deletionRequests.map(req => {
+                const isPending = req.status === 'pending';
+                return (
+                  <div key={req.id} className={`bg-white rounded-xl border p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isPending ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'
+                  }`}>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                          req.type === 'room' ? 'bg-blue-100 text-blue-900' : 'bg-purple-100 text-purple-900'
+                        }`}>
+                          {req.type === 'room' ? 'Room Deletion' : 'Property Deletion'}
+                        </span>
+                        <strong className="text-slate-900 text-sm">{req.targetName}</strong>
+                        <span className="text-xs text-slate-500">({req.hotelName})</span>
+                      </div>
+
+                      <div className="text-xs text-slate-600">
+                        Requested by: <strong>{req.requestedBy}</strong> (@{req.requestedByUsername}) • {new Date(req.requestedAt).toLocaleString()}
+                      </div>
+
+                      {req.reason && (
+                        <div className="text-xs text-slate-700 italic bg-slate-50 p-2 rounded border border-slate-200">
+                          "{req.reason}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isPending ? (
+                        isSuperAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onApproveDeleteRequest && onApproveDeleteRequest(req)}
+                              className="px-3.5 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <CheckCircle size={13} />
+                              <span>Approve &amp; Delete</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => onRejectDeleteRequest && onRejectDeleteRequest(req.id)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-amber-700 font-bold bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1">
+                            <Clock size={12} /> Awaiting Super Admin (Shahid)
+                          </span>
+                        )
+                      ) : (
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                          req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {req.status === 'approved' ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                          {req.status.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 6: Backup & Recovery */}
+      {activeSubTab === 'backup' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 max-w-3xl text-xs">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-200">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center">
+              <Database size={20} className="text-teal-800" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Full System Data Backup &amp; Migration</h3>
+              <p className="text-slate-500">Export or restore all properties, rooms, guest KYC documents, and booking bundles</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center gap-2">
+                <Download size={18} className="text-teal-800" />
+                <span className="font-bold text-slate-900 text-sm">Export Complete Backup</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                Download a complete JSON archive of all hotels, room rates, active reservations, and guest IDs for safekeeping.
+              </p>
+              <button
+                type="button"
+                onClick={onExportBackup}
+                className="w-full py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Download size={15} />
+                <span>Export System Data (JSON)</span>
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center gap-2">
+                <Upload size={18} className="text-teal-800" />
+                <span className="font-bold text-slate-900 text-sm">Restore from Backup File</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                Restore data from a previously exported Tripmakerz JSON backup file to sync states or restore on a new computer.
+              </p>
+              <label className="w-full py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center justify-center gap-2">
+                <Upload size={15} />
+                <span>Select &amp; Import JSON</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={onImportBackup}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 7: Website & Subdomain Connection Guide */}
+      {activeSubTab === 'domain_connect' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6 max-w-4xl text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div>
+              <span className="font-bold text-slate-900 text-sm block flex items-center gap-2">
+                <Globe size={18} className="text-teal-800" />
+                <span>Connect PMS to Your Website / Subdomain</span>
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Live URLs, DNS CNAME records, and ready-to-use website header/menu embed codes.
+              </span>
+            </div>
+            <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-1 rounded-full font-bold text-[10px]">
+              Ready to Connect
+            </span>
+          </div>
+
+          {/* Current Live URL Card */}
+          <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mb-0.5">
+                Current Live PMS Web Application URL
+              </span>
+              <span className="text-xs sm:text-sm font-mono text-slate-200 break-all select-all font-semibold">
+                {typeof window !== 'undefined' ? window.location.origin : 'https://ais-dev-pibjniodpjsmsyf4yqpbry-941942044826.asia-east1.run.app'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = typeof window !== 'undefined' ? window.location.origin : '';
+                  navigator.clipboard.writeText(url);
+                  setCopiedSnippet('url');
+                  setTimeout(() => setCopiedSnippet(null), 2000);
+                }}
+                className="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {copiedSnippet === 'url' ? <Check size={13} className="text-emerald-300" /> : <Copy size={13} />}
+                <span>{copiedSnippet === 'url' ? 'Copied URL!' : 'Copy URL'}</span>
+              </button>
+              <a
+                href={typeof window !== 'undefined' ? window.location.origin : '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <ExternalLink size={13} />
+                <span>Open in Tab</span>
+              </a>
+            </div>
+          </div>
+
+          {/* 3 Step Integration Guide */}
+          <div className="space-y-5">
+            {/* Step A: Subdomain Setup */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-teal-800 text-white flex items-center justify-center font-bold text-[10px]">
+                  1
+                </span>
+                <h4 className="font-bold text-slate-900 text-xs">
+                  Option A: Set Up Subdomain (e.g., pms.maahitrips.com)
+                </h4>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                Aap apne domain registrar (<strong>GoDaddy, Hostinger, Cloudflare ya Namecheap</strong>) ke DNS section mein jakar ek simple CNAME record add karein:
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse border border-slate-300 bg-white rounded-lg overflow-hidden text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-700">
+                      <th className="p-2.5 border-r border-slate-300">Type</th>
+                      <th className="p-2.5 border-r border-slate-300">Name / Host</th>
+                      <th className="p-2.5 border-r border-slate-300">Points To / Target</th>
+                      <th className="p-2.5">TTL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2.5 border-r border-slate-300 font-mono font-bold text-teal-800">CNAME</td>
+                      <td className="p-2.5 border-r border-slate-300 font-mono font-bold text-slate-900">pms</td>
+                      <td className="p-2.5 border-r border-slate-300 font-mono text-slate-700">
+                        cname.vercel-dns.com <span className="text-[10px] text-slate-500">(or Cloud Run domain mapping)</span>
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-600">Auto / 3600</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Tip: AI Studio menu se <strong>Export to GitHub</strong> karke Vercel par 1-click deploy karein aur Custom Domains mein <code>pms.maahitrips.com</code> enter karein.
+              </p>
+            </div>
+
+            {/* Step B: Add Button to Website Header / Menu */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-800 text-white flex items-center justify-center font-bold text-[10px]">
+                    2
+                  </span>
+                  <h4 className="font-bold text-slate-900 text-xs">
+                    Option B: Add "PMS / Staff Login" Button to Website Menu
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pms.maahitrips.com';
+                    const code = `<a href="${currentUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;background:#0d9488;color:#ffffff;padding:8px 16px;border-radius:6px;font-weight:600;font-size:13px;text-decoration:none;font-family:sans-serif;">🏨 Staff / PMS Login</a>`;
+                    navigator.clipboard.writeText(code);
+                    setCopiedSnippet('btn');
+                    setTimeout(() => setCopiedSnippet(null), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedSnippet === 'btn' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                  <span>{copiedSnippet === 'btn' ? 'Copied HTML!' : 'Copy Button HTML'}</span>
+                </button>
+              </div>
+
+              <p className="text-slate-600 leading-relaxed">
+                Apni website (WordPress, PHP ya HTML) ke Header Navigation menu mein ek naya custom link add karein:
+              </p>
+
+              <div className="bg-slate-900 text-emerald-300 p-3 rounded-lg font-mono text-[11px] overflow-x-auto">
+                {`<a href="${typeof window !== 'undefined' ? window.location.origin : 'https://pms.maahitrips.com'}" target="_blank" class="pms-login-button">\n  🏨 Hotel Staff / PMS Login\n</a>`}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                <strong>WordPress User:</strong> WordPress Admin &gt; Appearance &gt; Menus mein jakar <strong>"Custom Link"</strong> chunein, URL mein upar wala link dalein aur Link Text mein <em>"PMS Login"</em> likh kar Save karein.
+              </p>
+            </div>
+
+            {/* Step C: Embed directly inside a page */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-800 text-white flex items-center justify-center font-bold text-[10px]">
+                    3
+                  </span>
+                  <h4 className="font-bold text-slate-900 text-xs">
+                    Option C: Embed Inside a Web Page (e.g. maahitrips.com/pms)
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pms.maahitrips.com';
+                    const code = `<iframe src="${currentUrl}" width="100%" height="950px" style="border:none;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" allow="camera"></iframe>`;
+                    navigator.clipboard.writeText(code);
+                    setCopiedSnippet('iframe');
+                    setTimeout(() => setCopiedSnippet(null), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedSnippet === 'iframe' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                  <span>{copiedSnippet === 'iframe' ? 'Copied iFrame!' : 'Copy iFrame Code'}</span>
+                </button>
+              </div>
+
+              <p className="text-slate-600 leading-relaxed">
+                Agar aap chahte hain ki PMS aapki website ke page ke andar hi khule, to apni site ke kisi bhi page par ye iFrame code paste kar sakte hain:
+              </p>
+
+              <div className="bg-slate-900 text-amber-300 p-3 rounded-lg font-mono text-[11px] overflow-x-auto">
+                {`<iframe src="${typeof window !== 'undefined' ? window.location.origin : 'https://pms.maahitrips.com'}" width="100%" height="950px" style="border:none;" allow="camera"></iframe>`}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Access Credentials Banner */}
+          <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-between">
+            <div className="text-slate-700">
+              <span className="font-bold text-teal-900 block">Super Admin Login for Website Users:</span>
+              <span className="font-mono text-slate-600">Username: <strong className="text-teal-950 font-bold">maahitrips</strong> | Password: <strong className="text-teal-950 font-bold">417905kpj</strong></span>
+            </div>
+            <span className="text-[10px] bg-teal-800 text-white font-bold px-2 py-1 rounded">
+              Full Master Access
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
