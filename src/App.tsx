@@ -784,6 +784,47 @@ export default function App() {
     }
   };
 
+  // Shift Room handler (Requested: "action button me check in check out sift room add karo")
+  const handleShiftRoom = (
+    bookingId: string, 
+    newRoomId: string, 
+    newRoomNumber: string, 
+    reason?: string,
+    markPreviousDirty?: boolean
+  ) => {
+    const targetRoom = rooms.find(r => r.id === newRoomId);
+    if (!targetRoom) return;
+
+    const previousBooking = bookings.find(b => b.id === bookingId);
+    const previousRoomId = previousBooking?.roomId;
+    const previousRoomNum = previousBooking?.roomNumber || 'Unknown';
+
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const logEntry = `[${nowTime}] Room shifted from Room ${previousRoomNum} to Room ${newRoomNumber} (${targetRoom.type})${reason ? `: ${reason}` : ''}`;
+      const updatedNotes = b.notes ? `${b.notes}\n${logEntry}` : logEntry;
+
+      const updated: Booking = {
+        ...b,
+        roomId: newRoomId,
+        roomNumber: newRoomNumber,
+        notes: updatedNotes
+      };
+
+      if (selectedBooking && selectedBooking.id === bookingId) {
+        setSelectedBooking(updated);
+      }
+      return updated;
+    }));
+
+    if (markPreviousDirty && previousRoomId) {
+      setRooms(prev => prev.map(r => r.id === previousRoomId ? { ...r, status: 'dirty' } : r));
+    }
+
+    showToast(`Room Shifted to Room ${newRoomNumber}!`, `Guest moved from Room ${previousRoomNum} to ${targetRoom.name} (${targetRoom.type})`);
+  };
+
   // Check-In ID Submission & Verification Handler (Requested: "customar ke check in ke bad id submit hoti h")
   const handleConfirmCheckInWithId = (
     bookingId: string,
@@ -1328,6 +1369,7 @@ export default function App() {
           setActiveTab('gmail');
           showToast('Gmail Dispatcher', `Prepared voucher for ${b.guest.fullName}`);
         }}
+        onShiftRoom={handleShiftRoom}
         hotelName={hotelProfile.name}
         hotelProfile={hotelProfile}
       />

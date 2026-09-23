@@ -39,7 +39,11 @@ import {
   Sparkles,
   DollarSign,
   Send,
-  MessageCircle
+  MessageCircle,
+  ArrowRightLeft,
+  LogIn,
+  RefreshCw,
+  DoorClosed
 } from 'lucide-react';
 import {
   formatBookingConfirmationWhatsAppMessage,
@@ -59,6 +63,7 @@ interface BookingDetailsDrawerProps {
   onAddPayment: (bookingId: string, amount: number, mode: any) => void;
   onOpenCheckInIdModal?: (booking: Booking) => void;
   onSendEmail?: (booking: Booking) => void;
+  onShiftRoom?: (bookingId: string, newRoomId: string, newRoomNumber: string, reason?: string, markPreviousDirty?: boolean) => void;
   hotelName?: string;
   hotelProfile?: HotelProfile;
 }
@@ -76,6 +81,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   onAddPayment,
   onOpenCheckInIdModal,
   onSendEmail,
+  onShiftRoom,
   hotelName = 'Big House Inn',
   hotelProfile
 }) => {
@@ -98,6 +104,14 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('upi');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [showAddPaymentRow, setShowAddPaymentRow] = useState<boolean>(false);
+
+  // Shift Room state ("action button me check in check out sift room add karo")
+  const [isShiftRoomModalOpen, setIsShiftRoomModalOpen] = useState<boolean>(false);
+  const [shiftSelectedRoomId, setShiftSelectedRoomId] = useState<string>('');
+  const [shiftReasonCategory, setShiftReasonCategory] = useState<string>('Guest Request / Preference');
+  const [shiftCustomReason, setShiftCustomReason] = useState<string>('');
+  const [shiftMarkDirty, setShiftMarkDirty] = useState<boolean>(true);
+  const [shiftSuccessToast, setShiftSuccessToast] = useState<string | null>(null);
 
   // New addon charge state
   const [newAddonTitle, setNewAddonTitle] = useState<string>('');
@@ -221,6 +235,48 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
     setNewCommentText('');
   };
 
+  // Shift Room handler
+  const handleOpenShiftModal = () => {
+    const otherRooms = rooms.filter(r => r.id !== booking.roomId);
+    if (otherRooms.length > 0) {
+      setShiftSelectedRoomId(otherRooms[0].id);
+    }
+    setIsShiftRoomModalOpen(true);
+  };
+
+  const handleConfirmShiftRoom = () => {
+    if (!shiftSelectedRoomId) return;
+    const targetRoom = rooms.find(r => r.id === shiftSelectedRoomId);
+    if (!targetRoom) return;
+
+    const prevRoomNum = room?.number || booking.roomNumber;
+    const finalReason = shiftCustomReason.trim()
+      ? `${shiftReasonCategory}: ${shiftCustomReason.trim()}`
+      : shiftReasonCategory;
+
+    if (onShiftRoom) {
+      onShiftRoom(booking.id, targetRoom.id, targetRoom.number, finalReason, shiftMarkDirty);
+    }
+
+    // Add local comment
+    setLocalComments(prev => [
+      {
+        id: `c-shift-${Date.now()}`,
+        author: 'Front Desk',
+        text: `Room Shifted: Transferred from Room ${prevRoomNum} to Room ${targetRoom.number} (${targetRoom.type}). Reason: ${finalReason}. Previous Room ${prevRoomNum} ${shiftMarkDirty ? 'marked dirty for housekeeping' : 'retained'}.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today'
+      },
+      ...prev
+    ]);
+
+    setShiftSuccessToast(`Shifted to Room ${targetRoom.number} (${targetRoom.type})`);
+    setTimeout(() => {
+      setShiftSuccessToast(null);
+      setIsShiftRoomModalOpen(false);
+      setShiftCustomReason('');
+    }, 1500);
+  };
+
   // Room assignment tag text, e.g. "204-Copule" or "101-Jambo"
   const roomAssignmentTag = room 
     ? `${room.number}-${room.type.replace(/\s+/g, '')}`
@@ -303,14 +359,16 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
               </p>
             </div>
 
-            <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+            <div className="flex flex-wrap items-center sm:justify-end gap-2 shrink-0">
               {/* Status button (Green Pill: CHECK-OUT or CHECK-IN) */}
               {booking.status === 'checked_in' && (
                 <button
                   onClick={() => onStatusChange(booking.id, 'checked_out')}
-                  className="bg-[#1e4d38] hover:bg-[#153a2a] text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider transition-colors shadow-2xs cursor-pointer"
+                  className="bg-[#1e4d38] hover:bg-[#153a2a] text-white text-xs font-bold px-3.5 sm:px-4 py-1.5 rounded-full uppercase tracking-wider transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  title="Check-Out guest and mark room for housekeeping"
                 >
-                  CHECK-OUT
+                  <LogOut size={13} />
+                  <span>CHECK-OUT</span>
                 </button>
               )}
 
@@ -323,23 +381,37 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                       onStatusChange(booking.id, 'checked_in');
                     }
                   }}
-                  className="bg-[#1e4d38] hover:bg-[#153a2a] text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider transition-colors shadow-2xs cursor-pointer"
+                  className="bg-[#1e4d38] hover:bg-[#153a2a] text-white text-xs font-bold px-3.5 sm:px-4 py-1.5 rounded-full uppercase tracking-wider transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  title="Check-in guest and record ID proof"
                 >
-                  CHECK-IN
+                  <CheckCircle2 size={13} />
+                  <span>CHECK-IN</span>
                 </button>
               )}
 
               {booking.status === 'checked_out' && (
-                <span className="bg-slate-700 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow-2xs">
+                <span className="bg-slate-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-2xs">
                   CHECKED-OUT
                 </span>
               )}
 
               {booking.status === 'cancelled' && (
-                <span className="bg-rose-700 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow-2xs">
+                <span className="bg-rose-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-2xs">
                   CANCELLED
                 </span>
               )}
+
+              {/* Quick Shift Room Header Action */}
+              <button
+                type="button"
+                id="btn-drawer-quick-shift-room"
+                onClick={handleOpenShiftModal}
+                className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                title="Shift guest to another room"
+              >
+                <ArrowRightLeft size={13} className="text-teal-700" />
+                <span>Shift Room</span>
+              </button>
 
               {/* Send via WhatsApp Header Quick Action */}
               <button
@@ -358,15 +430,16 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                 <span className="sm:hidden">WhatsApp</span>
               </button>
 
-              {/* Actions Dropdown */}
+              {/* Actions Dropdown (Fixed alignment so it never overflows off-screen on mobile) */}
               <div className="relative">
                 <button
                   type="button"
+                  id="btn-drawer-actions-dropdown"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsActionsOpen(prev => !prev);
                   }}
-                  className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold px-3.5 py-1.5 rounded-md flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
                 >
                   <span>Actions</span>
                   <ChevronDown size={14} className="text-slate-500" />
@@ -374,153 +447,230 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
 
                 {isActionsOpen && (
                   <div 
-                    className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-xl z-20 py-1 text-xs text-slate-700 animate-in fade-in-50 duration-100"
+                    className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2.5rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-40 py-1 text-xs text-slate-700 animate-in fade-in-50 duration-100 divide-y divide-slate-100"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        onEdit(booking);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
-                    >
-                      <Edit3 size={14} className="text-slate-500" />
-                      <span>Edit Booking Details</span>
-                    </button>
+                    {/* SECTION 1: FRONT DESK & ROOM OPERATIONS */}
+                    <div className="py-1">
+                      <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        Front Desk &amp; Room
+                      </div>
 
-                    {booking.status === 'confirmed' && (
+                      {/* 1. CHECK-IN GUEST */}
                       <button
                         onClick={() => {
                           setIsActionsOpen(false);
-                          if (onOpenCheckInIdModal) {
+                          if (booking.status === 'confirmed' && onOpenCheckInIdModal) {
                             onOpenCheckInIdModal(booking);
                           } else {
                             onStatusChange(booking.id, 'checked_in');
                           }
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-bold"
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between cursor-pointer font-bold transition-colors ${
+                          booking.status === 'checked_in'
+                            ? 'bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100'
+                            : 'hover:bg-emerald-50 text-emerald-800'
+                        }`}
                       >
-                        <ShieldCheck size={14} className="text-emerald-600" />
-                        <span>Check In &amp; Submit ID</span>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          <div>
+                            <div>Check-In Guest</div>
+                            <div className="text-[10px] font-normal text-slate-500">
+                              {booking.status === 'checked_in' ? 'Currently In-House' : 'Record check-in & KYC ID'}
+                            </div>
+                          </div>
+                        </div>
+                        {booking.status === 'checked_in' && (
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded uppercase">
+                            In-House
+                          </span>
+                        )}
                       </button>
-                    )}
 
-                    {booking.status === 'checked_in' && (
+                      {/* 2. CHECK-OUT GUEST */}
                       <button
                         onClick={() => {
                           setIsActionsOpen(false);
-                          onStatusChange(booking.id, 'checked_out');
-                        }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold text-slate-800"
-                      >
-                        <LogOut size={14} className="text-slate-500" />
-                        <span>Check Out Guest</span>
-                      </button>
-                    )}
-
-                    {onOpenCheckInIdModal && (
-                      <button
-                        onClick={() => {
-                          setIsActionsOpen(false);
-                          onOpenCheckInIdModal(booking);
-                        }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-teal-50 text-teal-800 flex items-center gap-2 cursor-pointer font-medium"
-                      >
-                        <ShieldCheck size={14} className="text-teal-600" />
-                        <span>{isIdVerified ? 'Update Customer ID' : 'Submit Customer ID'}</span>
-                      </button>
-                    )}
-
-                    <div className="border-t border-slate-100 my-1"></div>
-
-                    {/* WhatsApp Action inside dropdown */}
-                    <button
-                      id="btn-actions-send-whatsapp"
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        setWhatsAppRecipientPhone(booking.guest.phone || '');
-                        setWhatsAppMessageType('confirmation');
-                        setIsWhatsAppModalOpen(true);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-bold"
-                    >
-                      <MessageCircle size={14} className="text-emerald-600" />
-                      <span>Send via WhatsApp</span>
-                    </button>
-
-                    {onSendEmail && (
-                      <button
-                        onClick={() => {
-                          setIsActionsOpen(false);
-                          onSendEmail(booking);
-                        }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-teal-50 text-teal-800 flex items-center gap-2 cursor-pointer font-bold"
-                      >
-                        <Mail size={14} className="text-teal-600" />
-                        <span>Email Voucher via Gmail</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        onPrintInvoice(booking, 'invoice');
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-bold"
-                    >
-                      <Send size={14} className="text-emerald-600" />
-                      <span>Send Invoice to Guest</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        onPrintInvoice(booking, 'invoice');
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
-                    >
-                      <Printer size={14} className="text-slate-500" />
-                      <span>Print Tax Invoice</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        onPrintInvoice(booking, 'grc');
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
-                    >
-                      <FileText size={14} className="text-slate-500" />
-                      <span>Print GRC (Registration)</span>
-                    </button>
-
-                    <div className="border-t border-slate-100 my-1"></div>
-
-                    <button
-                      onClick={() => {
-                        setIsActionsOpen(false);
-                        setActiveTab('payments');
-                        setShowAddPaymentRow(true);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
-                    >
-                      <CreditCard size={14} className="text-slate-500" />
-                      <span>Collect / Add Payment</span>
-                    </button>
-
-                    {booking.status !== 'cancelled' && (
-                      <button
-                        onClick={() => {
-                          setIsActionsOpen(false);
-                          if (confirm('Are you sure you want to cancel this booking?')) {
-                            onStatusChange(booking.id, 'cancelled');
+                          if (booking.status !== 'checked_in') {
+                            if (confirm(`Booking status is currently '${booking.status}'. Do you still want to proceed with Check-Out?`)) {
+                              onStatusChange(booking.id, 'checked_out');
+                            }
+                          } else {
+                            onStatusChange(booking.id, 'checked_out');
                           }
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-700 flex items-center gap-2 cursor-pointer font-medium"
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between cursor-pointer font-bold transition-colors ${
+                          booking.status === 'checked_out'
+                            ? 'bg-slate-100 text-slate-600'
+                            : 'hover:bg-amber-50 text-amber-900'
+                        }`}
                       >
-                        <X size={14} className="text-rose-500" />
-                        <span>Cancel Booking</span>
+                        <div className="flex items-center gap-2">
+                          <LogOut size={15} className="text-amber-700 shrink-0" />
+                          <div>
+                            <div>Check-Out Guest</div>
+                            <div className="text-[10px] font-normal text-slate-500">
+                              {booking.status === 'checked_out' ? 'Already Checked Out' : 'Vacate room & clean status'}
+                            </div>
+                          </div>
+                        </div>
+                        {booking.status === 'checked_out' && (
+                          <span className="text-[9px] bg-slate-500 text-white font-bold px-1.5 py-0.5 rounded uppercase">
+                            Done
+                          </span>
+                        )}
                       </button>
+
+                      {/* 3. SHIFT ROOM (SIFT ROOM) */}
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          handleOpenShiftModal();
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-teal-50 text-teal-900 flex items-center justify-between cursor-pointer font-bold transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowRightLeft size={15} className="text-teal-700 shrink-0" />
+                          <div>
+                            <div>Shift Room (कमरा बदलें)</div>
+                            <div className="text-[10px] font-normal text-slate-500">
+                              Move to another room / upgrade
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">
+                          Room {room?.number || booking.roomNumber}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* SECTION 2: GUEST PROFILE & KYC ID */}
+                    <div className="py-1">
+                      <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        Guest &amp; KYC
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          onEdit(booking);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <Edit3 size={14} className="text-slate-500 shrink-0" />
+                        <span>Edit Booking Details</span>
+                      </button>
+
+                      {onOpenCheckInIdModal && (
+                        <button
+                          onClick={() => {
+                            setIsActionsOpen(false);
+                            onOpenCheckInIdModal(booking);
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-teal-50 text-teal-800 flex items-center gap-2 cursor-pointer font-medium"
+                        >
+                          <ShieldCheck size={14} className="text-teal-600 shrink-0" />
+                          <span>{isIdVerified ? 'Update Customer ID Proof' : 'Submit Customer ID Proof'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* SECTION 3: COMMUNICATIONS & FOLIO */}
+                    <div className="py-1">
+                      <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        Communication &amp; Folio
+                      </div>
+
+                      <button
+                        id="btn-actions-send-whatsapp"
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          setWhatsAppRecipientPhone(booking.guest.phone || '');
+                          setWhatsAppMessageType('confirmation');
+                          setIsWhatsAppModalOpen(true);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <MessageCircle size={14} className="text-emerald-600 shrink-0" />
+                        <span>Send via WhatsApp</span>
+                      </button>
+
+                      {onSendEmail && (
+                        <button
+                          onClick={() => {
+                            setIsActionsOpen(false);
+                            onSendEmail(booking);
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-teal-50 text-teal-800 flex items-center gap-2 cursor-pointer font-medium"
+                        >
+                          <Mail size={14} className="text-teal-600 shrink-0" />
+                          <span>Email Voucher via Gmail</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          onPrintInvoice(booking, 'invoice');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <Send size={14} className="text-emerald-600 shrink-0" />
+                        <span>Send Invoice to Guest</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          onPrintInvoice(booking, 'invoice');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <Printer size={14} className="text-slate-500 shrink-0" />
+                        <span>Print Tax Invoice</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          onPrintInvoice(booking, 'grc');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <FileText size={14} className="text-slate-500 shrink-0" />
+                        <span>Print GRC (Registration)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsActionsOpen(false);
+                          setActiveTab('payments');
+                          setShowAddPaymentRow(true);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <CreditCard size={14} className="text-slate-500 shrink-0" />
+                        <span>Collect / Add Payment</span>
+                      </button>
+                    </div>
+
+                    {/* SECTION 4: CANCEL */}
+                    {booking.status !== 'cancelled' && (
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setIsActionsOpen(false);
+                            if (confirm('Are you sure you want to cancel this booking?')) {
+                              onStatusChange(booking.id, 'cancelled');
+                            }
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-700 flex items-center gap-2 cursor-pointer font-medium"
+                        >
+                          <X size={14} className="text-rose-500 shrink-0" />
+                          <span>Cancel Booking</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -708,7 +858,17 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
 
                   {/* Row 3: Room Assignments */}
                   <div className="md:col-span-3 pt-1">
-                    <span className="text-slate-500 block text-xs mb-1.5">Room Assignments</span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-slate-500 block text-xs">Room Assignments</span>
+                      <button
+                        type="button"
+                        onClick={handleOpenShiftModal}
+                        className="flex items-center gap-1 text-xs font-bold text-teal-800 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                      >
+                        <ArrowRightLeft size={12} className="text-teal-700" />
+                        <span>Shift / Change Room</span>
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center px-2.5 py-1 bg-[#1e4d38] text-white text-xs font-semibold rounded-md shadow-2xs">
                         {roomAssignmentTag}
@@ -977,9 +1137,19 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                   <Bed size={18} className="text-teal-700" />
                   Allocated Room &amp; Inventory Details
                 </h3>
-                <span className="text-xs font-bold px-2.5 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-md">
-                  1 Room Allocated
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenShiftModal}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+                  >
+                    <ArrowRightLeft size={13} />
+                    <span>Shift / Change Room</span>
+                  </button>
+                  <span className="text-xs font-bold px-2.5 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-md">
+                    1 Room Allocated
+                  </span>
+                </div>
               </div>
 
               {room ? (
@@ -1626,6 +1796,229 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
               >
                 <MessageCircle size={15} />
                 <span>Open in WhatsApp &amp; Send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shift Room Interactive Modal ("action button me check in check out sift room add karo") */}
+      {isShiftRoomModalOpen && (
+        <div 
+          className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={() => setIsShiftRoomModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-teal-900 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-600/30 border border-teal-400/30 flex items-center justify-center text-teal-300">
+                  <ArrowRightLeft size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg tracking-tight flex items-center gap-2">
+                    Shift Room / Transfer
+                    <span className="text-xs bg-teal-700/80 text-teal-200 px-2 py-0.5 rounded-full font-normal">
+                      कमरा बदलें
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Move <strong className="text-white">{booking.guest.fullName}</strong> to another room
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsShiftRoomModalOpen(false)}
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {shiftSuccessToast && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-900 animate-in fade-in-50">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>{shiftSuccessToast}</span>
+                </div>
+              )}
+
+              {/* Current Room Summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Current Allocated Room
+                  </span>
+                  <div className="text-base font-black text-slate-900 font-mono mt-0.5">
+                    Room {room?.number || booking.roomNumber}
+                    <span className="text-xs font-semibold text-slate-600 font-sans ml-2">
+                      ({room?.type || 'Standard'}, Floor {room?.floor || 1})
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {formatTripmakerzDate(booking.checkInDate)} &rarr; {formatTripmakerzDate(booking.checkOutDate)} ({booking.nights} Nights) &bull; ₹{booking.roomRatePerNight}/night
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700">
+                    Current
+                  </span>
+                </div>
+              </div>
+
+              {/* Available Target Rooms Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-2 flex items-center justify-between">
+                  <span>Select Destination Room:</span>
+                  <span className="text-[11px] text-slate-500 font-normal">
+                    {rooms.filter(r => r.id !== booking.roomId).length} other rooms available
+                  </span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                  {rooms
+                    .filter(r => r.id !== booking.roomId)
+                    .map((targetR) => {
+                      const isSelected = shiftSelectedRoomId === targetR.id;
+                      const rateDiff = targetR.baseRate - booking.roomRatePerNight;
+
+                      return (
+                        <div
+                          key={targetR.id}
+                          onClick={() => setShiftSelectedRoomId(targetR.id)}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-teal-50/80 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-black text-sm text-slate-900">
+                                Room {targetR.number}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-medium">
+                                (Fl {targetR.floor})
+                              </span>
+                            </div>
+
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                              targetR.status === 'clean' 
+                                ? 'bg-emerald-100 text-emerald-800' 
+                                : targetR.status === 'dirty' 
+                                  ? 'bg-amber-100 text-amber-800' 
+                                  : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {targetR.status}
+                            </span>
+                          </div>
+
+                          <div className="text-xs font-medium text-slate-700 mt-1 truncate" title={targetR.type}>
+                            {targetR.type}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 text-[11px]">
+                            <span className="font-bold text-slate-900 font-mono">₹{targetR.baseRate}/n</span>
+                            <span className={`text-[10px] font-semibold ${
+                              rateDiff === 0 
+                                ? 'text-slate-500' 
+                                : rateDiff > 0 
+                                  ? 'text-emerald-700 font-bold' 
+                                  : 'text-blue-700'
+                            }`}>
+                              {rateDiff === 0 
+                                ? 'Same tariff' 
+                                : rateDiff > 0 
+                                  ? `+₹${rateDiff}/n Upgrade` 
+                                  : `-₹${Math.abs(rateDiff)}/n`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Reason for Shift */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Reason for Room Shift / Transfer:
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {[
+                    'Guest Request / Room Upgrade',
+                    'AC / Maintenance Issue',
+                    'Quiet Room / Floor Preference',
+                    'Cleanliness / Hygiene',
+                    'Front Desk Operational Shift',
+                    'Extended Stay Transfer'
+                  ].map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setShiftReasonCategory(reason)}
+                      className={`px-2.5 py-1 text-xs rounded-lg border transition-all cursor-pointer font-medium ${
+                        shiftReasonCategory === reason
+                          ? 'bg-teal-800 text-white border-teal-800 font-bold shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Optional remarks (e.g., Guest requested sea/garden view on 2nd floor)..."
+                  value={shiftCustomReason}
+                  onChange={(e) => setShiftCustomReason(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-teal-500 outline-hidden"
+                />
+              </div>
+
+              {/* Housekeeping Checkbox */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+                <label className="flex items-start gap-2 text-xs text-amber-950 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shiftMarkDirty}
+                    onChange={(e) => setShiftMarkDirty(e.target.checked)}
+                    className="mt-0.5 rounded text-teal-800 focus:ring-teal-500 cursor-pointer"
+                  />
+                  <span>
+                    <strong>Mark previous room ({room?.number || booking.roomNumber}) as Dirty:</strong> Schedule immediate housekeeping sanitize so front desk knows room requires cleaning.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsShiftRoomModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                id="btn-confirm-shift-room"
+                type="button"
+                onClick={handleConfirmShiftRoom}
+                disabled={!shiftSelectedRoomId}
+                className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <ArrowRightLeft size={14} />
+                <span>Confirm Room Shift (कमरा बदलें)</span>
               </button>
             </div>
           </div>
