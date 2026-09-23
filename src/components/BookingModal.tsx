@@ -502,20 +502,20 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 md:p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Modal Header */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-slate-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight">
                 {existingBooking ? 'Edit Reservation & KYC ID' : 'New Reservation & Guest KYC ID Registration'}
               </h2>
-              <span className="text-xs bg-teal-500/20 text-teal-300 font-semibold px-2 py-0.5 rounded border border-teal-500/40">
+              <span className="text-[10px] sm:text-xs bg-teal-500/20 text-teal-300 font-semibold px-2 py-0.5 rounded border border-teal-500/40">
                 Front Desk
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
               Manage room allocation, save customer ID proofs (Aadhaar/Passport), and track OTA channel source
             </p>
           </div>
@@ -528,31 +528,31 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-100 px-6 pt-3 flex border-b border-slate-200 gap-2 shrink-0">
+        <div className="bg-slate-100 px-3 sm:px-6 pt-2 sm:pt-3 flex border-b border-slate-200 gap-1 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('stay')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'stay'
                 ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Calendar size={15} />
+            <Calendar size={14} />
             <span>1. Stay &amp; Room Allocation</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('guest_id')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all relative ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all relative shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'guest_id'
                 ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <ShieldCheck size={15} className="text-emerald-700" />
-            <span>2. Guest KYC &amp; Customer ID Proof</span>
+            <ShieldCheck size={14} className="text-emerald-700" />
+            <span>2. Guest KYC &amp; Customer ID</span>
             {idNumber && (
               <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block ml-0.5"></span>
             )}
@@ -561,19 +561,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('billing')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-t-lg transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'billing'
                 ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <CreditCard size={15} />
+            <CreditCard size={14} />
             <span>3. Billing &amp; Advance</span>
           </button>
         </div>
 
         {/* Main Content Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-6">
           {/* TAB 1: STAY & ROOM ALLOCATION (DATE RANGE -> SEARCH ROOMS -> BLOCK ROOM) */}
           {activeTab === 'stay' && (
             <div className="space-y-6 animate-in fade-in-50 duration-150">

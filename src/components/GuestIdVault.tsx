@@ -70,7 +70,7 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
   });
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto bg-slate-50 p-4 md:p-6 space-y-6">
+    <div className="flex-1 flex flex-col overflow-y-auto bg-slate-50 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Top Banner */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

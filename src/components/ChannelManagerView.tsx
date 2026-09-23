@@ -527,10 +527,10 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 gap-2">
+      <div className="flex border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto no-scrollbar pb-px">
         <button
           onClick={() => setActiveTab('channels')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
             activeTab === 'channels'
               ? 'border-teal-600 text-teal-900 bg-white rounded-t-lg'
               : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -546,7 +546,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
 
         <button
           onClick={() => setActiveTab('mappings')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'mappings'
               ? 'border-teal-600 text-teal-900 bg-white rounded-t-lg'
               : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -557,18 +557,18 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
 
         <button
           onClick={() => setActiveTab('logs')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'logs'
               ? 'border-teal-600 text-teal-900 bg-white rounded-t-lg'
               : 'border-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
-          Live Sync Logs &amp; Activity ({syncLogs.length})
+          Live Sync Logs ({syncLogs.length})
         </button>
 
         <button
           onClick={() => setActiveTab('webhooks')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'webhooks'
               ? 'border-teal-600 text-teal-900 bg-white rounded-t-lg'
               : 'border-transparent text-slate-500 hover:text-slate-900'

@@ -43,6 +43,7 @@ import { HousekeepingView } from './components/HousekeepingView';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { SettingsView } from './components/SettingsView';
 import { CheckInIdModal } from './components/CheckInIdModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { LoginModal } from './components/LoginModal';
 import { AddHotelModal } from './components/AddHotelModal';
 import { AddRoomModal } from './components/AddRoomModal';
@@ -120,6 +121,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('desk');
   const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>('profile');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Multi-Hotel & Multi-User State
   const [hotels, setHotels] = useState<Hotel[]>(() => {
@@ -1108,6 +1110,8 @@ export default function App() {
         isSuperAdmin={currentUser?.role === 'super_admin' || currentUser?.role === 'hotel_owner'}
         onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
         onOpenLogin={() => setIsLoginModalOpen(true)}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Workspace Area */}
@@ -1136,13 +1140,14 @@ export default function App() {
             setSettingsInitialSubTab('hotels');
             setActiveTab('settings');
           }}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           onOpenLogin={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
           onExportBackup={handleExportBackup}
         />
 
         {/* View Router */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative pb-16 md:pb-0">
           {activeTab === 'desk' && (
             <DeskCalendar
               rooms={rooms}
@@ -1287,6 +1292,24 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (Optimized for Mobile/Touch) */}
+        <MobileBottomNav
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+            setIsMobileMenuOpen(false);
+          }}
+          onOpenNewBooking={() => {
+            setEditingBooking(null);
+            setPreSelectedRoomId(undefined);
+            setPreSelectedDate('2026-09-17');
+            setIsBookingModalOpen(true);
+          }}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          activeChannelsCount={channels.filter(c => c.isConnected).length}
+          unverifiedGuestsCount={bookings.filter(b => b.status === 'checked_in' && (!b.guest.idDocument?.isVerified || b.guest.idDocument?.idNumber === 'Pending at Check-in')).length}
+        />
       </div>
 
       {/* Booking Drawer (Details, ID View & Actions) */}

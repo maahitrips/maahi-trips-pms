@@ -19,7 +19,8 @@ import {
   Hotel as HotelIcon,
   Check,
   Trash2,
-  Settings
+  Settings,
+  Menu
 } from 'lucide-react';
 import { UserAccount, Hotel } from '../types';
 import { 
@@ -46,6 +47,7 @@ interface HeaderProps {
   onOpenAddHotel: () => void;
   onRequestDeleteHotel?: (hotel: Hotel) => void;
   onNavigateToSettingsHotels?: () => void;
+  onOpenMobileMenu?: () => void;
   onOpenLogin: () => void;
   onLogout: () => void;
   onExportBackup?: () => void;
@@ -66,6 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAddHotel,
   onRequestDeleteHotel,
   onNavigateToSettingsHotels,
+  onOpenMobileMenu,
   onOpenLogin,
   onLogout,
   onExportBackup
@@ -100,33 +103,46 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header 
       id="pms-header"
-      className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between gap-3 shadow-xs sticky top-0 z-20"
+      className="h-14 sm:h-16 bg-white border-b border-slate-200 px-2.5 sm:px-4 md:px-6 flex items-center justify-between gap-2 sm:gap-3 shadow-xs sticky top-0 z-20"
     >
-      {/* Left side: Property Selector & New Booking Button */}
-      <div className="flex items-center gap-2 md:gap-4">
+      {/* Left side: Mobile Hamburger + Property Selector & New Booking Button */}
+      <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0">
+        {/* Mobile Hamburger Drawer Trigger */}
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            onClick={onOpenMobileMenu}
+            className="p-1.5 -ml-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg md:hidden transition-colors cursor-pointer shrink-0"
+            title="Open Navigation Menu"
+            aria-label="Open Navigation Menu"
+          >
+            <Menu size={22} />
+          </button>
+        )}
+
         {/* Multi-Hotel Property Selector */}
         <div className="relative" ref={hotelMenuRef}>
           <div 
             id="property-selector-button"
             onClick={() => setIsHotelMenuOpen(prev => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all shadow-2xs border bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all shadow-2xs border bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer"
             title="Switch Hotel Property or View Properties"
           >
-            <Building2 size={16} className="text-teal-700 shrink-0" />
-            <div className="flex flex-col text-left">
-              <span className="truncate max-w-[130px] sm:max-w-[180px] md:max-w-[220px] font-bold text-slate-900 leading-tight">
+            <Building2 size={15} className="text-teal-700 shrink-0" />
+            <div className="flex flex-col text-left min-w-0">
+              <span className="truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px] md:max-w-[220px] font-bold text-slate-900 leading-tight">
                 {activeHotel?.name || propertyName}
               </span>
-              <span className="text-[10px] text-slate-500 font-normal leading-tight">
+              <span className="text-[10px] text-slate-500 font-normal leading-tight truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px]">
                 {activeHotel?.city || 'Property'} • {activeHotel?.code || 'PMS'}
               </span>
             </div>
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${isHotelMenuOpen ? 'rotate-180 text-teal-700' : ''}`} />
+            <ChevronDown size={13} className={`text-slate-400 shrink-0 transition-transform ${isHotelMenuOpen ? 'rotate-180 text-teal-700' : ''}`} />
           </div>
 
           {/* Dropdown Menu for Hotel Management */}
           {isHotelMenuOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-80 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute left-0 top-full mt-1.5 w-80 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {isSuper 
@@ -341,11 +357,22 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden md:inline">Simulate</span> OTA Inflow
         </button>
 
+        {/* Mobile Search Icon Button */}
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className="md:hidden p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+          title="Search Bookings & Rooms"
+          aria-label="Search"
+        >
+          <Search size={18} />
+        </button>
+
         {/* Global Search Bar (matching screenshot search box Ctrl K) */}
         <div 
           id="global-search-trigger"
           onClick={onOpenSearch}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-slate-500 text-xs md:text-sm cursor-pointer transition-colors shadow-2xs w-28 sm:w-36 md:w-52"
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-slate-500 text-xs md:text-sm cursor-pointer transition-colors shadow-2xs w-28 sm:w-36 md:w-52"
         >
           <Search size={15} className="text-slate-400 shrink-0" />
           <span className="truncate">Search...</span>
@@ -384,7 +411,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* User Account Dropdown Menu */}
           {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-xs">
+            <div className="absolute right-0 top-full mt-1.5 w-72 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-xs">
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-2">
                 <div className="flex items-center gap-2.5 mb-1.5">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${
