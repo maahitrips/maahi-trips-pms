@@ -49,6 +49,7 @@ import { CreateUserModal } from './components/CreateUserModal';
 import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
 import { CheckCircle2, Zap, X } from 'lucide-react';
+import { canUserAddProperty } from './utils/permissionHelper';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
 const STORAGE_KEY_USERS = 'tripmakerz_users_v2';
@@ -357,9 +358,23 @@ export default function App() {
     setIsLoginModalOpen(true);
   };
 
-  // Add New Hotel Property Action
+  // Add New Hotel Property Action (Super Admin or Property Owner within 5 max quota)
   const handleAddHotel = (newHotel: Hotel, initialManager?: UserAccount, roomCountTemplate = 8) => {
-    const updatedHotels = [...hotels, newHotel];
+    // Security check: staff cannot add properties, and owners cannot exceed 5
+    const permission = canUserAddProperty(currentUser, hotels);
+    if (!permission.allowed) {
+      showToast('Action Restricted', permission.reason || 'You cannot add more properties');
+      return;
+    }
+
+    // Assign ownerId and ownerUsername if created by an owner
+    const hotelToSave: Hotel = {
+      ...newHotel,
+      ownerId: newHotel.ownerId || (currentUser?.role === 'hotel_owner' ? currentUser.id : undefined),
+      ownerUsername: newHotel.ownerUsername || (currentUser?.role === 'hotel_owner' ? currentUser.username : undefined)
+    };
+
+    const updatedHotels = [...hotels, hotelToSave];
     setHotels(updatedHotels);
     localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(updatedHotels));
 
@@ -370,14 +385,14 @@ export default function App() {
     }
 
     // Initialize new bundle
-    const newBundle = createDefaultHotelBundle(newHotel, roomCountTemplate);
-    localStorage.setItem(getHotelBundleKey(newHotel.id), JSON.stringify(newBundle));
+    const newBundle = createDefaultHotelBundle(hotelToSave, roomCountTemplate);
+    localStorage.setItem(getHotelBundleKey(hotelToSave.id), JSON.stringify(newBundle));
 
     // Switch to new hotel
-    handleSelectHotel(newHotel.id);
+    handleSelectHotel(hotelToSave.id);
 
     showToast(
-      `Hotel "${newHotel.name}" Created!`, 
+      `Hotel "${hotelToSave.name}" Created!`, 
       initialManager ? `Dedicated manager login @${initialManager.username} created` : 'Switched to new property'
     );
   };

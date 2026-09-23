@@ -38,7 +38,9 @@ export const initialHotels: Hotel[] = [
     currencySymbol: '₹',
     starCategory: '4-Star Boutique',
     status: 'active',
-    createdAt: '2024-01-10'
+    createdAt: '2024-01-10',
+    ownerId: 'user-sadik8806',
+    ownerUsername: 'sadik8806'
   },
   {
     id: 'hotel-sairesidency',
@@ -56,7 +58,9 @@ export const initialHotels: Hotel[] = [
     currencySymbol: '₹',
     starCategory: '3-Star Premium',
     status: 'active',
-    createdAt: '2024-03-15'
+    createdAt: '2024-03-15',
+    ownerId: 'user-admin',
+    ownerUsername: 'maahitrips'
   },
   {
     id: 'hotel-grandheritage',
@@ -74,7 +78,9 @@ export const initialHotels: Hotel[] = [
     currencySymbol: '₹',
     starCategory: '5-Star Heritage',
     status: 'active',
-    createdAt: '2023-11-20'
+    createdAt: '2023-11-20',
+    ownerId: 'user-admin',
+    ownerUsername: 'maahitrips'
   }
 ];
 

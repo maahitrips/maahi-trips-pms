@@ -224,6 +224,8 @@ export interface Hotel {
   starCategory?: string;
   status: 'active' | 'maintenance' | 'paused';
   createdAt: string;
+  ownerId?: string;
+  ownerUsername?: string;
 }
 
 export interface HotelDataBundle {

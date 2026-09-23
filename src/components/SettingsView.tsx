@@ -29,6 +29,15 @@ import {
   Code,
   Edit3
 } from 'lucide-react';
+import { 
+  canUserAddProperty, 
+  getAccessibleHotels, 
+  isSuperAdminUser, 
+  isPropertyOwnerUser, 
+  isStaffUser,
+  canUserManageStaff,
+  MAX_OWNER_PROPERTIES 
+} from '../utils/permissionHelper';
 
 interface SettingsViewProps {
   hotelProfile: HotelProfile;
@@ -84,7 +93,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isSuperAdmin = isSuperAdminUser(currentUser);
+  const isOwner = isPropertyOwnerUser(currentUser);
+  const isStaff = isStaffUser(currentUser);
+  const propertyAddCheck = canUserAddProperty(currentUser, hotels);
+  const canManageStaff = canUserManageStaff(currentUser);
+  const accessibleHotels = getAccessibleHotels(currentUser, hotels);
   const pendingRequests = deletionRequests.filter(r => r.status === 'pending');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -228,13 +242,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <span className="font-bold text-slate-900 text-sm block">Active Property Details</span>
               <span className="text-[11px] text-slate-500">Currently configuring: <strong>{profile.name}</strong></span>
             </div>
-            <button
-              type="button"
-              onClick={onOpenAddHotel}
-              className="flex items-center gap-1 text-[11px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
-            >
-              <Plus size={13} /> + Add Property
-            </button>
+            {!isStaff && (
+              <button
+                type="button"
+                onClick={onOpenAddHotel}
+                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  isOwner && propertyAddCheck.currentCount >= 5
+                    ? 'text-amber-900 bg-amber-50 hover:bg-amber-100 border-amber-300'
+                    : 'text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200'
+                }`}
+              >
+                <Plus size={13} /> {isOwner ? (propertyAddCheck.currentCount >= 5 ? 'Properties (5/5 Max)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) : '+ Add Property'}
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -453,19 +473,68 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Tab 3: Multi-Hotel Directory */}
       {activeSubTab === 'hotels' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Registered Hotel Properties ({hotels.length})
-            </span>
-            <button
-              id="btn-settings-add-hotel"
-              onClick={onOpenAddHotel}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus size={15} strokeWidth={2.5} />
-              <span>+ Add / Register New Property</span>
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                {isSuperAdmin 
+                  ? `Registered Hotel Properties (${hotels.length})` 
+                  : isOwner 
+                    ? `My Hotel Properties (${accessibleHotels.length}/${MAX_OWNER_PROPERTIES} Max Allowed)` 
+                    : `My Assigned Hotel (${accessibleHotels.length})`}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {isSuperAdmin 
+                  ? 'Centralized directory of all hotel properties listed by Super Admin' 
+                  : isOwner 
+                    ? `Property Owner Quota: You can add up to 5 properties (Currently ${accessibleHotels.length}/5 used)` 
+                    : 'Staff View: Operations and management for your assigned property'}
+              </span>
+            </div>
+
+            {!isStaff && (
+              <button
+                id="btn-settings-add-hotel"
+                onClick={onOpenAddHotel}
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer ${
+                  isOwner && propertyAddCheck.currentCount >= 5
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300'
+                    : 'bg-teal-800 hover:bg-teal-900 text-white'
+                }`}
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                <span>
+                  {isOwner 
+                    ? (propertyAddCheck.currentCount >= 5 ? 'Quota Full (5/5 Properties)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) 
+                    : '+ Add / Register New Property'}
+                </span>
+              </button>
+            )}
           </div>
+
+          {/* Quota Notice for Property Owner */}
+          {isOwner && (
+            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <HotelIcon size={16} className="text-blue-700 shrink-0" />
+                <span>
+                  <strong>Property Owner Limit:</strong> Super Admin ke niyam anusar aap maximum <strong>5 property</strong> add kar sakte hain. ({accessibleHotels.length}/5 active). User panel me staff add kar sakte hain.
+                </span>
+              </div>
+              <span className="text-[11px] font-bold bg-blue-200/80 text-blue-900 px-2.5 py-0.5 rounded-full shrink-0">
+                {MAX_OWNER_PROPERTIES - accessibleHotels.length} slots remaining
+              </span>
+            </div>
+          )}
+
+          {/* Notice for Staff Member */}
+          {isStaff && (
+            <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-center gap-2">
+              <Lock size={15} className="text-slate-500 shrink-0" />
+              <span>
+                <strong>Staff Member Access:</strong> Staff accounts new property add ya register nahi kar sakte. Nayi property keval Property Owner ya Super Admin hi add kar sakte hain.
+              </span>
+            </div>
+          )}
 
           {/* Security policy notice */}
           <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center justify-between gap-2">
@@ -580,24 +649,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
-                Staff &amp; Friend Login Accounts ({users.length})
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                {isSuperAdmin 
+                  ? `All User, Owner & Staff Accounts (${users.length})` 
+                  : isOwner 
+                    ? `My Hotel Staff & Team Logins` 
+                    : `Hotel Team Directory (${users.length})`}
               </span>
               <span className="text-[11px] text-slate-500">
-                Create dedicated login credentials for your friend or partner hotelier
+                {isSuperAdmin 
+                  ? 'Super Admin Control: Create property owners (max 5 properties) or dedicated hotel staff' 
+                  : isOwner 
+                    ? 'Property Owner Panel: Add and manage staff for your hotel. Staff members cannot add new properties.' 
+                    : 'Staff View: View team members and staff contacts (Read-only)'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {onOpenCreateUser && (
+              {canManageStaff && onOpenCreateUser && (
                 <button
                   id="btn-settings-create-user"
                   onClick={onOpenCreateUser}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   <UserPlus size={15} />
-                  <span>+ Create Friend / Partner ID</span>
+                  <span>{isOwner ? '+ Add Staff Member' : '+ Create Owner / Staff'}</span>
                 </button>
+              )}
+
+              {isStaff && (
+                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                  <Lock size={12} className="text-slate-400" />
+                  Staff View (Read-Only)
+                </span>
               )}
 
               <button
@@ -616,6 +700,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-3 px-4">User &amp; Designation</th>
+                    <th className="py-3 px-4">Role &amp; Permissions</th>
                     <th className="py-3 px-4">Assigned Hotel Property</th>
                     <th className="py-3 px-4">Login Username</th>
                     <th className="py-3 px-4">Password</th>
@@ -627,6 +712,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {users.map((u) => {
                     const isCurrent = currentUser?.id === u.id;
                     const isSuper = u.role === 'super_admin';
+                    const isOwnerAccount = u.role === 'hotel_owner';
+                    const isStaffAccount = u.role === 'hotel_manager' || u.role === 'front_desk';
                     const hotel = hotels.find(h => h.id === u.hotelId);
 
                     return (
@@ -634,9 +721,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                              isSuper ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-teal-800 text-white'
+                              isSuper 
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                : isOwnerAccount 
+                                  ? 'bg-blue-100 text-blue-900 border border-blue-300' 
+                                  : 'bg-teal-800 text-white'
                             }`}>
-                              {isSuper ? '👑' : u.avatarText || 'U'}
+                              {isSuper ? '👑' : isOwnerAccount ? '🏨' : u.avatarText || 'U'}
                             </div>
                             <div>
                               <div className="font-bold text-slate-900 flex items-center gap-1.5">
@@ -650,6 +741,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               <div className="text-[11px] text-slate-400">{u.designation}</div>
                             </div>
                           </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {isSuper ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              👑 Super Admin (All Access)
+                            </span>
+                          ) : isOwnerAccount ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                              🏨 Property Owner (Max 5 Properties)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                              👔 Staff (Cannot Add Property)
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4">

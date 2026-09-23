@@ -20,6 +20,13 @@ import {
   Check
 } from 'lucide-react';
 import { UserAccount, Hotel } from '../types';
+import { 
+  canUserAddProperty, 
+  getAccessibleHotels, 
+  isSuperAdminUser, 
+  isPropertyOwnerUser, 
+  isStaffUser 
+} from '../utils/permissionHelper';
 
 interface HeaderProps {
   propertyName: string;
@@ -63,7 +70,11 @@ export const Header: React.FC<HeaderProps> = ({
   const hotelMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'hotel_owner';
+  const isSuper = isSuperAdminUser(currentUser);
+  const isOwner = isPropertyOwnerUser(currentUser);
+  const isStaff = isStaffUser(currentUser);
+  const propertyAddCheck = canUserAddProperty(currentUser, hotels);
+  const accessibleHotels = getAccessibleHotels(currentUser, hotels);
   const activeHotel = hotels.find(h => h.id === activeHotelId);
 
   // Close menus when clicking outside
@@ -93,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
             id="property-selector-button"
             onClick={() => setIsHotelMenuOpen(prev => !prev)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all shadow-2xs border bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer"
-            title="Switch Hotel Property or Add New Hotel"
+            title="Switch Hotel Property or View Properties"
           >
             <Building2 size={16} className="text-teal-700 shrink-0" />
             <div className="flex flex-col text-left">
@@ -112,17 +123,25 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="absolute left-0 top-full mt-1.5 w-80 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  {isSuperAdmin ? `Hotel Properties (${hotels.length})` : 'My Hotel Property'}
+                  {isSuper 
+                    ? `Hotel Properties (${hotels.length})` 
+                    : isOwner 
+                      ? `My Properties (${accessibleHotels.length}/5)` 
+                      : 'Assigned Hotel'}
                 </span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                  isSuperAdmin ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-teal-100 text-teal-900 border-teal-300'
+                  isSuper 
+                    ? 'bg-amber-100 text-amber-900 border-amber-300' 
+                    : isOwner 
+                      ? 'bg-blue-100 text-blue-900 border-blue-300'
+                      : 'bg-teal-100 text-teal-900 border-teal-300'
                 }`}>
-                  {isSuperAdmin ? 'Group Admin' : 'Hotel Partner'}
+                  {isSuper ? 'Group Admin' : isOwner ? `Owner (${accessibleHotels.length}/5)` : 'Hotel Staff'}
                 </span>
               </div>
 
               <div className="max-h-64 overflow-y-auto py-1">
-                {(isSuperAdmin ? hotels : hotels.filter(h => h.id === activeHotelId || h.id === currentUser?.hotelId)).map(hotel => {
+                {accessibleHotels.map(hotel => {
                   const isCurrent = hotel.id === activeHotelId;
                   return (
                     <button
@@ -155,33 +174,79 @@ export const Header: React.FC<HeaderProps> = ({
                 })}
               </div>
 
-              <div className="p-2 border-t border-slate-100 mt-1">
-                <button
-                  id="btn-add-hotel-dropdown"
-                  onClick={() => {
-                    setIsHotelMenuOpen(false);
-                    onOpenAddHotel();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                >
-                  <Plus size={14} strokeWidth={2.5} />
-                  <span>Add New Hotel Property</span>
-                </button>
-              </div>
+              {/* Bottom action in hotel dropdown */}
+              {isStaff ? (
+                <div className="p-2.5 border-t border-slate-100 bg-slate-50 text-center text-[11px] text-slate-500 font-semibold flex items-center justify-center gap-1.5 rounded-b-xl">
+                  <Lock size={12} className="text-slate-400" />
+                  <span>Staff Member • Cannot add new property</span>
+                </div>
+              ) : isOwner ? (
+                <div className="p-2 border-t border-slate-100 mt-1">
+                  <button
+                    id="btn-add-hotel-dropdown"
+                    onClick={() => {
+                      setIsHotelMenuOpen(false);
+                      onOpenAddHotel();
+                    }}
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      propertyAddCheck.currentCount >= 5 
+                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300' 
+                        : 'bg-teal-800 hover:bg-teal-900 text-white'
+                    }`}
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>
+                      {propertyAddCheck.currentCount >= 5 
+                        ? 'Quota Reached (5/5 Properties)' 
+                        : `Add Property (${propertyAddCheck.currentCount}/5)`}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                <div className="p-2 border-t border-slate-100 mt-1">
+                  <button
+                    id="btn-add-hotel-dropdown"
+                    onClick={() => {
+                      setIsHotelMenuOpen(false);
+                      onOpenAddHotel();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Hotel Property</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Header "+ Add Property" quick button */}
-        <button
-          id="btn-header-add-property"
-          onClick={onOpenAddHotel}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer"
-          title="Add / Register Your Hotel Property"
-        >
-          <Building2 size={14} className="text-teal-700" />
-          <span>+ Add Property</span>
-        </button>
+        {/* Header "+ Add Property" quick button: HIDDEN FOR STAFF */}
+        {!isStaff && (
+          <button
+            id="btn-header-add-property"
+            onClick={onOpenAddHotel}
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer ${
+              isOwner && propertyAddCheck.currentCount >= 5
+                ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300'
+                : 'bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200'
+            }`}
+            title={
+              isOwner 
+                ? (propertyAddCheck.currentCount >= 5 
+                    ? 'Maximum 5 Properties Limit Reached (Contact Super Admin)' 
+                    : `Add Property (${propertyAddCheck.currentCount}/5 Allowed)`)
+                : 'Add / Register New Hotel Property'
+            }
+          >
+            <Building2 size={14} className={isOwner && propertyAddCheck.currentCount >= 5 ? 'text-amber-700' : 'text-teal-700'} />
+            <span>
+              {isOwner 
+                ? (propertyAddCheck.currentCount >= 5 ? 'Properties: 5/5 (Max)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) 
+                : '+ Add Property'}
+            </span>
+          </button>
+        )}
 
         {/* Primary "+ New Booking" button matching Tripmakerz screenshot styling */}
         <button
@@ -245,18 +310,20 @@ export const Header: React.FC<HeaderProps> = ({
             title={currentUser ? `${currentUser.name} (${currentUser.designation})` : 'Login / Switch Account'}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-xs border transition-all ${
-              isSuperAdmin 
+              isSuper 
                 ? 'bg-amber-100 text-amber-900 border-amber-300' 
-                : 'bg-teal-800 text-white border-teal-900'
+                : isOwner
+                  ? 'bg-blue-100 text-blue-900 border-blue-300'
+                  : 'bg-teal-800 text-white border-teal-900'
             }`}>
-              {isSuperAdmin ? '👑' : currentUser?.avatarText || currentUser?.name.slice(0, 2).toUpperCase() || 'U'}
+              {isSuper ? '👑' : isOwner ? '🏨' : currentUser?.avatarText || currentUser?.name.slice(0, 2).toUpperCase() || 'U'}
             </div>
             <div className="hidden xl:flex flex-col text-left">
               <span className="text-xs font-bold text-slate-900 leading-tight">
                 {currentUser?.name || 'Shahid'}
               </span>
               <span className="text-[10px] text-slate-500 leading-tight">
-                {isSuperAdmin ? 'Group Admin' : 'Hotel Staff'}
+                {isSuper ? 'Group Admin' : isOwner ? 'Property Owner' : 'Hotel Staff'}
               </span>
             </div>
             <ChevronDown size={12} className="hidden xl:inline text-slate-400" />
@@ -268,19 +335,24 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-2">
                 <div className="flex items-center gap-2.5 mb-1.5">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${
-                    isSuperAdmin ? 'bg-amber-200 text-amber-900' : 'bg-teal-800 text-white'
+                    isSuper ? 'bg-amber-200 text-amber-900' : isOwner ? 'bg-blue-200 text-blue-900' : 'bg-teal-800 text-white'
                   }`}>
-                    {isSuperAdmin ? '👑' : currentUser?.avatarText || 'VR'}
+                    {isSuper ? '👑' : isOwner ? '🏨' : currentUser?.avatarText || 'VR'}
                   </div>
                   <div>
                     <div className="font-bold text-slate-900">{currentUser?.name || 'Shahid'}</div>
-                    <div className="text-[11px] text-slate-500">{currentUser?.designation || 'Administrator'}</div>
+                    <div className="text-[11px] text-slate-500">{currentUser?.designation || (isOwner ? 'Property Owner' : 'Staff')}</div>
                   </div>
                 </div>
 
                 <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-200">
-                  <div>Access: <strong className="text-teal-900">{isSuperAdmin ? 'All Properties' : activeHotel?.name}</strong></div>
+                  <div>Access: <strong className="text-teal-900">{isSuper ? 'All Properties' : isOwner ? `${accessibleHotels.length} Properties (Max 5)` : activeHotel?.name}</strong></div>
                   <div>Username: <strong className="font-mono text-slate-700">@{currentUser?.username || 'admin'}</strong></div>
+                  {isOwner && (
+                    <div className="text-[10px] font-semibold text-amber-800 pt-0.5">
+                      Quota: {propertyAddCheck.currentCount} of 5 properties used
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -297,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Switch Account / Change Login</span>
                 </button>
 
-                {isSuperAdmin && (
+                {!isStaff && (
                   <button
                     onClick={() => {
                       setIsUserMenuOpen(false);
@@ -306,7 +378,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex items-center gap-2 font-medium text-slate-700 transition-colors"
                   >
                     <Plus size={15} className="text-teal-700" />
-                    <span>Add Another Hotel</span>
+                    <span>{isOwner ? `Add Property (${propertyAddCheck.currentCount}/5)` : 'Add Another Hotel'}</span>
                   </button>
                 )}
 
