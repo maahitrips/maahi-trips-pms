@@ -146,7 +146,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                     Permanent Deletion Confirmation
                   </strong>
                   <p className="leading-relaxed">
-                    You are logged in as <strong>Super Admin (Shahid)</strong>. You have direct authorization to permanently delete <strong>{targetName}</strong> from <strong>{hotelName}</strong>.
+                    You are logged in as <strong>Super Admin (Maahi Trips)</strong>. You have direct authorization to permanently delete <strong>{targetName}</strong> from <strong>{hotelName}</strong>.
                   </p>
                 </div>
               </div>
@@ -189,7 +189,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                     Deletion Request Sent to Super Admin!
                   </h3>
                   <p className="text-xs text-emerald-800">
-                    Aapki request Super Admin <strong>Shahid</strong> ko bhej di gayi hai. Super Admin review karke is {targetType} ko delete kar denge.
+                    Aapki request Super Admin <strong>Maahi Trips</strong> ko bhej di gayi hai. Super Admin review karke is {targetType} ko delete kar denge.
                   </p>
                 </div>
               ) : (
@@ -201,7 +201,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                       <span>Delete Restricted: Super Admin ko bole</span>
                     </div>
                     <p className="text-xs text-slate-700 leading-relaxed">
-                      Hotel security aur revenue safety rules ke anusar, kisi bhi <strong>Room</strong> ya <strong>Property</strong> ko directly delete karne ki permission sirf <strong>Super Admin (Shahid)</strong> ke pass hai.
+                      Hotel security aur revenue safety rules ke anusar, kisi bhi <strong>Room</strong> ya <strong>Property</strong> ko directly delete karne ki permission sirf <strong>Super Admin (Maahi Trips)</strong> ke pass hai.
                     </p>
                   </div>
 
@@ -216,8 +216,8 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                           👑
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900 text-xs">Shahid</div>
-                          <div className="text-[11px] text-slate-500">Group Managing Director &amp; Owner</div>
+                          <div className="font-bold text-slate-900 text-xs">Maahi Trips</div>
+                          <div className="text-[11px] text-slate-500">Super Admin • Group Managing Director</div>
                         </div>
                       </div>
                       <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded-full">
@@ -228,7 +228,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-xs">
                       <div className="flex items-center gap-1.5 text-slate-700">
                         <Phone size={13} className="text-teal-700" />
-                        <span className="font-mono">+91 98980 12345</span>
+                        <span className="font-mono">+91 96481 33671</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-slate-700">
                         <Mail size={13} className="text-teal-700" />
@@ -295,7 +295,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                           className="flex items-center gap-1.5 px-5 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg text-xs shadow-md transition-colors cursor-pointer"
                         >
                           <Send size={14} />
-                          <span>Send Request to Shahid</span>
+                          <span>Send Request to Super Admin (Maahi Trips)</span>
                         </button>
                       </div>
                     </form>
@@ -303,7 +303,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                     /* Form 2: Admin Password Override */
                     <form onSubmit={handleAdminOverrideDelete} className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                       <div className="text-[11px] text-slate-600">
-                        Agar Super Admin Shahid aapke sath hain ya unhone permission de di hai, to unka password enter karein:
+                        Agar Super Admin (Maahi Trips) aapke sath hain ya unhone permission de di hai, to unka password enter karein:
                       </div>
 
                       {passwordError && (

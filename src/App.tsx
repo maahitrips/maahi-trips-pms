@@ -145,9 +145,12 @@ export default function App() {
       if (u.role === 'super_admin' || u.id === 'user-admin') {
         return {
           ...u,
+          name: 'Maahi Trips',
+          designation: 'Super Admin • Group Managing Director',
           username: 'maahitrips',
           password: '417905kpj',
-          phone: '+91 96481 33671'
+          phone: '+91 96481 33671',
+          avatarText: '👑'
         };
       }
       if ((u.username || '').toLowerCase() === 'sadik8806') {
@@ -174,6 +177,8 @@ export default function App() {
         if (parsed.role === 'super_admin' || parsed.id === 'user-admin') {
           return {
             ...parsed,
+            name: 'Maahi Trips',
+            designation: 'Super Admin • Group Managing Director',
             username: 'maahitrips',
             password: '417905kpj'
           };

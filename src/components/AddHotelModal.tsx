@@ -198,7 +198,7 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
             <p className="text-[11px] text-teal-800">
               Aur properties add karne ke liye kripya Super Admin se contact karein:
               <br />
-              📞 <strong>+91 96481 33671</strong> (Shahid - Maahi Trips Super Admin)
+              📞 <strong>+91 96481 33671</strong> (Maahi Trips Super Admin)
             </p>
           </div>
 

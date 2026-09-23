@@ -541,7 +541,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-2">
               <ShieldAlert size={16} className="text-amber-700 shrink-0" />
               <span>
-                <strong>Property Deletion Policy:</strong> Hotel property delete karne ka right sirf Super Admin (Shahid) ke pass hai.
+                <strong>Property Deletion Policy:</strong> Hotel property delete karne ka right sirf Super Admin (Maahi Trips) ke pass hai.
               </span>
             </div>
             {!isSuperAdmin && (

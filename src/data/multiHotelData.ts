@@ -89,13 +89,13 @@ export const initialUsers: UserAccount[] = [
     id: 'user-admin',
     username: 'maahitrips',
     password: '417905kpj',
-    name: 'Shahid',
-    designation: 'Group Managing Director & Owner',
+    name: 'Maahi Trips',
+    designation: 'Super Admin • Group Managing Director',
     role: 'super_admin',
     email: 'shahidkpj@gmail.com',
     phone: '+91 96481 33671',
     hotelId: 'all',
-    hotelName: 'All Properties (Group Director)',
+    hotelName: 'All Properties (Super Admin)',
     avatarText: '👑'
   },
   {

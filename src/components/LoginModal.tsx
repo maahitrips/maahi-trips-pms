@@ -85,22 +85,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           id: 'user-admin',
           username: 'maahitrips',
           password: '417905kpj',
-          name: 'Shahid',
-          designation: 'Group Managing Director & Owner',
+          name: 'Maahi Trips',
+          designation: 'Super Admin • Group Managing Director',
           role: 'super_admin',
           email: 'shahidkpj@gmail.com',
           phone: '+91 96481 33671',
           hotelId: 'all',
-          hotelName: 'All Properties (Group Director)',
+          hotelName: 'All Properties (Super Admin)',
           avatarText: '👑'
         };
       }
     }
 
     if (found) {
-      // If logging in as super_admin, make sure object has latest maahitrips username & password
+      // If logging in as super_admin, make sure object has latest maahitrips username, name & password
       const activeUser = (found.role === 'super_admin' || found.id === 'user-admin') ? {
         ...found,
+        name: 'Maahi Trips',
+        designation: 'Super Admin • Group Managing Director',
         username: 'maahitrips',
         password: '417905kpj'
       } : found;

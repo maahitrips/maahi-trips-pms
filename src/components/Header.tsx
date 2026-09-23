@@ -320,10 +320,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="hidden xl:flex flex-col text-left">
               <span className="text-xs font-bold text-slate-900 leading-tight">
-                {currentUser?.name || 'Shahid'}
+                {currentUser?.name || (isSuper ? 'Maahi Trips' : isOwner ? 'Property Owner' : 'Hotel Staff')}
               </span>
               <span className="text-[10px] text-slate-500 leading-tight">
-                {isSuper ? 'Group Admin' : isOwner ? 'Property Owner' : 'Hotel Staff'}
+                {isSuper ? 'Super Admin' : isOwner ? 'Property Owner' : 'Hotel Staff'}
               </span>
             </div>
             <ChevronDown size={12} className="hidden xl:inline text-slate-400" />
@@ -340,14 +340,14 @@ export const Header: React.FC<HeaderProps> = ({
                     {isSuper ? '👑' : isOwner ? '🏨' : currentUser?.avatarText || 'VR'}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900">{currentUser?.name || 'Shahid'}</div>
-                    <div className="text-[11px] text-slate-500">{currentUser?.designation || (isOwner ? 'Property Owner' : 'Staff')}</div>
+                    <div className="font-bold text-slate-900">{currentUser?.name || (isSuper ? 'Maahi Trips' : 'User')}</div>
+                    <div className="text-[11px] text-slate-500">{currentUser?.designation || (isSuper ? 'Super Admin' : isOwner ? 'Property Owner' : 'Staff')}</div>
                   </div>
                 </div>
 
                 <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-200">
-                  <div>Access: <strong className="text-teal-900">{isSuper ? 'All Properties' : isOwner ? `${accessibleHotels.length} Properties (Max 5)` : activeHotel?.name}</strong></div>
-                  <div>Username: <strong className="font-mono text-slate-700">@{currentUser?.username || 'admin'}</strong></div>
+                  <div>Access: <strong className="text-teal-900">{isSuper ? 'All Properties (Super Admin)' : isOwner ? `${accessibleHotels.length} Properties (Max 5)` : activeHotel?.name}</strong></div>
+                  <div>Username: <strong className="font-mono text-slate-700">@{currentUser?.username || (isSuper ? 'maahitrips' : 'user')}</strong></div>
                   {isOwner && (
                     <div className="text-[10px] font-semibold text-amber-800 pt-0.5">
                       Quota: {propertyAddCheck.currentCount} of 5 properties used
