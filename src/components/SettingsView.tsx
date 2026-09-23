@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HotelProfile, Hotel, UserAccount, Room, DeletionRequest } from '../types';
 import { 
   Building2, 
@@ -47,6 +47,7 @@ interface SettingsViewProps {
   activeHotelId: string;
   onSelectHotel: (hotelId: string) => void;
   onOpenAddHotel: () => void;
+  initialSubTab?: 'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect';
   currentUser: UserAccount | null;
   users: UserAccount[];
   onOpenLogin: () => void;
@@ -72,6 +73,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   activeHotelId,
   onSelectHotel,
   onOpenAddHotel,
+  initialSubTab,
   currentUser,
   users,
   onOpenLogin,
@@ -87,7 +89,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onApproveDeleteRequest,
   onRejectDeleteRequest
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>('profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>(initialSubTab || 'profile');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [profile, setProfile] = useState<HotelProfile>(hotelProfile);
   const [saved, setSaved] = useState<boolean>(false);
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
@@ -488,32 +496,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
               <span className="text-[11px] text-slate-500">
                 {isSuperAdmin 
-                  ? 'Centralized directory of all hotel properties listed by Super Admin' 
+                  ? 'Centralized directory of all hotel properties listed by Super Admin (Maahi Trips)' 
                   : isOwner 
                     ? `Property Owner Quota: You can add up to 5 properties (Currently ${accessibleHotels.length}/5 used)` 
                     : 'Staff View: Operations and management for your assigned property'}
               </span>
             </div>
 
-            {!isStaff && (
-              <button
-                id="btn-settings-add-hotel"
-                onClick={onOpenAddHotel}
-                className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer ${
-                  isOwner && propertyAddCheck.currentCount >= 5
-                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300'
-                    : 'bg-teal-800 hover:bg-teal-900 text-white'
-                }`}
-              >
-                <Plus size={15} strokeWidth={2.5} />
-                <span>
-                  {isOwner 
-                    ? (propertyAddCheck.currentCount >= 5 ? 'Quota Full (5/5 Properties)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) 
-                    : '+ Add / Register New Property'}
-                </span>
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {!isStaff && (
+                <button
+                  id="btn-settings-add-hotel"
+                  onClick={onOpenAddHotel}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer ${
+                    isOwner && propertyAddCheck.currentCount >= 5
+                      ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300'
+                      : 'bg-teal-800 hover:bg-teal-900 text-white'
+                  }`}
+                >
+                  <Plus size={15} strokeWidth={2.5} />
+                  <span>
+                    {isOwner 
+                      ? (propertyAddCheck.currentCount >= 5 ? 'Quota Full (5/5 Properties)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) 
+                      : '+ Add / Register New Property'}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Super Admin Property Control Panel */}
+          {isSuperAdmin && (
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white rounded-2xl border border-rose-800/50 shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center justify-center font-bold text-lg shrink-0">
+                    👑
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-white">Super Admin Multi-Property Panel</span>
+                      <span className="text-[10px] bg-rose-500/30 text-rose-200 border border-rose-500/40 font-bold px-2 py-0.5 rounded-full uppercase">
+                        Master Property Control
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Super Admin (Maahi Trips) ke paas kisi bhi property ko add karne aur <strong>permanently delete</strong> karne ka complete control hai.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {onOpenAddHotel && (
+                    <button
+                      onClick={onOpenAddHotel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Plus size={13} strokeWidth={2.5} />
+                      <span>Add Property</span>
+                    </button>
+                  )}
+                  {hotels.length > 1 && onRequestDeleteHotel && (
+                    <button
+                      onClick={() => {
+                        const currentHotel = hotels.find(h => h.id === activeHotelId);
+                        if (currentHotel) onRequestDeleteHotel(currentHotel);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
+                      title="Quick Delete currently active property"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete Active Property</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quota Notice for Property Owner */}
           {isOwner && (
@@ -541,19 +600,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
 
           {/* Security policy notice */}
-          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldAlert size={16} className="text-amber-700 shrink-0" />
-              <span>
-                <strong>Property Deletion Policy:</strong> Hotel property delete karne ka right sirf Super Admin (Maahi Trips) ke pass hai.
-              </span>
-            </div>
-            {!isSuperAdmin && (
+          {!isSuperAdmin && (
+            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={16} className="text-amber-700 shrink-0" />
+                <span>
+                  <strong>Property Deletion Policy:</strong> Hotel property delete karne ka right sirf Super Admin (Maahi Trips) ke pass hai. Manager deletion request submit kar sakte hain.
+                </span>
+              </div>
               <span className="text-[10px] bg-amber-200/60 font-bold px-2 py-0.5 rounded border border-amber-300 shrink-0">
                 Protected Mode
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {hotels.map((h) => {
@@ -594,12 +653,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </span>
                         )}
 
-                        {onRequestDeleteHotel && hotels.length > 1 && (
+                        {onRequestDeleteHotel && (
                           <button
                             type="button"
                             onClick={() => onRequestDeleteHotel(h)}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                            title={isSuperAdmin ? "Delete Hotel (Super Admin)" : "Delete Hotel (Super Admin Approval Required)"}
+                            disabled={hotels.length <= 1}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              hotels.length <= 1
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : isSuperAdmin
+                                  ? 'text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer'
+                                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                            }`}
+                            title={
+                              hotels.length <= 1 
+                                ? "Cannot delete the only property in PMS" 
+                                : isSuperAdmin 
+                                  ? `Delete Hotel Property: ${h.name} (Super Admin)` 
+                                  : `Delete Hotel (Super Admin Approval Required)`
+                            }
                           >
                             <Trash2 size={14} />
                           </button>
@@ -627,7 +699,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                     {isCurrent ? (
                       <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
                         <CheckCircle2 size={15} /> Currently Open in PMS
@@ -635,9 +707,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     ) : (
                       <button
                         onClick={() => onSelectHotel(h.id)}
-                        className="w-full py-2 bg-slate-100 hover:bg-teal-800 hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
+                        className="flex-1 py-2 bg-slate-100 hover:bg-teal-800 hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
                       >
                         Switch to {h.name}
+                      </button>
+                    )}
+
+                    {onRequestDeleteHotel && (
+                      <button
+                        type="button"
+                        onClick={() => onRequestDeleteHotel(h)}
+                        disabled={hotels.length <= 1}
+                        className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shrink-0 ${
+                          hotels.length <= 1
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            : isSuperAdmin 
+                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 cursor-pointer shadow-2xs hover:shadow-xs' 
+                              : 'bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 cursor-pointer'
+                        }`}
+                        title={
+                          hotels.length <= 1 
+                            ? 'Cannot delete the only property in PMS' 
+                            : isSuperAdmin 
+                              ? `Permanently Delete ${h.name} (Super Admin)` 
+                              : `Send Deletion Request for ${h.name} to Super Admin`
+                        }
+                      >
+                        <Trash2 size={13} />
+                        <span>{isSuperAdmin ? 'Delete Property' : 'Request Delete'}</span>
                       </button>
                     )}
                   </div>

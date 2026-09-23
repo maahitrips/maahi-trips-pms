@@ -17,7 +17,9 @@ import {
   ShieldCheck,
   Download,
   Hotel as HotelIcon,
-  Check
+  Check,
+  Trash2,
+  Settings
 } from 'lucide-react';
 import { UserAccount, Hotel } from '../types';
 import { 
@@ -42,6 +44,8 @@ interface HeaderProps {
   activeHotelId: string;
   onSelectHotel: (hotelId: string) => void;
   onOpenAddHotel: () => void;
+  onRequestDeleteHotel?: (hotel: Hotel) => void;
+  onNavigateToSettingsHotels?: () => void;
   onOpenLogin: () => void;
   onLogout: () => void;
   onExportBackup?: () => void;
@@ -60,6 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeHotelId,
   onSelectHotel,
   onOpenAddHotel,
+  onRequestDeleteHotel,
+  onNavigateToSettingsHotels,
   onOpenLogin,
   onLogout,
   onExportBackup
@@ -144,17 +150,20 @@ export const Header: React.FC<HeaderProps> = ({
                 {accessibleHotels.map(hotel => {
                   const isCurrent = hotel.id === activeHotelId;
                   return (
-                    <button
+                    <div
                       key={hotel.id}
-                      onClick={() => {
-                        onSelectHotel(hotel.id);
-                        setIsHotelMenuOpen(false);
-                      }}
-                      className={`w-full px-3 py-2.5 text-left flex items-center justify-between transition-colors hover:bg-slate-50 ${
+                      className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors hover:bg-slate-50 group ${
                         isCurrent ? 'bg-teal-50/80 text-teal-900' : 'text-slate-800'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectHotel(hotel.id);
+                          setIsHotelMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                      >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                           isCurrent ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700'
                         }`}>
@@ -164,12 +173,29 @@ export const Header: React.FC<HeaderProps> = ({
                           <div className="font-bold text-xs truncate">{hotel.name}</div>
                           <div className="text-[11px] text-slate-500">{hotel.city}, {hotel.state || ''}</div>
                         </div>
-                      </div>
+                      </button>
 
-                      {isCurrent && (
-                        <Check size={16} className="text-teal-700 shrink-0 ml-2" />
-                      )}
-                    </button>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {isCurrent && (
+                          <Check size={16} className="text-teal-700 shrink-0" />
+                        )}
+
+                        {isSuper && onRequestDeleteHotel && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsHotelMenuOpen(false);
+                              onRequestDeleteHotel(hotel);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title={`Delete Property: ${hotel.name} (Super Admin)`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -201,6 +227,33 @@ export const Header: React.FC<HeaderProps> = ({
                         : `Add Property (${propertyAddCheck.currentCount}/5)`}
                     </span>
                   </button>
+                </div>
+              ) : isSuper ? (
+                <div className="p-2 border-t border-slate-100 mt-1 space-y-1">
+                  <button
+                    id="btn-add-hotel-dropdown"
+                    onClick={() => {
+                      setIsHotelMenuOpen(false);
+                      onOpenAddHotel();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Hotel Property</span>
+                  </button>
+                  {onNavigateToSettingsHotels && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHotelMenuOpen(false);
+                        onNavigateToSettingsHotels();
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      <Settings size={12} />
+                      <span>Manage &amp; Delete Properties in Settings</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="p-2 border-t border-slate-100 mt-1">

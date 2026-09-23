@@ -545,7 +545,13 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 10,
     totalRoomsCount: 10,
     activeReservationsCount: 18,
-    apiEndpoint: "https://api.makemytrip.com/extranet/v2/channel-manager"
+    apiEndpoint: "https://api.makemytrip.com/extranet/v2/channel-manager",
+    hotelCode: "MMT-948201",
+    extranetUsername: "bighouse.mmt@maahitrips.in",
+    apiKey: "mmt_live_key_948201_a9f14bce",
+    apiSecret: "mmt_sec_9948a7192",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "cleartrip",
@@ -561,7 +567,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 9,
     totalRoomsCount: 10,
     activeReservationsCount: 8,
-    apiEndpoint: "https://api.cleartrip.com/extranet/v2/hotel-sync"
+    apiEndpoint: "https://api.cleartrip.com/extranet/v2/hotel-sync",
+    hotelCode: "CT-663810",
+    extranetUsername: "bighouse.ct@maahitrips.in",
+    apiKey: "ct_auth_token_772183_88b1",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "oyo",
@@ -577,7 +588,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 8,
     totalRoomsCount: 10,
     activeReservationsCount: 12,
-    apiEndpoint: "https://partner.oyorooms.com/api/v3/inventory-sync"
+    apiEndpoint: "https://partner.oyorooms.com/api/v3/inventory-sync",
+    hotelCode: "OYO-IN-4921",
+    extranetUsername: "partner.oyo@maahitrips.in",
+    apiKey: "oyo_partner_api_key_492198",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "easemytrip",
@@ -593,7 +609,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 7,
     totalRoomsCount: 10,
     activeReservationsCount: 5,
-    apiEndpoint: "https://hotelapi.easemytrip.com/channelmanager/v1"
+    apiEndpoint: "https://hotelapi.easemytrip.com/channelmanager/v1",
+    hotelCode: "EMT-33019",
+    extranetUsername: "bighouse.emt@maahitrips.in",
+    apiKey: "emt_live_api_918204_kk",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "booking_com",
@@ -609,7 +630,13 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 10,
     totalRoomsCount: 10,
     activeReservationsCount: 14,
-    apiEndpoint: "https://distribution-xml.booking.com/2.4/json"
+    apiEndpoint: "https://distribution-xml.booking.com/2.4/json",
+    hotelCode: "BC-1928374",
+    extranetUsername: "bighouse.bcom@maahitrips.in",
+    apiKey: "bcom_dist_token_581903",
+    apiSecret: "bcom_secret_4491901",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "agoda",
@@ -625,7 +652,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 8,
     totalRoomsCount: 10,
     activeReservationsCount: 9,
-    apiEndpoint: "https://ycs-api.agoda.com/api/v1/sync"
+    apiEndpoint: "https://ycs-api.agoda.com/api/v1/sync",
+    hotelCode: "AGD-882103",
+    extranetUsername: "bighouse.ycs@maahitrips.in",
+    apiKey: "ycs_bearer_agoda_773901",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "airbnb",
@@ -641,7 +673,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 6,
     totalRoomsCount: 10,
     activeReservationsCount: 7,
-    apiEndpoint: "https://api.airbnb.com/v2/calendar_sync"
+    apiEndpoint: "https://api.airbnb.com/v2/calendar_sync",
+    hotelCode: "ABNB-HOST-7819",
+    extranetUsername: "bighouse.host@maahitrips.in",
+    apiKey: "abnb_oauth2_token_991823",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "goibibo",
@@ -657,7 +694,12 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 10,
     totalRoomsCount: 10,
     activeReservationsCount: 11,
-    apiEndpoint: "https://api.goibibo.com/extranet/sync/v1"
+    apiEndpoint: "https://api.goibibo.com/extranet/sync/v1",
+    hotelCode: "GOI-551902",
+    extranetUsername: "bighouse.go@maahitrips.in",
+    apiKey: "go_extranet_key_883019",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "yatra",
@@ -673,23 +715,33 @@ export const initialOTAChannels: OTAChannelConfig[] = [
     mappedRoomsCount: 8,
     totalRoomsCount: 10,
     activeReservationsCount: 4,
-    apiEndpoint: "https://extranet.yatra.com/hotel-distribution/v2"
+    apiEndpoint: "https://extranet.yatra.com/hotel-distribution/v2",
+    hotelCode: "YTR-991204",
+    extranetUsername: "bighouse.yatra@maahitrips.in",
+    apiKey: "ytr_extranet_token_77192",
+    environment: "production",
+    twoWaySyncEnabled: true
   },
   {
     id: "expedia",
     name: "Expedia Group",
-    logo: "Globe",
-    color: "#000033",
-    tagColor: "bg-indigo-700 text-white",
-    isConnected: false,
-    status: "paused",
-    lastSyncedAt: "Yesterday",
-    autoSync: false,
-    rateMarkupPercent: 20,
-    mappedRoomsCount: 0,
+    logo: "Building2",
+    color: "#4f46e5", // indigo
+    tagColor: "bg-indigo-600 text-white",
+    isConnected: true,
+    status: "active",
+    lastSyncedAt: "10 mins ago",
+    autoSync: true,
+    rateMarkupPercent: 18,
+    mappedRoomsCount: 7,
     totalRoomsCount: 10,
-    activeReservationsCount: 0,
-    apiEndpoint: "https://api.expediapartnersolutions.com/v3"
+    activeReservationsCount: 6,
+    apiEndpoint: "https://services.expediapartnercentral.com/properties/v1",
+    hotelCode: "EXP-881905",
+    extranetUsername: "bighouse.epc@maahitrips.in",
+    apiKey: "epc_partner_key_119042",
+    environment: "production",
+    twoWaySyncEnabled: true
   }
 ];
 

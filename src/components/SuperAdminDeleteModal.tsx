@@ -26,6 +26,7 @@ interface SuperAdminDeleteModalProps {
   hotelName: string;
   currentUser: UserAccount | null;
   activeBookingsCount?: number;
+  hotelsCount?: number;
   onConfirmDelete: (type: 'room' | 'hotel', id: string) => void;
   onRequestDeleteToSuperAdmin: (req: Omit<DeletionRequest, 'id' | 'requestedAt' | 'status'>) => void;
 }
@@ -40,6 +41,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
   hotelName,
   currentUser,
   activeBookingsCount = 0,
+  hotelsCount,
   onConfirmDelete,
   onRequestDeleteToSuperAdmin
 }) => {
@@ -147,10 +149,36 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                     Permanent Deletion Confirmation
                   </strong>
                   <p className="leading-relaxed">
-                    You are logged in as <strong>Super Admin (Maahi Trips)</strong>. You have direct authorization to permanently delete <strong>{targetName}</strong> from <strong>{hotelName}</strong>.
+                    {targetType === 'room' ? (
+                      <>You are logged in as <strong>Super Admin (Maahi Trips)</strong>. You have direct authorization to permanently delete Room <strong>{targetName}</strong> from <strong>{hotelName}</strong>.</>
+                    ) : (
+                      <>You are logged in as <strong>Super Admin (Maahi Trips)</strong>. You have direct authorization to permanently delete Hotel Property <strong>{targetName}</strong> from your PMS portfolio.</>
+                    )}
                   </p>
                 </div>
               </div>
+
+              {targetType === 'hotel' && (
+                <div className="p-3.5 bg-rose-100/80 border border-rose-300 rounded-xl text-rose-950 space-y-2 text-xs">
+                  <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                    <Trash2 size={15} className="text-rose-700" />
+                    <span>Property Data Removal Warning</span>
+                  </div>
+                  <p className="text-rose-900 leading-relaxed">
+                    Deleting <strong>{targetName}</strong> will permanently remove all associated room inventory, OTA channel configurations, and booking records for this property.
+                  </p>
+                  {hotelsCount !== undefined && hotelsCount <= 1 ? (
+                    <div className="p-2.5 bg-rose-200 text-rose-950 rounded-lg font-bold border border-rose-400 flex items-center gap-2">
+                      <ShieldAlert size={16} className="text-rose-800 shrink-0" />
+                      <span>Cannot delete the only remaining property. At least 1 hotel must remain in the PMS.</span>
+                    </div>
+                  ) : targetId === hotelId ? (
+                    <div className="text-[11px] font-semibold text-rose-900 bg-white/70 p-2 rounded border border-rose-200">
+                      ⚡ Note: This is your currently open hotel. Upon deletion, PMS will automatically switch to your next available property.
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {activeBookingsCount > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs">
@@ -159,24 +187,30 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
               )}
 
               <p className="text-slate-600 text-xs">
-                This action is irreversible and will remove all inventory records for this {targetType} across the PMS tape chart.
+                This action is irreversible and will remove all inventory records for this {targetType === 'room' ? 'room' : 'property'} across the PMS tape chart.
               </p>
 
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-lg"
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
+                  id="btn-confirm-delete-superadmin"
+                  disabled={targetType === 'hotel' && hotelsCount !== undefined && hotelsCount <= 1}
                   onClick={handleSuperAdminDirectDelete}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg shadow-md transition-colors cursor-pointer"
+                  className={`flex items-center gap-1.5 px-5 py-2 font-bold rounded-lg shadow-md transition-colors ${
+                    targetType === 'hotel' && hotelsCount !== undefined && hotelsCount <= 1
+                      ? 'bg-slate-400 text-white cursor-not-allowed opacity-60'
+                      : 'bg-rose-700 hover:bg-rose-800 text-white cursor-pointer'
+                  }`}
                 >
                   <Trash2 size={15} />
-                  <span>Permanently Delete {targetType === 'room' ? 'Room' : 'Hotel'}</span>
+                  <span>Permanently Delete {targetType === 'room' ? 'Room' : 'Hotel Property'}</span>
                 </button>
               </div>
             </div>
@@ -275,7 +309,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                         <textarea
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
-                          placeholder="e.g. Room 102 ko permanently dining hall me convert kar rahe hain..."
+                          placeholder={targetType === 'room' ? "e.g. Room 102 ko permanently dining hall me convert kar rahe hain..." : "e.g. Is hotel property ki lease expire ho gayi hai..."}
                           rows={3}
                           className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-teal-500"
                           required

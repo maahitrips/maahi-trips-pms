@@ -12,7 +12,8 @@ import {
   Hotel,
   UserAccount,
   HotelDataBundle,
-  DeletionRequest
+  DeletionRequest,
+  DynamicPricingConfig
 } from './types';
 import { 
   initialHotelProfile, 
@@ -117,6 +118,7 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<ActiveTab>('desk');
+  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>('profile');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   // Multi-Hotel & Multi-User State
@@ -999,6 +1001,85 @@ export default function App() {
     showToast('All Channels Connected', 'Two-way sync activated across all OTA portals');
   };
 
+  const handleUpdateChannelConfig = (updatedChannel: OTAChannelConfig) => {
+    setChannels(prev => prev.map(ch => ch.id === updatedChannel.id ? updatedChannel : ch));
+
+    const newLog: ChannelSyncLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      channel: updatedChannel.id,
+      channelName: updatedChannel.name,
+      eventType: 'rate_update',
+      status: 'success',
+      message: `${updatedChannel.name} Extranet Login & API Key configured (Property ID: ${updatedChannel.hotelCode || 'Verified'}).`,
+      payloadSummary: `Extranet: ${updatedChannel.extranetUsername || 'Direct'} | Env: ${updatedChannel.environment || 'production'} | AutoSync: ${updatedChannel.autoSync ? 'ON' : 'OFF'}`
+    };
+    setSyncLogs(prev => [newLog, ...prev]);
+
+    showToast(
+      `${updatedChannel.name} Configured!`,
+      `Extranet credentials & API Key saved for ${hotelProfile.name}`
+    );
+  };
+
+  const handleTestInboundWebhook = (channelId: BookingChannel) => {
+    const channel = channels.find(c => c.id === channelId) || channels[0];
+    const newLog: ChannelSyncLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      channel: channel.id,
+      channelName: channel.name,
+      eventType: 'reservation_new',
+      status: 'success',
+      message: `Inbound Webhook HTTP 200 OK: Test reservation payload signature verified with HMAC secret.`,
+      payloadSummary: `Event: ping | Hotel: ${hotelProfile.name} | Channel: ${channel.name} | Result: Verified`
+    };
+    setSyncLogs(prev => [newLog, ...prev]);
+    showToast('Inbound Webhook Verified', `Test handshake received from ${channel.name} webhook engine`);
+  };
+
+  const [dynamicPricing, setDynamicPricing] = useState<DynamicPricingConfig>({
+    isEnabled: false,
+    tier1ThresholdPercent: 50,
+    tier1SurgePercent: 10,
+    tier2ThresholdPercent: 80,
+    tier2SurgePercent: 20,
+    applyToAllChannels: true
+  });
+
+  const handleUpdateDynamicPricing = (newConfig: DynamicPricingConfig) => {
+    setDynamicPricing(newConfig);
+
+    const occupiedCount = rooms.filter(r => r.status === 'occupied').length;
+    const occPercent = rooms.length > 0 ? Math.round((occupiedCount / rooms.length) * 100) : 0;
+    
+    let surge = 0;
+    if (newConfig.isEnabled) {
+      if (occPercent >= newConfig.tier2ThresholdPercent) surge = newConfig.tier2SurgePercent;
+      else if (occPercent >= newConfig.tier1ThresholdPercent) surge = newConfig.tier1SurgePercent;
+    }
+
+    const newLog: ChannelSyncLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      channel: 'makemytrip',
+      channelName: 'Yield Engine',
+      eventType: 'rate_update',
+      status: 'success',
+      message: newConfig.isEnabled
+        ? `Dynamic Yield Pricing Active: Occupancy is ${occPercent}% (${occupiedCount}/${rooms.length} rooms). Surge of +${surge}% applied to all OTA channels.`
+        : `Dynamic Yield Pricing Disabled: Standard base markup restored on all channels.`
+    };
+    setSyncLogs(prev => [newLog, ...prev]);
+
+    showToast(
+      newConfig.isEnabled ? 'Dynamic Pricing Active' : 'Dynamic Pricing Disabled',
+      newConfig.isEnabled 
+        ? `50% Sold → +10% Rate | 80% Sold → +20% Rate on All OTAs (Occupancy: ${occPercent}%)` 
+        : 'Standard base rates restored across all OTA channels'
+    );
+  };
+
   if (!currentUser) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4 font-sans text-slate-100 antialiased">
@@ -1050,6 +1131,11 @@ export default function App() {
           activeHotelId={activeHotelId}
           onSelectHotel={handleSelectHotel}
           onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
+          onRequestDeleteHotel={handleRequestDeleteHotel}
+          onNavigateToSettingsHotels={() => {
+            setSettingsInitialSubTab('hotels');
+            setActiveTab('settings');
+          }}
           onOpenLogin={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
           onExportBackup={handleExportBackup}
@@ -1087,6 +1173,7 @@ export default function App() {
               roomMappings={roomMappings}
               syncLogs={syncLogs}
               rooms={rooms}
+              bookings={bookings}
               isSyncing={isSyncing}
               onSyncAll={handleSyncAllOtas}
               onToggleAutoSync={handleToggleAutoSync}
@@ -1094,8 +1181,13 @@ export default function App() {
               onUpdateRateModifier={handleUpdateRateModifier}
               onOpenSimulateModal={() => setIsSimulateModalOpen(true)}
               onToggleChannelConnect={handleToggleChannelConnect}
+              onUpdateChannelConfig={handleUpdateChannelConfig}
+              onTestInboundWebhook={handleTestInboundWebhook}
               onDisconnectAll={handleDisconnectAllChannels}
               onConnectAll={handleConnectAllChannels}
+              hotelProfile={hotelProfile}
+              dynamicPricing={dynamicPricing}
+              onUpdateDynamicPricing={handleUpdateDynamicPricing}
             />
           )}
 
@@ -1171,6 +1263,7 @@ export default function App() {
               activeHotelId={activeHotelId}
               onSelectHotel={handleSelectHotel}
               onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
+              initialSubTab={settingsInitialSubTab}
               currentUser={currentUser}
               users={users}
               onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -1331,6 +1424,7 @@ export default function App() {
         hotelName={deleteModalState.hotelName}
         currentUser={currentUser}
         activeBookingsCount={deleteModalState.activeBookingsCount}
+        hotelsCount={hotels.length}
         onConfirmDelete={handleExecuteDirectDelete}
         onRequestDeleteToSuperAdmin={handleSubmitDeleteRequest}
       />

@@ -154,6 +154,11 @@ export interface OTAChannelConfig {
   apiEndpoint: string;
   hotelCode?: string;
   apiKey?: string;
+  apiSecret?: string;
+  extranetUsername?: string;
+  extranetPassword?: string;
+  environment?: 'production' | 'sandbox';
+  twoWaySyncEnabled?: boolean;
 }
 
 export interface RoomTypeMapping {
@@ -176,6 +181,15 @@ export interface ChannelSyncLog {
   status: 'success' | 'warning' | 'error';
   message: string;
   payloadSummary?: string;
+}
+
+export interface DynamicPricingConfig {
+  isEnabled: boolean;
+  tier1ThresholdPercent: number; // e.g. 50% sold out
+  tier1SurgePercent: number;     // e.g. +10% rate increase
+  tier2ThresholdPercent: number; // e.g. 80% sold out
+  tier2SurgePercent: number;     // e.g. +20% rate increase
+  applyToAllChannels: boolean;
 }
 
 export interface HotelProfile {
