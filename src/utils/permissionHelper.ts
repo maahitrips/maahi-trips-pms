@@ -3,25 +3,39 @@ import { Hotel, UserAccount } from '../types';
 export const MAX_OWNER_PROPERTIES = 5;
 
 /**
- * Check if the user is a Super Admin (Group Director)
+ * Check if the user is a Super Admin (Maahi Trips)
  */
 export const isSuperAdminUser = (user: UserAccount | null | undefined): boolean => {
-  return user?.role === 'super_admin';
+  if (!user) return false;
+  const username = (user.username || '').toLowerCase().trim();
+  const email = (user.email || '').toLowerCase().trim();
+  return (
+    user.role === 'super_admin' ||
+    user.id === 'user-admin' ||
+    username === 'maahitrips' ||
+    username === 'admin' ||
+    email === 'shahidkpj@gmail.com'
+  );
 };
 
 /**
  * Check if the user is a Property Owner / Hotel Partner
  */
 export const isPropertyOwnerUser = (user: UserAccount | null | undefined): boolean => {
-  return user?.role === 'hotel_owner';
+  if (!user) return false;
+  if (isSuperAdminUser(user)) return false;
+  const username = (user.username || '').toLowerCase().trim();
+  return user.role === 'hotel_owner' || username === 'sadik8806';
 };
 
 /**
  * Check if the user is a staff member (Hotel Manager, Front Desk, Housekeeping)
  */
 export const isStaffUser = (user: UserAccount | null | undefined): boolean => {
-  if (!user) return true;
-  return user.role !== 'super_admin' && user.role !== 'hotel_owner';
+  if (!user) return false;
+  if (isSuperAdminUser(user)) return false;
+  if (isPropertyOwnerUser(user)) return false;
+  return user.role === 'hotel_manager' || user.role === 'front_desk';
 };
 
 /**
@@ -77,7 +91,7 @@ export const canUserAddProperty = (
     };
   }
 
-  if (user.role === 'super_admin') {
+  if (isSuperAdminUser(user)) {
     return {
       allowed: true,
       currentCount: allHotels.length,

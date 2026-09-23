@@ -14,7 +14,8 @@ import {
   Flame, 
   Wind,
   Edit3,
-  PenLine
+  PenLine,
+  Trash2
 } from 'lucide-react';
 
 interface AddRoomModalProps {
@@ -25,6 +26,8 @@ interface AddRoomModalProps {
   hotelName: string;
   roomToEdit?: Room | null;
   onUpdateRoom?: (updatedRoom: Room) => void;
+  onDeleteRoom?: (room: Room) => void;
+  isSuperAdmin?: boolean;
 }
 
 const COMMON_AMENITIES = [
@@ -59,7 +62,9 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
   existingRooms,
   hotelName,
   roomToEdit,
-  onUpdateRoom
+  onUpdateRoom,
+  onDeleteRoom,
+  isSuperAdmin
 }) => {
   // Extract custom categories that exist in this hotel
   const existingCategories = useMemo(() => {
@@ -539,11 +544,28 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-medium">
-              Changes reflect instantly on Tape Chart &amp; Channel Manager.
-            </span>
+          <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
+              {roomToEdit && onDeleteRoom && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const roomToDelete = roomToEdit;
+                    onClose();
+                    onDeleteRoom(roomToDelete);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-800 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                  title={isSuperAdmin ? "Delete Room (Super Admin Direct)" : "Delete Room (Super Admin Authorization Required)"}
+                >
+                  <Trash2 size={14} />
+                  <span>Delete Room</span>
+                </button>
+              )}
+              <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                Changes reflect instantly on Tape Chart &amp; Channel Manager.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
               <button
                 type="button"
                 onClick={onClose}

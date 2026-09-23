@@ -1,11 +1,13 @@
 import React from 'react';
 import { Room, RoomStatus, UserAccount } from '../types';
-import { BedDouble, Sparkles, AlertCircle, Wrench, CheckCircle2, RotateCcw, Plus, Trash2, ShieldCheck, Lock } from 'lucide-react';
+import { isSuperAdminUser } from '../utils/permissionHelper';
+import { BedDouble, Sparkles, AlertCircle, Wrench, CheckCircle2, RotateCcw, Plus, Trash2, Edit3, ShieldCheck, Lock } from 'lucide-react';
 
 interface HousekeepingViewProps {
   rooms: Room[];
   onUpdateStatus: (roomId: string, newStatus: RoomStatus) => void;
   onOpenAddRoom?: () => void;
+  onEditRoom?: (room: Room) => void;
   onRequestDeleteRoom?: (room: Room) => void;
   currentUser?: UserAccount | null;
   hotelName?: string;
@@ -15,11 +17,12 @@ export const HousekeepingView: React.FC<HousekeepingViewProps> = ({
   rooms,
   onUpdateStatus,
   onOpenAddRoom,
+  onEditRoom,
   onRequestDeleteRoom,
   currentUser,
   hotelName
 }) => {
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isSuperAdmin = isSuperAdminUser(currentUser);
 
   const statusCounts = {
     clean: rooms.filter(r => r.status === 'clean').length,
@@ -122,16 +125,29 @@ export const HousekeepingView: React.FC<HousekeepingViewProps> = ({
                     {rm.status === 'ooo' ? 'Out of Order' : rm.status}
                   </span>
 
-                  {onRequestDeleteRoom && (
-                    <button
-                      type="button"
-                      onClick={() => onRequestDeleteRoom(rm)}
-                      title={isSuperAdmin ? "Delete Room (Super Admin)" : "Delete Room (Super Admin authorization required)"}
-                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer ml-1"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {onEditRoom && (
+                      <button
+                        type="button"
+                        onClick={() => onEditRoom(rm)}
+                        title="Edit Room Category & Details"
+                        className="p-1 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-md transition-colors cursor-pointer"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                    )}
+
+                    {onRequestDeleteRoom && (
+                      <button
+                        type="button"
+                        onClick={() => onRequestDeleteRoom(rm)}
+                        title={isSuperAdmin ? "Delete Room (Super Admin)" : "Delete Room (Super Admin authorization required)"}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

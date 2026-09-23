@@ -2,8 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { 
   Room, 
   Booking, 
-  BookingChannel 
+  BookingChannel,
+  UserAccount
 } from '../types';
+import { isSuperAdminUser } from '../utils/permissionHelper';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -18,7 +20,9 @@ import {
   Sparkles,
   Info,
   CalendarCheck2,
-  AlertTriangle
+  AlertTriangle,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 interface DeskCalendarProps {
@@ -30,6 +34,9 @@ interface DeskCalendarProps {
   onCellClick: (roomId: string, dateStr: string) => void;
   onRefresh: () => void;
   onOpenAddRoom?: () => void;
+  onEditRoom?: (room: Room) => void;
+  onRequestDeleteRoom?: (room: Room) => void;
+  currentUser?: UserAccount | null;
 }
 
 export const DeskCalendar: React.FC<DeskCalendarProps> = ({
@@ -41,7 +48,11 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   onCellClick,
   onRefresh,
   onOpenAddRoom,
+  onEditRoom,
+  onRequestDeleteRoom,
+  currentUser,
 }) => {
+  const isSuperAdmin = isSuperAdminUser(currentUser);
   const [currentStartOffset, setCurrentStartOffset] = useState<number>(0);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'clean' | 'dirty' | 'occupied'>('all');
@@ -296,7 +307,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
           {/* Header Row: Room & Dates */}
           <div className="flex border-b border-slate-200 sticky top-0 bg-slate-50 z-20 shadow-xs">
             {/* Top-Left Corner: Room Column Header */}
-            <div className="w-44 md:w-52 shrink-0 p-3 font-bold text-xs md:text-sm text-slate-700 uppercase tracking-wider bg-slate-100 border-r border-slate-200 sticky left-0 z-30 flex items-center justify-between">
+            <div className="w-48 md:w-56 shrink-0 p-3 font-bold text-xs md:text-sm text-slate-700 uppercase tracking-wider bg-slate-100 border-r border-slate-200 sticky left-0 z-30 flex items-center justify-between">
               <span>Room</span>
               <span className="text-[10px] font-normal lowercase text-slate-500">
                 {filteredRooms.length} rooms
@@ -337,21 +348,57 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                 <div key={room.id} className="flex relative hover:bg-slate-50/40 transition-colors group">
                   {/* Sticky Room Info Cell */}
                   <div 
-                    className="w-44 md:w-52 shrink-0 p-2.5 md:p-3 bg-white border-r border-slate-200 sticky left-0 z-10 flex flex-col justify-center shadow-xs group-hover:bg-slate-50 transition-colors"
+                    className="w-48 md:w-56 shrink-0 p-2 md:p-2.5 bg-white border-r border-slate-200 sticky left-0 z-10 flex flex-col justify-between shadow-xs group-hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-xs md:text-sm text-slate-900 truncate">
-                        {room.name}
-                      </span>
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${
-                        room.status === 'clean' ? 'bg-emerald-500' :
-                        room.status === 'dirty' ? 'bg-amber-500' :
-                        room.status === 'cleaning' ? 'bg-blue-500' : 'bg-rose-500'
-                      }`} title={`Status: ${room.status}`} />
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs md:text-sm text-slate-900 truncate" title={room.name}>
+                          {room.name}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`w-2 h-2 rounded-full ${
+                            room.status === 'clean' ? 'bg-emerald-500' :
+                            room.status === 'dirty' ? 'bg-amber-500' :
+                            room.status === 'cleaning' ? 'bg-blue-500' : 'bg-rose-500'
+                          }`} title={`Status: ${room.status}`} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
+                        <span className="truncate max-w-[95px]" title={room.type}>{room.type}</span>
+                        <span className="font-semibold text-slate-700 font-mono">₹{room.baseRate}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
-                      <span className="truncate max-w-[90px]">{room.type}</span>
-                      <span className="font-semibold text-slate-700">₹{room.baseRate}</span>
+
+                    {/* Quick Room Action Buttons for Edit & Delete */}
+                    <div className="flex items-center gap-1 mt-1.5 pt-1 border-t border-slate-100">
+                      {onEditRoom && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditRoom(room);
+                          }}
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded transition-colors cursor-pointer"
+                          title="Edit Room Details & Rates"
+                        >
+                          <Edit3 size={10} className="text-teal-700" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                      {onRequestDeleteRoom && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRequestDeleteRoom(room);
+                          }}
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded transition-colors cursor-pointer ml-auto"
+                          title={isSuperAdmin ? "Delete Room (Super Admin Direct)" : "Delete Room (Super Admin Authorization Required)"}
+                        >
+                          <Trash2 size={10} />
+                          <span>Delete</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 

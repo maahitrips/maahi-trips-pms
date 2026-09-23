@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserAccount, DeletionRequest } from '../types';
+import { isSuperAdminUser } from '../utils/permissionHelper';
 import { 
   ShieldAlert, 
   Trash2, 
@@ -50,7 +51,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isSuperAdmin = isSuperAdminUser(currentUser);
 
   const handleSuperAdminDirectDelete = () => {
     onConfirmDelete(targetType, targetId);

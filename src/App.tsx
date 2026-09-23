@@ -49,7 +49,7 @@ import { CreateUserModal } from './components/CreateUserModal';
 import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
 import { CheckCircle2, Zap, X } from 'lucide-react';
-import { canUserAddProperty } from './utils/permissionHelper';
+import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
 const STORAGE_KEY_USERS = 'tripmakerz_users_v2';
@@ -174,13 +174,23 @@ export default function App() {
     if (saved) {
       try {
         const parsed: UserAccount = JSON.parse(saved);
-        if (parsed.role === 'super_admin' || parsed.id === 'user-admin') {
+        const uName = (parsed.username || '').toLowerCase().trim();
+        const uEmail = (parsed.email || '').toLowerCase().trim();
+        if (
+          parsed.role === 'super_admin' || 
+          parsed.id === 'user-admin' || 
+          uName === 'maahitrips' || 
+          uName === 'admin' ||
+          uEmail === 'shahidkpj@gmail.com'
+        ) {
           return {
             ...parsed,
+            role: 'super_admin',
             name: 'Maahi Trips',
             designation: 'Super Admin • Group Managing Director',
             username: 'maahitrips',
-            password: '417905kpj'
+            password: '417905kpj',
+            avatarText: '👑'
           };
         }
         return parsed;
@@ -188,7 +198,8 @@ export default function App() {
         console.error('Failed to parse current user', e);
       }
     }
-    return null;
+    // Default to Super Admin (Maahi Trips)
+    return initialUsers[0];
   });
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
@@ -1057,7 +1068,16 @@ export default function App() {
               onRefresh={() => {
                 showToast('Desk Refreshed', 'Synced with latest channel bookings');
               }}
-              onOpenAddRoom={() => setIsAddRoomModalOpen(true)}
+              onOpenAddRoom={() => {
+                setRoomToEdit(null);
+                setIsAddRoomModalOpen(true);
+              }}
+              onEditRoom={(rm) => {
+                setRoomToEdit(rm);
+                setIsAddRoomModalOpen(true);
+              }}
+              onRequestDeleteRoom={handleRequestDeleteRoom}
+              currentUser={currentUser}
             />
           )}
 
@@ -1103,7 +1123,14 @@ export default function App() {
             <HousekeepingView
               rooms={rooms}
               onUpdateStatus={handleUpdateRoomStatus}
-              onOpenAddRoom={() => setIsAddRoomModalOpen(true)}
+              onOpenAddRoom={() => {
+                setRoomToEdit(null);
+                setIsAddRoomModalOpen(true);
+              }}
+              onEditRoom={(rm) => {
+                setRoomToEdit(rm);
+                setIsAddRoomModalOpen(true);
+              }}
               onRequestDeleteRoom={handleRequestDeleteRoom}
               currentUser={currentUser}
               hotelName={hotelProfile.name}
@@ -1260,6 +1287,12 @@ export default function App() {
         isOpen={isAddHotelModalOpen}
         onClose={() => setIsAddHotelModalOpen(false)}
         onAddHotel={handleAddHotel}
+        currentUser={currentUser}
+        hotels={hotels}
+        onSwitchToSuperAdmin={() => {
+          handleLogin(initialUsers[0]);
+          setIsAddHotelModalOpen(true);
+        }}
       />
 
       {/* Add / Edit Room Modal */}
@@ -1271,6 +1304,8 @@ export default function App() {
         }}
         onAddRoom={handleAddRoom}
         onUpdateRoom={handleUpdateRoom}
+        onDeleteRoom={handleRequestDeleteRoom}
+        isSuperAdmin={isSuperAdminUser(currentUser)}
         roomToEdit={roomToEdit}
         existingRooms={rooms}
         hotelName={hotelProfile.name}
@@ -1282,6 +1317,7 @@ export default function App() {
         onClose={() => setIsCreateUserModalOpen(false)}
         onAddUser={handleAddUser}
         hotels={hotels}
+        currentUser={currentUser}
       />
 
       {/* Super Admin Deletion Guard & Authorization Modal */}

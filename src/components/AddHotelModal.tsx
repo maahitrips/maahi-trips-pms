@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { 
   canUserAddProperty, 
+  isSuperAdminUser,
   isStaffUser, 
   isPropertyOwnerUser, 
   MAX_OWNER_PROPERTIES 
@@ -30,6 +31,7 @@ interface AddHotelModalProps {
   onAddHotel: (newHotel: Hotel, initialManager?: UserAccount, roomCountTemplate?: number) => void;
   currentUser?: UserAccount | null;
   hotels?: Hotel[];
+  onSwitchToSuperAdmin?: () => void;
 }
 
 export const AddHotelModal: React.FC<AddHotelModalProps> = ({
@@ -37,7 +39,8 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
   onClose,
   onAddHotel,
   currentUser,
-  hotels = []
+  hotels = [],
+  onSwitchToSuperAdmin
 }) => {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -62,9 +65,10 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
   if (!isOpen) return null;
 
   // Permission check for current user
+  const isSuperAdmin = isSuperAdminUser(currentUser);
+  const isStaff = !isSuperAdmin && isStaffUser(currentUser);
+  const isOwner = !isSuperAdmin && isPropertyOwnerUser(currentUser);
   const permission = canUserAddProperty(currentUser, hotels);
-  const isStaff = isStaffUser(currentUser);
-  const isOwner = isPropertyOwnerUser(currentUser);
 
   // Auto-generate short code and manager username from name
   const handleNameChange = (val: string) => {
@@ -145,7 +149,7 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
   };
 
   // Blocked View 1: If user is Staff (Staff cannot add properties)
-  if (isStaff) {
+  if (isStaff && !isSuperAdmin) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
         <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-6 text-center">
@@ -161,13 +165,26 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-500 mb-5">
             Aap apni assigned property: <strong>{currentUser?.hotelName || 'Assigned Hotel'}</strong> ke bookings, tape chart, guest bills aur housekeeping handle kar sakte hain.
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
-          >
-            I Understand (Close)
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+            >
+              I Understand (Close)
+            </button>
+            {onSwitchToSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSwitchToSuperAdmin();
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                👑 Switch to Super Admin (Maahi Trips)
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

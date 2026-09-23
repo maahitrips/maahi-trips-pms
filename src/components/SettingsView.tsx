@@ -398,10 +398,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-2">
               <ShieldAlert size={16} className="text-amber-700 shrink-0" />
               <span>
-                <strong>Room Deletion Policy:</strong> Room delete karne ke liye Super Admin (Shahid) ko bolna anivarya hai. Regular users directly delete nahi kar sakte.
+                <strong>Room Deletion Policy:</strong> {isSuperAdmin ? 'Aap Super Admin (Maahi Trips) hain — aap rooms ko directly edit ya delete kar sakte hain.' : 'Room delete karne ke liye Super Admin (Maahi Trips) ko request bhejna anivarya hai. Regular users directly delete nahi kar sakte.'}
               </span>
             </div>
-            {!isSuperAdmin && (
+            {isSuperAdmin ? (
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-300 shrink-0 flex items-center gap-1">
+                👑 Super Admin Mode
+              </span>
+            ) : (
               <span className="text-[10px] bg-amber-200/60 font-bold px-2 py-0.5 rounded border border-amber-300 shrink-0">
                 Protected Mode
               </span>
