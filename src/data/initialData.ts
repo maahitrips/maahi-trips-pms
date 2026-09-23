@@ -5,7 +5,7 @@ export const initialHotelProfile: HotelProfile = {
   tagline: "Boutique Heritage & Luxury Stay",
   address: "Plot 42, Lake Palace Road, Near City Center",
   city: "Udaipur, Rajasthan 313001",
-  phone: "+91 98765 43210",
+  phone: "+91 96481 33671",
   email: "frontdesk@bighouseinn.com",
   gstin: "08AABCB1234F1Z8",
   checkInTime: "12:00 PM",

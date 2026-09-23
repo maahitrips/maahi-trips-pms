@@ -5,7 +5,8 @@ import {
   BookingChannel,
   PaymentMode,
   formatIdTypeName,
-  isIdVerifiedCheck
+  isIdVerifiedCheck,
+  HotelProfile
 } from '../types';
 import { 
   X, 
@@ -37,8 +38,15 @@ import {
   Clock,
   Sparkles,
   DollarSign,
-  Send
+  Send,
+  MessageCircle
 } from 'lucide-react';
+import {
+  formatBookingConfirmationWhatsAppMessage,
+  formatInvoiceWhatsAppMessage,
+  openWhatsAppMessage,
+  cleanPhoneNumber
+} from '../utils/whatsappHelper';
 
 interface BookingDetailsDrawerProps {
   booking: Booking | null;
@@ -52,6 +60,7 @@ interface BookingDetailsDrawerProps {
   onOpenCheckInIdModal?: (booking: Booking) => void;
   onSendEmail?: (booking: Booking) => void;
   hotelName?: string;
+  hotelProfile?: HotelProfile;
 }
 
 type ActiveTabType = 'details' | 'guests' | 'rooms' | 'documents' | 'payments' | 'commission' | 'addons' | 'comments' | 'logs';
@@ -67,7 +76,8 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   onAddPayment,
   onOpenCheckInIdModal,
   onSendEmail,
-  hotelName = 'Big House Inn'
+  hotelName = 'Big House Inn',
+  hotelProfile
 }) => {
   if (!isOpen || !booking) return null;
 
@@ -75,6 +85,13 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   const [isActionsOpen, setIsActionsOpen] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // WhatsApp quick messaging state
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
+  const [whatsAppMessageType, setWhatsAppMessageType] = useState<'confirmation' | 'invoice'>('confirmation');
+  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState<string>('');
+  const [whatsAppSuccessToast, setWhatsAppSuccessToast] = useState<string | null>(null);
+  const [whatsAppCopied, setWhatsAppCopied] = useState<boolean>(false);
 
   // Folio payment quick form state
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -107,6 +124,21 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   const grandTotal = subtotal + taxes;
   const totalPaid = booking.payments.reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
+
+  // WhatsApp dynamic message preview and dispatch
+  const whatsAppPreviewText = whatsAppMessageType === 'confirmation'
+    ? formatBookingConfirmationWhatsAppMessage(booking, { hotelProfile, hotelName, room })
+    : formatInvoiceWhatsAppMessage(booking, { hotelProfile, hotelName, room });
+
+  const handleDispatchWhatsApp = () => {
+    const targetPhone = whatsAppRecipientPhone || booking.guest.phone;
+    openWhatsAppMessage(targetPhone, whatsAppPreviewText);
+    setWhatsAppSuccessToast(`Opening WhatsApp for ${booking.guest.fullName}...`);
+    setTimeout(() => {
+      setWhatsAppSuccessToast(null);
+      setIsWhatsAppModalOpen(false);
+    }, 2000);
+  };
 
   // Format date like: "15 Sept 2026"
   const formatTripmakerzDate = (dateStr: string) => {
@@ -309,6 +341,23 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                 </span>
               )}
 
+              {/* Send via WhatsApp Header Quick Action */}
+              <button
+                type="button"
+                id="btn-drawer-send-whatsapp"
+                onClick={() => {
+                  setWhatsAppRecipientPhone(booking.guest.phone || '');
+                  setWhatsAppMessageType('confirmation');
+                  setIsWhatsAppModalOpen(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                title="Send Booking Confirmation or Tax Invoice via WhatsApp"
+              >
+                <MessageCircle size={14} />
+                <span className="hidden sm:inline">Send via WhatsApp</span>
+                <span className="sm:hidden">WhatsApp</span>
+              </button>
+
               {/* Actions Dropdown */}
               <div className="relative">
                 <button
@@ -383,6 +432,21 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     )}
 
                     <div className="border-t border-slate-100 my-1"></div>
+
+                    {/* WhatsApp Action inside dropdown */}
+                    <button
+                      id="btn-actions-send-whatsapp"
+                      onClick={() => {
+                        setIsActionsOpen(false);
+                        setWhatsAppRecipientPhone(booking.guest.phone || '');
+                        setWhatsAppMessageType('confirmation');
+                        setIsWhatsAppModalOpen(true);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-bold"
+                    >
+                      <MessageCircle size={14} className="text-emerald-600" />
+                      <span>Send via WhatsApp</span>
+                    </button>
 
                     {onSendEmail && (
                       <button
@@ -688,6 +752,20 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     Billing &amp; Payment Summary
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-financial-whatsapp"
+                      onClick={() => {
+                        setWhatsAppRecipientPhone(booking.guest.phone || '');
+                        setWhatsAppMessageType('invoice');
+                        setIsWhatsAppModalOpen(true);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                      title="Send Tax Invoice to Guest via WhatsApp"
+                    >
+                      <MessageCircle size={12} />
+                      <span>WhatsApp</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => onPrintInvoice(booking, 'invoice')}
@@ -1103,12 +1181,27 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => onPrintInvoice(booking, 'invoice')}
+                    id="btn-payments-send-whatsapp"
+                    onClick={() => {
+                      setWhatsAppRecipientPhone(booking.guest.phone || '');
+                      setWhatsAppMessageType('invoice');
+                      setIsWhatsAppModalOpen(true);
+                    }}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5"
-                    title="Send Invoice to Guest via WhatsApp or Email"
+                    title="Send Invoice to Guest via WhatsApp"
                   >
-                    <Send size={13} />
-                    <span>Send Invoice</span>
+                    <MessageCircle size={13} />
+                    <span>Send via WhatsApp</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onPrintInvoice(booking, 'invoice')}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-md text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 border border-slate-300"
+                    title="Print or Dispatch Invoice"
+                  >
+                    <Send size={13} className="text-slate-600" />
+                    <span>Send / Print Invoice</span>
                   </button>
 
                   <button
@@ -1393,6 +1486,151 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
 
         </div>
       </div>
+
+      {/* WhatsApp Quick Dispatch Modal */}
+      {isWhatsAppModalOpen && (
+        <div 
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsWhatsAppModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <MessageCircle size={20} className="text-emerald-300" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm tracking-tight">Send via WhatsApp</h4>
+                  <p className="text-[11px] text-emerald-200">Message guest booking confirmation or tax invoice</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                className="text-white/70 hover:text-white text-xs bg-white/10 hover:bg-white/20 p-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {whatsAppSuccessToast && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 font-semibold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>{whatsAppSuccessToast}</span>
+                </div>
+              )}
+
+              {/* Message Type Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Select WhatsApp Message Type:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppMessageType('confirmation')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                      whatsAppMessageType === 'confirmation'
+                        ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-bold'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <FileText size={16} className={whatsAppMessageType === 'confirmation' ? 'text-emerald-700' : 'text-slate-400'} />
+                    <div>
+                      <div className="text-xs">Booking Voucher</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Check-in, room &amp; payment</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppMessageType('invoice')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                      whatsAppMessageType === 'invoice'
+                        ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-bold'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <CreditCard size={16} className={whatsAppMessageType === 'invoice' ? 'text-emerald-700' : 'text-slate-400'} />
+                    <div>
+                      <div className="text-xs">Tax Invoice / Folio</div>
+                      <div className="text-[10px] text-slate-500 font-normal">GST breakdown &amp; balance</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Guest Phone Field */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Guest WhatsApp Mobile Number:</span>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    Auto-Formatted
+                  </span>
+                </label>
+                <div className="relative">
+                  <Phone size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="tel"
+                    value={whatsAppRecipientPhone}
+                    onChange={(e) => setWhatsAppRecipientPhone(e.target.value)}
+                    placeholder="+91 96481 33671"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Live Preview of formatted message */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-slate-700">Live WhatsApp Message Preview:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(whatsAppPreviewText);
+                      setWhatsAppCopied(true);
+                      setTimeout(() => setWhatsAppCopied(false), 2000);
+                    }}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    {whatsAppCopied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                    <span>{whatsAppCopied ? 'Copied!' : 'Copy Text'}</span>
+                  </button>
+                </div>
+                <div className="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[11px] leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-800 select-text">
+                  {whatsAppPreviewText}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                id="btn-confirm-send-whatsapp"
+                type="button"
+                onClick={handleDispatchWhatsApp}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <MessageCircle size={15} />
+                <span>Open in WhatsApp &amp; Send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox for Document Previews */}
       {lightboxImage && (

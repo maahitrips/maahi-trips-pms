@@ -536,7 +536,7 @@ export const GmailView: React.FC<GmailViewProps> = ({
                     type="tel"
                     value={recipientPhone}
                     onChange={(e) => setRecipientPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 96481 33671"
                     className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-hidden font-medium"
                   />
                 </div>

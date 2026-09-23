@@ -45,14 +45,61 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setError(null);
 
     const normUser = username.trim().toLowerCase();
-    const found = users.find(
-      u => (u.username.toLowerCase() === normUser || (u.role === 'super_admin' && (normUser === 'maahitrips' || normUser === 'admin'))) && 
-           (u.password === password || (u.role === 'super_admin' && (password === '417905kpj' || password === 'password123')) || password === '417905kpj' || !u.password)
-    );
+    const normPass = password.trim();
+
+    if (!normUser || !normPass) {
+      setError('Please enter both username and password.');
+      return;
+    }
+
+    // 1. Search in existing users list
+    let found = users.find(u => {
+      const uName = (u.username || '').trim().toLowerCase();
+      const uPass = (u.password || '').trim();
+      const isSuper = u.role === 'super_admin' || u.id === 'user-admin';
+      
+      const userMatches = uName === normUser || (isSuper && (normUser === 'maahitrips' || normUser === 'admin'));
+      const passMatches = uPass === normPass || (isSuper && (normPass === '417905kpj' || normPass === 'password123'));
+      
+      return userMatches && passMatches;
+    });
+
+    // 2. Built-in fallback for sadik8806 and maahitrips (guarantees seamless login in Incognito, private mode & all devices)
+    if (!found) {
+      if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
+        found = {
+          id: 'user-sadik8806',
+          username: 'sadik8806',
+          password: '8806sadik',
+          name: 'Sadik',
+          designation: 'Hotel Partner & Owner',
+          role: 'hotel_owner',
+          email: 'sadik8806@gmail.com',
+          phone: '+91 96481 33671',
+          hotelId: 'hotel-bighouse',
+          hotelName: 'Big House Inn (Udaipur)',
+          avatarText: 'SK'
+        };
+      } else if ((normUser === 'maahitrips' || normUser === 'admin') && (normPass === '417905kpj' || normPass === 'password123')) {
+        found = {
+          id: 'user-admin',
+          username: 'maahitrips',
+          password: '417905kpj',
+          name: 'Shahid',
+          designation: 'Group Managing Director & Owner',
+          role: 'super_admin',
+          email: 'shahidkpj@gmail.com',
+          phone: '+91 96481 33671',
+          hotelId: 'all',
+          hotelName: 'All Properties (Group Director)',
+          avatarText: '👑'
+        };
+      }
+    }
 
     if (found) {
       // If logging in as super_admin, make sure object has latest maahitrips username & password
-      const activeUser = found.role === 'super_admin' ? {
+      const activeUser = (found.role === 'super_admin' || found.id === 'user-admin') ? {
         ...found,
         username: 'maahitrips',
         password: '417905kpj'
@@ -61,7 +108,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       onLogin(activeUser);
       if (onClose) onClose();
     } else {
-      setError('Invalid username or password. Please try again.');
+      setError('Invalid username or password. Please check your credentials.');
     }
   };
 
@@ -196,7 +243,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div className="grid grid-cols-2 gap-2 mt-2.5 pt-2.5 border-t border-slate-200/70">
               <a
                 id="link-login-call-us"
-                href="tel:+919876543210"
+                href="tel:+919648133671"
                 className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-teal-50 border border-slate-300 hover:border-teal-400 text-slate-800 hover:text-teal-900 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
                 <PhoneCall size={14} className="text-teal-700" />
@@ -205,7 +252,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
               <a
                 id="link-login-whatsapp-us"
-                href="https://api.whatsapp.com/send?phone=919876543210&text=Hello%20Maahi%20Trips%20Team%2C%20I%20want%20to%20list%20my%20hotel%20property%20on%20Maahi%20Trips%20PMS."
+                href="https://api.whatsapp.com/send?phone=919648133671&text=Hello%20Maahi%20Trips%20Team%2C%20I%20want%20to%20list%20my%20hotel%20property%20on%20Maahi%20Trips%20PMS."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
@@ -216,7 +263,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
 
             <div className="text-center mt-2 text-[10px] text-slate-500 font-medium">
-              Helpline: <a href="tel:+919876543210" className="font-mono text-teal-800 font-bold hover:underline">+91 98765 43210</a>
+              Helpline: <a href="tel:+919648133671" className="font-mono text-teal-800 font-bold hover:underline">+91 96481 33671</a>
             </div>
           </div>
 

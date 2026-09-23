@@ -17,6 +17,7 @@ import {
   Calendar,
   Layers
 } from 'lucide-react';
+import { openWhatsAppMessage } from '../utils/whatsappHelper';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -93,12 +94,7 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
   // Send via WhatsApp
   const handleSendWhatsApp = () => {
     const text = generateInvoiceText();
-    const cleanPhone = recipientPhone.replace(/[^0-9]/g, '');
-    const url = cleanPhone 
-      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    
-    window.open(url, '_blank');
+    openWhatsAppMessage(recipientPhone, text);
     setSentSuccessMsg(`Invoice dispatched to WhatsApp (${recipientPhone || 'Guest'})`);
     setTimeout(() => setSentSuccessMsg(null), 4000);
   };
@@ -203,7 +199,7 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
                     type="tel"
                     value={recipientPhone}
                     onChange={(e) => setRecipientPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 96481 33671"
                     className="w-full text-xs bg-emerald-900/80 border border-emerald-700 rounded-lg px-2.5 py-1.5 text-white placeholder-emerald-400/60 focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
                   />
                   <button

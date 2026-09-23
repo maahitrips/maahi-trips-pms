@@ -126,24 +126,43 @@ export default function App() {
 
   const [users, setUsers] = useState<UserAccount[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_USERS);
+    let combinedUsers = initialUsers;
     if (saved) {
       try {
         const parsed: UserAccount[] = JSON.parse(saved);
-        return parsed.map(u => {
-          if (u.role === 'super_admin' || u.id === 'user-admin') {
-            return {
-              ...u,
-              username: 'maahitrips',
-              password: '417905kpj'
-            };
-          }
-          return u;
-        });
+        if (Array.isArray(parsed)) {
+          // Keep all saved accounts, plus inject any initialUsers not already present
+          const existingUsernames = new Set(parsed.map(u => (u.username || '').toLowerCase()));
+          const missingFromInitial = initialUsers.filter(u => !existingUsernames.has((u.username || '').toLowerCase()));
+          combinedUsers = [...parsed, ...missingFromInitial];
+        }
       } catch (e) {
         console.error('Failed to parse users', e);
       }
     }
-    return initialUsers;
+    return combinedUsers.map(u => {
+      if (u.role === 'super_admin' || u.id === 'user-admin') {
+        return {
+          ...u,
+          username: 'maahitrips',
+          password: '417905kpj',
+          phone: '+91 96481 33671'
+        };
+      }
+      if ((u.username || '').toLowerCase() === 'sadik8806') {
+        return {
+          ...u,
+          username: 'sadik8806',
+          password: '8806sadik',
+          phone: '+91 96481 33671',
+          name: u.name || 'Sadik',
+          role: 'hotel_owner',
+          hotelId: u.hotelId || 'hotel-bighouse',
+          hotelName: u.hotelName || 'Big House Inn (Udaipur)'
+        };
+      }
+      return u;
+    });
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -310,6 +329,17 @@ export default function App() {
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
     localStorage.setItem(STORAGE_KEY_CURRENT_USER, JSON.stringify(user));
+
+    // Ensure user is in users list so they persist
+    setUsers(prev => {
+      const exists = prev.some(u => (u.username || '').toLowerCase() === (user.username || '').toLowerCase());
+      if (!exists) {
+        const updated = [...prev, user];
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
 
     // If user is designated to a specific hotel, automatically open that hotel
     if (user.hotelId && user.hotelId !== 'all') {
@@ -1102,6 +1132,7 @@ export default function App() {
           showToast('Gmail Dispatcher', `Prepared voucher for ${b.guest.fullName}`);
         }}
         hotelName={hotelProfile.name}
+        hotelProfile={hotelProfile}
       />
 
       {/* Customer Check-In ID Submission Modal ("customar ke check in ke bad id submit hoti h") */}

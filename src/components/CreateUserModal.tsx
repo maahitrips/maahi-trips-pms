@@ -202,7 +202,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 96481 33671"
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                 />
               </div>

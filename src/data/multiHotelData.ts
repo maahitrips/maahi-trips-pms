@@ -30,7 +30,7 @@ export const initialHotels: Hotel[] = [
     address: 'Plot 42, Lake Palace Road, Near City Center',
     city: 'Udaipur',
     state: 'Rajasthan',
-    phone: '+91 98765 43210',
+    phone: '+91 96481 33671',
     email: 'frontdesk@bighouseinn.com',
     gstin: '08AABCB1234F1Z8',
     checkInTime: '12:00 PM',
@@ -87,10 +87,23 @@ export const initialUsers: UserAccount[] = [
     designation: 'Group Managing Director & Owner',
     role: 'super_admin',
     email: 'shahidkpj@gmail.com',
-    phone: '+91 98980 12345',
+    phone: '+91 96481 33671',
     hotelId: 'all',
     hotelName: 'All Properties (Group Director)',
     avatarText: '👑'
+  },
+  {
+    id: 'user-sadik8806',
+    username: 'sadik8806',
+    password: '8806sadik',
+    name: 'Sadik',
+    designation: 'Hotel Partner & Owner',
+    role: 'hotel_owner',
+    email: 'sadik8806@gmail.com',
+    phone: '+91 96481 33671',
+    hotelId: 'hotel-bighouse',
+    hotelName: 'Big House Inn (Udaipur)',
+    avatarText: 'SK'
   },
   {
     id: 'user-bighouse-mgr',
@@ -139,7 +152,7 @@ export const initialUsers: UserAccount[] = [
     designation: 'New Hotel Partner / Owner',
     role: 'hotel_manager',
     email: 'dost.hotel@gmail.com',
-    phone: '+91 98765 43210',
+    phone: '+91 96481 33671',
     hotelId: '',
     hotelName: 'Click "+ Add Property" to Setup',
     avatarText: '🤝'
