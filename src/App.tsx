@@ -204,6 +204,7 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isAddHotelModalOpen, setIsAddHotelModalOpen] = useState<boolean>(false);
   const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState<boolean>(false);
+  const [roomToEdit, setRoomToEdit] = useState<Room | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
 
   // Super Admin Deletion Guard & Request State
@@ -398,7 +399,33 @@ export default function App() {
     };
     setRoomMappings(prev => [...prev, newMapping]);
 
-    showToast(`Room ${newRoom.name} Added!`, `Configured with ₹${newRoom.baseRate}/night in ${hotelProfile.name}`);
+    showToast(`Room ${newRoom.name} Added!`, `Category: ${newRoom.type} • ₹${newRoom.baseRate}/night in ${hotelProfile.name}`);
+  };
+
+  // Update Existing Room in Active Hotel
+  const handleUpdateRoom = (updatedRoom: Room) => {
+    setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+
+    // Keep channel manager room mappings updated
+    setRoomMappings(prev => {
+      const exists = prev.some(m => m.pmsRoomType === updatedRoom.type);
+      if (!exists) {
+        const newMapping: RoomTypeMapping = {
+          id: `map-${Date.now()}`,
+          pmsRoomType: updatedRoom.type,
+          otaChannel: 'makemytrip',
+          otaRoomCode: `OTA-${updatedRoom.number}`,
+          otaRoomTitle: `${updatedRoom.type} (Direct)`,
+          isSynced: true,
+          rateModifier: 0,
+          stopSell: false
+        };
+        return [...prev, newMapping];
+      }
+      return prev;
+    });
+
+    showToast(`Room ${updatedRoom.number} Updated!`, `Category: ${updatedRoom.type} • ₹${updatedRoom.baseRate}/night`);
   };
 
   // Create User / Friend Login
@@ -1103,7 +1130,14 @@ export default function App() {
               onExportBackup={handleExportBackup}
               onImportBackup={handleImportBackup}
               rooms={rooms}
-              onOpenAddRoom={() => setIsAddRoomModalOpen(true)}
+              onOpenAddRoom={() => {
+                setRoomToEdit(null);
+                setIsAddRoomModalOpen(true);
+              }}
+              onEditRoom={(rm) => {
+                setRoomToEdit(rm);
+                setIsAddRoomModalOpen(true);
+              }}
               onRequestDeleteRoom={handleRequestDeleteRoom}
               onRequestDeleteHotel={handleRequestDeleteHotel}
               onOpenCreateUser={() => setIsCreateUserModalOpen(true)}
@@ -1208,11 +1242,16 @@ export default function App() {
         onAddHotel={handleAddHotel}
       />
 
-      {/* Add Room Modal */}
+      {/* Add / Edit Room Modal */}
       <AddRoomModal
         isOpen={isAddRoomModalOpen}
-        onClose={() => setIsAddRoomModalOpen(false)}
+        onClose={() => {
+          setIsAddRoomModalOpen(false);
+          setRoomToEdit(null);
+        }}
         onAddRoom={handleAddRoom}
+        onUpdateRoom={handleUpdateRoom}
+        roomToEdit={roomToEdit}
         existingRooms={rooms}
         hotelName={hotelProfile.name}
       />

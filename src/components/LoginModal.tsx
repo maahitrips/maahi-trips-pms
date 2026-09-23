@@ -170,9 +170,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Username</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>Username / Login ID</span>
+                <span className="text-[11px] font-semibold text-slate-400">e.g. sadik8806, maahitrips</span>
+              </label>
               <div className="relative">
-                <User size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <User size={18} className="absolute left-3.5 top-3 text-slate-500" />
                 <input
                   id="input-login-username"
                   type="text"
@@ -180,16 +183,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your username"
                   autoComplete="username"
-                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-hidden font-medium transition-all"
+                  className="w-full pl-11 pr-3 py-2.5 text-sm sm:text-base font-bold text-slate-950 bg-white border-2 border-slate-300 rounded-xl focus:bg-white focus:border-teal-700 focus:ring-3 focus:ring-teal-500/20 outline-hidden placeholder:text-slate-400 placeholder:font-normal transition-all shadow-xs"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Password</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>Password</span>
+                <span className="text-[11px] font-semibold text-slate-400">Enter password</span>
+              </label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <Lock size={18} className="absolute left-3.5 top-3 text-slate-500" />
                 <input
                   id="input-login-password"
                   type={showPassword ? 'text' : 'password'}
@@ -197,16 +203,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-hidden font-medium transition-all"
+                  className="w-full pl-11 pr-11 py-2.5 text-sm sm:text-base font-bold text-slate-950 bg-white border-2 border-slate-300 rounded-xl focus:bg-white focus:border-teal-700 focus:ring-3 focus:ring-teal-500/20 outline-hidden placeholder:text-slate-400 placeholder:font-normal transition-all shadow-xs"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute right-3 top-2.5 p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Room, RoomStatus } from '../types';
 import { 
   BedDouble, 
@@ -12,7 +12,9 @@ import {
   Tv, 
   Wifi, 
   Flame, 
-  Wind 
+  Wind,
+  Edit3,
+  PenLine
 } from 'lucide-react';
 
 interface AddRoomModalProps {
@@ -21,6 +23,8 @@ interface AddRoomModalProps {
   onAddRoom: (newRoom: Room) => void;
   existingRooms: Room[];
   hotelName: string;
+  roomToEdit?: Room | null;
+  onUpdateRoom?: (updatedRoom: Room) => void;
 }
 
 const COMMON_AMENITIES = [
@@ -53,15 +57,27 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
   onClose,
   onAddRoom,
   existingRooms,
-  hotelName
+  hotelName,
+  roomToEdit,
+  onUpdateRoom
 }) => {
-  // Suggest next room number based on existing
-  const nextNum = existingRooms.length > 0 
-    ? (Math.max(...existingRooms.map(r => parseInt(r.number, 10) || 100)) + 1).toString()
-    : '101';
+  // Extract custom categories that exist in this hotel
+  const existingCategories = useMemo(() => {
+    return Array.from(new Set(existingRooms.map(r => r.type).filter(Boolean)));
+  }, [existingRooms]);
 
-  const [number, setNumber] = useState(nextNum);
+  const customExistingCategories = useMemo(() => {
+    return existingCategories.filter(c => !ROOM_TYPES.includes(c));
+  }, [existingCategories]);
+
+  // Combined suggestions for datalist
+  const allCategorySuggestions = useMemo(() => {
+    return Array.from(new Set([...ROOM_TYPES, ...existingCategories]));
+  }, [existingCategories]);
+
+  const [number, setNumber] = useState('');
   const [type, setType] = useState(ROOM_TYPES[0]);
+  const [isManualCategory, setIsManualCategory] = useState<boolean>(false);
   const [floor, setFloor] = useState<number>(1);
   const [baseRate, setBaseRate] = useState<number>(2500);
   const [maxOccupancy, setMaxOccupancy] = useState<number>(2);
@@ -69,6 +85,36 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
   const [amenities, setAmenities] = useState<string[]>(['AC', 'Wi-Fi', 'Geyser', 'Smart TV']);
   const [customAmenity, setCustomAmenity] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize or reset form when opened or roomToEdit changes
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (roomToEdit) {
+      setNumber(roomToEdit.number);
+      setType(roomToEdit.type);
+      setFloor(roomToEdit.floor);
+      setBaseRate(roomToEdit.baseRate);
+      setMaxOccupancy(roomToEdit.maxOccupancy);
+      setStatus(roomToEdit.status);
+      setAmenities(roomToEdit.amenities && roomToEdit.amenities.length > 0 ? roomToEdit.amenities : ['AC', 'Wi-Fi']);
+      // If room category is custom, turn on manual typing mode automatically
+      setIsManualCategory(!ROOM_TYPES.includes(roomToEdit.type));
+    } else {
+      const nextNum = existingRooms.length > 0 
+        ? (Math.max(...existingRooms.map(r => parseInt(r.number, 10) || 100)) + 1).toString()
+        : '101';
+      setNumber(nextNum);
+      setType(ROOM_TYPES[0]);
+      setFloor(1);
+      setBaseRate(2500);
+      setMaxOccupancy(2);
+      setStatus('clean');
+      setAmenities(['AC', 'Wi-Fi', 'Geyser', 'Smart TV']);
+      setIsManualCategory(false);
+    }
+    setError(null);
+  }, [isOpen, roomToEdit, existingRooms]);
 
   if (!isOpen) return null;
 
@@ -97,17 +143,44 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
       return;
     }
 
-    // Check duplicate
-    if (existingRooms.some(r => r.number.toLowerCase() === trimmedNumber.toLowerCase())) {
-      setError(`Room number "${trimmedNumber}" already exists in ${hotelName}. Please pick a unique room number.`);
+    const finalType = type.trim();
+    if (!finalType) {
+      setError('Room category cannot be empty. Please type or select a category.');
+      return;
+    }
+
+    // Check duplicate (ignore if editing the same room)
+    const isDuplicate = existingRooms.some(r => 
+      r.number.toLowerCase() === trimmedNumber.toLowerCase() && 
+      (!roomToEdit || r.id !== roomToEdit.id)
+    );
+    if (isDuplicate) {
+      setError(`Room number "${trimmedNumber}" already exists in ${hotelName}. Please choose a unique room number.`);
+      return;
+    }
+
+    if (roomToEdit && onUpdateRoom) {
+      const updated: Room = {
+        ...roomToEdit,
+        number: trimmedNumber,
+        name: `${trimmedNumber} - ${finalType}`,
+        type: finalType,
+        floor: Number(floor) || 1,
+        baseRate: Number(baseRate) || 2000,
+        maxOccupancy: Number(maxOccupancy) || 2,
+        status,
+        amenities
+      };
+      onUpdateRoom(updated);
+      onClose();
       return;
     }
 
     const newRoom: Room = {
       id: `rm-${Date.now()}-${trimmedNumber}`,
       number: trimmedNumber,
-      name: `${trimmedNumber} - ${type}`,
-      type,
+      name: `${trimmedNumber} - ${finalType}`,
+      type: finalType,
       floor: Number(floor) || 1,
       baseRate: Number(baseRate) || 2000,
       maxOccupancy: Number(maxOccupancy) || 2,
@@ -137,24 +210,26 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
         <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-              <BedDouble size={20} className="text-teal-300" />
+              {roomToEdit ? <Edit3 size={20} className="text-amber-300" /> : <BedDouble size={20} className="text-teal-300" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold tracking-tight">Add New Room</h2>
+                <h2 className="text-lg font-bold tracking-tight">
+                  {roomToEdit ? `Edit Room ${roomToEdit.number}` : 'Add New Room'}
+                </h2>
                 <span className="text-[10px] uppercase font-bold tracking-wider bg-teal-400/20 text-teal-200 px-2 py-0.5 rounded-full border border-teal-400/30">
                   {hotelName}
                 </span>
               </div>
               <p className="text-xs text-teal-200/80">
-                Setup room number, tariff, floor, category and amenities
+                Setup room number, custom category (manual or preset), tariff and amenities
               </p>
             </div>
           </div>
 
           <button 
             onClick={onClose}
-            className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+            className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -163,42 +238,42 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-medium">
-              {error}
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-bold flex items-center gap-2">
+              <span>⚠️ {error}</span>
             </div>
           )}
 
           {/* Quick Presets */}
           <div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-              Quick Room Category Presets:
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1.5">
+              Quick Category Presets:
             </span>
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => applyPreset('Deluxe AC Double', 2500, 2, 1)}
-                className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-900 font-semibold rounded-lg border border-teal-200 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-950 font-bold rounded-lg border border-teal-200 transition-colors cursor-pointer"
               >
                 + Deluxe AC (₹2,500)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('Executive Luxury Suite', 4500, 3, 2)}
-                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold rounded-lg border border-amber-200 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold rounded-lg border border-amber-200 transition-colors cursor-pointer"
               >
                 + Executive Suite (₹4,500)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('Family 4-Bed Suite', 5500, 5, 2)}
-                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-900 font-semibold rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-950 font-bold rounded-lg border border-blue-200 transition-colors cursor-pointer"
               >
                 + Family Suite (₹5,500)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('Standard AC Room', 1800, 2, 1)}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-lg border border-slate-300 transition-colors cursor-pointer"
               >
                 + Standard AC (₹1,800)
               </button>
@@ -208,47 +283,144 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Room Number */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Room Number *</label>
+              <label className="block font-bold text-slate-900 mb-1">Room Number *</label>
               <input
                 id="input-room-number"
                 type="text"
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
-                placeholder="e.g. 101, 204"
-                className="w-full text-sm font-bold bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500 outline-hidden font-mono"
+                placeholder="e.g. 101, 204, 301"
+                className="w-full text-sm font-bold text-slate-950 bg-white border-2 border-slate-300 rounded-lg p-2.5 focus:border-teal-700 focus:ring-2 focus:ring-teal-500/20 outline-hidden font-mono shadow-2xs"
                 required
               />
             </div>
 
-            {/* Room Category / Type */}
+            {/* Room Category / Type with Manual Typing Option */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Room Category *</label>
-              <select
-                id="select-room-type"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500 outline-hidden"
-              >
-                {ROOM_TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>Room Category *</span>
+                  {isManualCategory && (
+                    <span className="text-[10px] bg-teal-100 text-teal-900 px-1.5 py-0.5 rounded font-bold">
+                      Manual Input
+                    </span>
+                  )}
+                </label>
+
+                {/* Switch between Preset Dropdown & Manual Typing */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManualCategory(false);
+                      if (!ROOM_TYPES.includes(type) && !customExistingCategories.includes(type)) {
+                        setType(ROOM_TYPES[0]);
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                      !isManualCategory 
+                        ? 'bg-teal-700 text-white shadow-2xs' 
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Preset List
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-toggle-manual-category"
+                    onClick={() => setIsManualCategory(true)}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                      isManualCategory 
+                        ? 'bg-teal-700 text-white shadow-2xs' 
+                        : 'bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100'
+                    }`}
+                    title="Click to type any custom room category manually"
+                  >
+                    <PenLine size={12} />
+                    <span>✍️ Type Manually</span>
+                  </button>
+                </div>
+              </div>
+
+              {isManualCategory ? (
+                <div className="space-y-1">
+                  <div className="relative">
+                    <input
+                      id="input-manual-room-type"
+                      type="text"
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                      placeholder="Type custom category (e.g. Honeymoon Suite, Cottage, Dormitory...)"
+                      list="existing-category-suggestions"
+                      className="w-full text-xs sm:text-sm font-bold text-slate-950 bg-white border-2 border-teal-600 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500 outline-hidden shadow-2xs"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <datalist id="existing-category-suggestions">
+                    {allCategorySuggestions.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 px-0.5">
+                    <span>💡 Free text: Type any custom category (e.g. Maharaja Suite, Couple Deluxe, 3-Bed AC).</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsManualCategory(false)}
+                      className="text-teal-700 hover:underline font-bold"
+                    >
+                      Use Dropdown
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <select
+                    id="select-room-type"
+                    value={type}
+                    onChange={(e) => {
+                      if (e.target.value === '__CUSTOM_MANUAL__') {
+                        setIsManualCategory(true);
+                      } else {
+                        setType(e.target.value);
+                      }
+                    }}
+                    className="w-full text-xs sm:text-sm font-bold text-slate-950 bg-white border-2 border-slate-300 rounded-lg p-2.5 focus:border-teal-700 focus:ring-2 focus:ring-teal-500/20 outline-hidden shadow-2xs"
+                  >
+                    <optgroup label="Standard Categories">
+                      {ROOM_TYPES.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </optgroup>
+                    {customExistingCategories.length > 0 && (
+                      <optgroup label="Hotel Custom Categories">
+                        {customExistingCategories.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <option value="__CUSTOM_MANUAL__" className="text-teal-800 font-bold bg-teal-50">
+                      ✍️ + Type Custom Category Manually...
+                    </option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {/* Floor */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Floor Level</label>
+              <label className="block font-bold text-slate-900 mb-1">Floor Level</label>
               <div className="relative">
-                <Layers size={14} className="absolute left-3 top-3 text-slate-400" />
+                <Layers size={15} className="absolute left-3 top-3 text-slate-500" />
                 <input
                   type="number"
                   min="0"
                   max="50"
                   value={floor}
                   onChange={(e) => setFloor(Number(e.target.value))}
-                  className="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-300 rounded-lg font-bold"
+                  className="w-full pl-9 pr-2 py-2 bg-white border-2 border-slate-300 rounded-lg font-bold text-slate-950 focus:border-teal-700 outline-hidden"
                   required
                 />
               </div>
@@ -256,16 +428,16 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 
             {/* Base Tariff */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Base Tariff / Night (₹) *</label>
+              <label className="block font-bold text-slate-900 mb-1">Base Tariff / Night (₹) *</label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 font-bold text-slate-400">₹</span>
+                <span className="absolute left-3 top-2.5 font-bold text-slate-500 text-sm">₹</span>
                 <input
                   type="number"
                   min="100"
                   step="50"
                   value={baseRate}
                   onChange={(e) => setBaseRate(Number(e.target.value))}
-                  className="w-full pl-7 pr-2 py-2 bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-900"
+                  className="w-full pl-8 pr-2 py-2 bg-white border-2 border-slate-300 rounded-lg font-bold text-slate-950 text-sm focus:border-teal-700 outline-hidden"
                   required
                 />
               </div>
@@ -273,16 +445,16 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 
             {/* Max Occupancy */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Max Guests (Adults)</label>
+              <label className="block font-bold text-slate-900 mb-1">Max Guests (Adults)</label>
               <div className="relative">
-                <Users size={14} className="absolute left-3 top-3 text-slate-400" />
+                <Users size={15} className="absolute left-3 top-3 text-slate-500" />
                 <input
                   type="number"
                   min="1"
-                  max="10"
+                  max="20"
                   value={maxOccupancy}
                   onChange={(e) => setMaxOccupancy(Number(e.target.value))}
-                  className="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-300 rounded-lg font-bold"
+                  className="w-full pl-9 pr-2 py-2 bg-white border-2 border-slate-300 rounded-lg font-bold text-slate-950 focus:border-teal-700 outline-hidden"
                   required
                 />
               </div>
@@ -291,22 +463,22 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 
           {/* Initial Cleanliness Status */}
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Initial Cleanliness Status</label>
+            <label className="block font-bold text-slate-900 mb-1">Room Cleanliness Status</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { key: 'clean', label: 'Clean & Ready', color: 'border-emerald-400 text-emerald-900 bg-emerald-50' },
-                { key: 'dirty', label: 'Needs Cleaning', color: 'border-amber-400 text-amber-900 bg-amber-50' },
-                { key: 'cleaning', label: 'Cleaning Now', color: 'border-blue-400 text-blue-900 bg-blue-50' },
-                { key: 'ooo', label: 'Out of Order', color: 'border-rose-400 text-rose-900 bg-rose-50' },
+                { key: 'clean', label: 'Clean & Ready', color: 'border-emerald-500 text-emerald-950 bg-emerald-50' },
+                { key: 'dirty', label: 'Needs Cleaning', color: 'border-amber-500 text-amber-950 bg-amber-50' },
+                { key: 'cleaning', label: 'Cleaning Now', color: 'border-blue-500 text-blue-950 bg-blue-50' },
+                { key: 'ooo', label: 'Out of Order', color: 'border-rose-500 text-rose-950 bg-rose-50' },
               ].map(st => (
                 <button
                   type="button"
                   key={st.key}
                   onClick={() => setStatus(st.key as RoomStatus)}
-                  className={`p-2 rounded-lg border text-center font-bold text-[11px] transition-all cursor-pointer ${
+                  className={`p-2 rounded-lg border-2 text-center font-bold text-[11px] transition-all cursor-pointer ${
                     status === st.key 
                       ? `${st.color} ring-2 ring-teal-600/30 font-extrabold shadow-2xs` 
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {st.label}
@@ -317,10 +489,10 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 
           {/* Amenities Selector */}
           <div>
-            <label className="block font-bold text-slate-700 mb-1.5">
+            <label className="block font-bold text-slate-900 mb-1.5">
               Room Amenities &amp; Features ({amenities.length} selected)
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 rounded-xl border-2 border-slate-200">
               {COMMON_AMENITIES.map(am => {
                 const isSelected = amenities.includes(am);
                 return (
@@ -328,10 +500,10 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                     type="button"
                     key={am}
                     onClick={() => toggleAmenity(am)}
-                    className={`px-2.5 py-1.5 rounded-lg border text-left text-[11px] font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-lg border text-left text-[11px] font-bold flex items-center justify-between transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-teal-800 text-white border-teal-900'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-teal-800 text-white border-teal-900 shadow-2xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     <span>{am}</span>
@@ -347,8 +519,8 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                 type="text"
                 value={customAmenity}
                 onChange={(e) => setCustomAmenity(e.target.value)}
-                placeholder="Custom amenity (e.g. Jacuzzi, Sea View)"
-                className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg"
+                placeholder="Add custom amenity (e.g. Jacuzzi, Lake View, Extra Bed)"
+                className="flex-1 px-3 py-1.5 text-xs font-bold text-slate-950 bg-white border-2 border-slate-300 rounded-lg focus:border-teal-700 outline-hidden"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -359,7 +531,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddCustomAmenity}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg text-xs"
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs"
               >
                 + Add
               </button>
@@ -368,24 +540,24 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 
           {/* Footer Actions */}
           <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">
-              Room will appear instantly on the Tape Chart.
+            <span className="text-[11px] text-slate-500 font-medium">
+              Changes reflect instantly on Tape Chart &amp; Channel Manager.
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-lg text-xs"
+                className="px-4 py-2 text-slate-700 hover:bg-slate-100 font-bold rounded-lg text-xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 id="btn-confirm-add-room"
                 type="submit"
-                className="flex items-center gap-1.5 px-5 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg text-xs shadow-md transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer"
               >
-                <Plus size={15} strokeWidth={2.5} />
-                <span>Save Room</span>
+                {roomToEdit ? <Edit3 size={15} strokeWidth={2.5} /> : <Plus size={15} strokeWidth={2.5} />}
+                <span>{roomToEdit ? 'Update Room' : 'Save Room'}</span>
               </button>
             </div>
           </div>
