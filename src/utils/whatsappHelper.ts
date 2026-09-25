@@ -36,11 +36,9 @@ export const formatBookingConfirmationWhatsAppMessage = (
   booking: Booking,
   options?: WhatsAppFormatOptions
 ): string => {
-  const hotelName = options?.hotelProfile?.name || options?.hotelName || 'Big House Inn';
-  const hotelAddress = options?.hotelProfile?.address 
-    ? `${options.hotelProfile.address}, ${options.hotelProfile.city || ''}` 
-    : 'Plot 42, Lake Palace Road, Udaipur, Rajasthan';
-  const hotelPhone = options?.hotelProfile?.phone || '+91 96481 33671';
+  const hotelName = options?.hotelProfile?.name || options?.hotelName || 'Hotel';
+  const hotelAddress = [options?.hotelProfile?.address, options?.hotelProfile?.city].filter(Boolean).join(', ') || options?.hotelName || 'Hotel Front Desk';
+  const hotelPhone = options?.hotelProfile?.phone || '';
   const roomLabel = options?.room 
     ? `${options.room.name} (${options.room.type})` 
     : options?.roomType || 'Standard / Executive Room';
@@ -50,8 +48,9 @@ export const formatBookingConfirmationWhatsAppMessage = (
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = (booking.extraCharges || []).reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
-  const gstRate = booking.taxRatePercent ?? 5;
-  const taxes = Math.round((subtotal * gstRate) / 100);
+  const gstRate = booking.taxRatePercent !== undefined ? booking.taxRatePercent : 5;
+  const isGstApplied = gstRate > 0;
+  const taxes = isGstApplied ? Math.round((subtotal * gstRate) / 100) : 0;
   const grandTotal = subtotal + taxes;
   const totalPaid = (booking.payments || []).reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
@@ -62,6 +61,10 @@ export const formatBookingConfirmationWhatsAppMessage = (
   const discountText = discountTotal > 0
     ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || (booking.discountType === 'percentage' ? `${booking.discountValue}% Off` : 'Special Concession')})\n`
     : '';
+
+  const gstText = isGstApplied
+    ? `• GST (5%): ₹${taxes.toLocaleString()}\n`
+    : '• GST: ₹0 (Non-GST / Exempt)\n';
 
   return (
 `🏨 *${hotelName.toUpperCase()} - OFFICIAL BOOKING CONFIRMATION*
@@ -78,8 +81,7 @@ Greetings from *${hotelName}*! Your reservation has been successfully confirmed.
 
 💰 *PAYMENT & TARIFF SUMMARY:*
 • Accommodation Tariff: ₹${roomTotal.toLocaleString()}
-${discountText}• GST (5% Only): ₹${taxes.toLocaleString()}
-• Total Booking Amount: ₹${grandTotal.toLocaleString()}
+${discountText}${gstText}• Total Booking Amount: ₹${grandTotal.toLocaleString()}
 • Advance Received: ₹${totalPaid.toLocaleString()}
 • Balance at Check-In: ₹${balanceDue.toLocaleString()} ${balanceDue === 0 ? '✅ (Fully Paid)' : ''}
 
@@ -99,11 +101,9 @@ export const formatInvoiceWhatsAppMessage = (
   booking: Booking,
   options?: WhatsAppFormatOptions
 ): string => {
-  const hotelName = options?.hotelProfile?.name || options?.hotelName || 'Big House Inn';
-  const hotelAddress = options?.hotelProfile?.address 
-    ? `${options.hotelProfile.address}, ${options.hotelProfile.city || ''}` 
-    : 'Plot 42, Lake Palace Road, Udaipur, Rajasthan';
-  const hotelPhone = options?.hotelProfile?.phone || '+91 96481 33671';
+  const hotelName = options?.hotelProfile?.name || options?.hotelName || 'Hotel';
+  const hotelAddress = [options?.hotelProfile?.address, options?.hotelProfile?.city].filter(Boolean).join(', ') || options?.hotelName || 'Hotel Front Desk';
+  const hotelPhone = options?.hotelProfile?.phone || '';
   const gstin = options?.hotelProfile?.gstin ? ` | GSTIN: ${options.hotelProfile.gstin}` : '';
   const roomLabel = options?.room 
     ? `${options.room.name} (${options.room.type})` 
@@ -114,8 +114,9 @@ export const formatInvoiceWhatsAppMessage = (
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = (booking.extraCharges || []).reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
-  const gstRate = booking.taxRatePercent ?? 5;
-  const taxes = Math.round((subtotal * gstRate) / 100);
+  const gstRate = booking.taxRatePercent !== undefined ? booking.taxRatePercent : 5;
+  const isGstApplied = gstRate > 0;
+  const taxes = isGstApplied ? Math.round((subtotal * gstRate) / 100) : 0;
   const grandTotal = subtotal + taxes;
   const totalPaid = (booking.payments || []).reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
@@ -127,6 +128,10 @@ export const formatInvoiceWhatsAppMessage = (
   const extraChargesText = (booking.extraCharges || []).length > 0
     ? booking.extraCharges.map(c => `• ${c.description || 'Addon Charge'}: ₹${c.amount.toLocaleString()}`).join('\n')
     : null;
+
+  const gstLine = isGstApplied
+    ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}`
+    : '• GST: ₹0 (Non-GST / Exempt)';
 
   return (
 `🧾 *TAX INVOICE & FOLIO SUMMARY*
@@ -141,7 +146,7 @@ Phone: ${hotelPhone}${gstin}
 
 💳 *CHARGES BREAKDOWN:*
 • Room Tariff (${booking.nights}N @ ₹${booking.roomRatePerNight.toLocaleString()}): ₹${roomTotal.toLocaleString()}
-${discountText}${extraChargesText ? `${extraChargesText}\n` : ''}• GST (5% Only - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}
+${discountText}${extraChargesText ? `${extraChargesText}\n` : ''}${gstLine}
 ------------------------------------------------
 *Grand Total:* ₹${grandTotal.toLocaleString()}
 *Total Amount Paid:* ₹${totalPaid.toLocaleString()}

@@ -52,8 +52,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = booking.extraCharges.reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
-  const gstRate = booking.taxRatePercent ?? 5;
-  const taxes = Math.round((subtotal * gstRate) / 100);
+  const gstRate = booking.taxRatePercent !== undefined ? booking.taxRatePercent : 5;
+  const isGstApplied = gstRate > 0;
+  const taxes = isGstApplied ? Math.round((subtotal * gstRate) / 100) : 0;
   const cgst = Math.round(taxes / 2);
   const sgst = taxes - cgst;
   const grandTotal = subtotal + taxes;
@@ -69,10 +70,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   // Generate plain-text invoice message for WhatsApp / Email / SMS (NO ROOM NUMBER - strictly count of rooms only)
   const generateInvoiceText = () => {
     const roomCategory = room?.type || 'Deluxe Room';
+    const hotelFullAddress = [hotelProfile.address, hotelProfile.city].filter(Boolean).join(', ');
     return (
 `*HOTEL TAX INVOICE & RESERVATION CONFIRMATION*
 *${hotelProfile.name}*
-${hotelProfile.address}, ${hotelProfile.city}
+${hotelFullAddress}
 Phone: ${hotelProfile.phone} | GSTIN: ${hotelProfile.gstin}
 ------------------------------------------------
 *Guest Name:* ${booking.guest.fullName}
@@ -85,7 +87,7 @@ Phone: ${hotelProfile.phone} | GSTIN: ${hotelProfile.gstin}
 
 *BILLING BREAKDOWN:*
 • Accommodation (${booking.nights}N @ ₹${booking.roomRatePerNight}): ₹${roomTotal.toLocaleString()}
-${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${booking.extraCharges.map(c => `• ${c.title}: ₹${c.amount.toLocaleString()}`).join('\n')}${booking.extraCharges.length > 0 ? '\n' : ''}• GST (5% Only - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}
+${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${booking.extraCharges.map(c => `• ${c.title}: ₹${c.amount.toLocaleString()}`).join('\n')}${booking.extraCharges.length > 0 ? '\n' : ''}${isGstApplied ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}` : '• GST: ₹0 (Non-GST / Exempt)'}
 ------------------------------------------------
 *Grand Total:* ₹${grandTotal.toLocaleString()}
 *Amount Paid:* ₹${totalPaid.toLocaleString()}
@@ -270,7 +272,7 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">{hotelProfile.name}</h1>
               <p className="text-xs text-slate-500 font-medium italic">{hotelProfile.tagline}</p>
-              <p className="text-xs text-slate-600 mt-1">{hotelProfile.address}, {hotelProfile.city}</p>
+              <p className="text-xs text-slate-600 mt-1">{[hotelProfile.address, hotelProfile.city].filter(Boolean).join(', ')}</p>
               <p className="text-xs text-slate-600">Phone: {hotelProfile.phone} • Email: {hotelProfile.email}</p>
               <p className="text-xs font-mono font-bold text-slate-800 mt-1">GSTIN: {hotelProfile.gstin}</p>
             </div>
@@ -433,24 +435,35 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
                 <td colSpan={4} className="p-2 text-right">Net Taxable Amount:</td>
                 <td className="p-2 text-right font-bold">₹{subtotal.toLocaleString()}</td>
               </tr>
-              <tr>
-                <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">
-                  CGST (2.5%):
-                </td>
-                <td className="p-2 text-right font-semibold">₹{cgst.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">
-                  SGST (2.5%):
-                </td>
-                <td className="p-2 text-right font-semibold">₹{sgst.toLocaleString()}</td>
-              </tr>
-              <tr className="border-b border-slate-200">
-                <td colSpan={4} className="p-2 text-right font-bold text-slate-800">
-                  Total GST (5% Only):
-                </td>
-                <td className="p-2 text-right font-bold">₹{taxes.toLocaleString()}</td>
-              </tr>
+              {isGstApplied ? (
+                <>
+                  <tr>
+                    <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">
+                      CGST (2.5%):
+                    </td>
+                    <td className="p-2 text-right font-semibold">₹{cgst.toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">
+                      SGST (2.5%):
+                    </td>
+                    <td className="p-2 text-right font-semibold">₹{sgst.toLocaleString()}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td colSpan={4} className="p-2 text-right font-bold text-slate-800">
+                      Total GST (5% Only):
+                    </td>
+                    <td className="p-2 text-right font-bold">₹{taxes.toLocaleString()}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr className="border-b border-slate-200">
+                  <td colSpan={4} className="p-2 text-right font-medium text-slate-500">
+                    GST (0% / Non-GST Bill):
+                  </td>
+                  <td className="p-2 text-right font-semibold text-slate-500 font-mono">₹0</td>
+                </tr>
+              )}
               <tr className="bg-slate-50 text-sm font-black border-t-2 border-slate-900">
                 <td colSpan={4} className="p-2.5 text-right uppercase">Net Total Payable:</td>
                 <td className="p-2.5 text-right text-teal-900">₹{grandTotal.toLocaleString()}</td>

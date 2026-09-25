@@ -27,7 +27,8 @@ import {
   ShieldAlert,
   Globe,
   Code,
-  Edit3
+  Edit3,
+  MapPin
 } from 'lucide-react';
 import { 
   canUserAddProperty, 
@@ -97,6 +98,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   }, [initialSubTab]);
   const [profile, setProfile] = useState<HotelProfile>(hotelProfile);
+
+  // Keep local profile state in sync with active hotel profile prop
+  useEffect(() => {
+    setProfile(hotelProfile);
+  }, [hotelProfile, activeHotelId]);
+
   const [saved, setSaved] = useState<boolean>(false);
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
@@ -683,7 +690,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       "{h.tagline}"
                     </p>
 
-                    <div className="text-xs space-y-1 pt-2 border-t border-slate-100 text-slate-600">
+                    <div className="text-xs space-y-1.5 pt-2 border-t border-slate-100 text-slate-600">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="shrink-0 flex items-center gap-1 text-slate-500">
+                          <MapPin size={11} className="text-teal-700" />
+                          <span>Address:</span>
+                        </span>
+                        <strong className="text-slate-800 text-right truncate max-w-[200px]" title={h.address}>
+                          {h.address || 'Address pending'}
+                        </strong>
+                      </div>
                       <div className="flex justify-between">
                         <span>GSTIN:</span>
                         <strong className="font-mono text-slate-800">{h.gstin}</strong>
@@ -701,16 +717,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                   <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                     {isCurrent ? (
-                      <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
-                        <CheckCircle2 size={15} /> Currently Open in PMS
-                      </span>
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-xs font-bold text-teal-700 flex items-center gap-1 shrink-0">
+                          <CheckCircle2 size={15} /> Active
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubTab('profile')}
+                          className="flex-1 py-1.5 px-2 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
+                        >
+                          Edit Address / Profile &rarr;
+                        </button>
+                      </div>
                     ) : (
-                      <button
-                        onClick={() => onSelectHotel(h.id)}
-                        className="flex-1 py-2 bg-slate-100 hover:bg-teal-800 hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
-                      >
-                        Switch to {h.name}
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <button
+                          onClick={() => onSelectHotel(h.id)}
+                          className="flex-1 py-2 bg-slate-100 hover:bg-teal-800 hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer text-center"
+                        >
+                          Switch to {h.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectHotel(h.id);
+                            setActiveSubTab('profile');
+                          }}
+                          className="py-2 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                          title="Switch & Edit Address"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     )}
 
                     {onRequestDeleteHotel && (

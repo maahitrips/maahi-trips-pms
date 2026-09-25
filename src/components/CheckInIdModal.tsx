@@ -63,7 +63,7 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
   const roomTotal = booking.roomRatePerNight * booking.nights;
   const discountTotal = booking.discountAmount || 0;
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
-  const tax = Math.round((taxableRoomTotal * (booking.taxRatePercent ?? 5)) / 100);
+  const tax = Math.round((taxableRoomTotal * (booking.taxRatePercent || 0)) / 100);
   const extraTotal = booking.extraCharges.reduce((sum, e) => sum + e.amount, 0);
   const grandTotal = taxableRoomTotal + tax + extraTotal;
   const balanceDue = Math.max(0, grandTotal - totalPaid);

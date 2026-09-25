@@ -161,7 +161,8 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = booking.extraCharges.reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
-  const taxes = Math.round((subtotal * (booking.taxRatePercent ?? 5)) / 100);
+  const isGstApplied = (booking.taxRatePercent || 0) > 0;
+  const taxes = isGstApplied ? Math.round((subtotal * booking.taxRatePercent) / 100) : 0;
   const grandTotal = subtotal + taxes;
   const totalPaid = booking.payments.reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
@@ -991,8 +992,8 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     </div>
                   )}
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                    <span className="text-slate-500 block text-[11px]">Taxes (5% GST Only)</span>
-                    <span className="font-bold text-sm text-slate-900 font-mono">₹{taxes}</span>
+                    <span className="text-slate-500 block text-[11px]">{isGstApplied ? 'Taxes (5% GST)' : 'Taxes (0% Non-GST)'}</span>
+                    <span className="font-bold text-sm text-slate-900 font-mono">{isGstApplied ? `₹${taxes}` : '₹0'}</span>
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Grand Total</span>
@@ -1532,8 +1533,10 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">GST (5% Only):</span>
-                    <span className="font-semibold text-slate-900 font-mono">₹{taxes.toLocaleString()}</span>
+                    <span className="text-[10px] text-slate-400 block">GST:</span>
+                    <span className="font-semibold text-slate-900 font-mono">
+                      {isGstApplied ? `₹${taxes.toLocaleString()} (5%)` : '₹0 (0% Optional)'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">Folio Net Total:</span>

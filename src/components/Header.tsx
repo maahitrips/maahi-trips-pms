@@ -22,7 +22,7 @@ import {
   Settings,
   Menu
 } from 'lucide-react';
-import { UserAccount, Hotel } from '../types';
+import { UserAccount, Hotel, HotelProfile } from '../types';
 import { 
   canUserAddProperty, 
   getAccessibleHotels, 
@@ -33,6 +33,7 @@ import {
 
 interface HeaderProps {
   propertyName: string;
+  hotelProfile?: HotelProfile;
   onNewBookingClick: () => void;
   onSimulateOtaClick: () => void;
   onSyncAllOtas: () => void;
@@ -55,6 +56,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   propertyName,
+  hotelProfile,
   onNewBookingClick,
   onSimulateOtaClick,
   onSyncAllOtas,
@@ -131,10 +133,10 @@ export const Header: React.FC<HeaderProps> = ({
             <Building2 size={15} className="text-teal-700 shrink-0" />
             <div className="flex flex-col text-left min-w-0">
               <span className="truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px] md:max-w-[220px] font-bold text-slate-900 leading-tight">
-                {activeHotel?.name || propertyName}
+                {hotelProfile?.name || activeHotel?.name || propertyName}
               </span>
               <span className="text-[10px] text-slate-500 font-normal leading-tight truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px]">
-                {activeHotel?.city || 'Property'} • {activeHotel?.code || 'PMS'}
+                {hotelProfile?.city || activeHotel?.city || 'Property'} • {activeHotel?.code || 'PMS'}
               </span>
             </div>
             <ChevronDown size={13} className={`text-slate-400 shrink-0 transition-transform ${isHotelMenuOpen ? 'rotate-180 text-teal-700' : ''}`} />

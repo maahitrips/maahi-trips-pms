@@ -354,6 +354,40 @@ export default function App() {
       localStorage.setItem('tripmakerz_pms_bookings_v2', JSON.stringify(bookings));
       localStorage.setItem('tripmakerz_pms_profile_v1', JSON.stringify(hotelProfile));
     }
+
+    // Automatically sync active hotel's address, city, and details into the hotels list
+    setHotels(prev => {
+      const match = prev.find(h => h.id === activeHotelId);
+      if (
+        match &&
+        (match.address !== hotelProfile.address ||
+          match.city !== hotelProfile.city ||
+          match.name !== hotelProfile.name ||
+          match.phone !== hotelProfile.phone ||
+          match.gstin !== hotelProfile.gstin)
+      ) {
+        const updated = prev.map(h =>
+          h.id === activeHotelId
+            ? {
+                ...h,
+                name: hotelProfile.name || h.name,
+                address: hotelProfile.address !== undefined ? hotelProfile.address : h.address,
+                city: hotelProfile.city !== undefined ? hotelProfile.city : h.city,
+                phone: hotelProfile.phone || h.phone,
+                gstin: hotelProfile.gstin || h.gstin,
+                tagline: hotelProfile.tagline || h.tagline
+              }
+            : h
+        );
+        try {
+          localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+        return updated;
+      }
+      return prev;
+    });
   }, [activeHotelId, hotelProfile, rooms, bookings, channels, roomMappings, syncLogs]);
 
   // Switch between hotel properties
@@ -500,6 +534,57 @@ export default function App() {
     });
 
     showToast(`Room ${updatedRoom.number} Updated!`, `Category: ${updatedRoom.type} • ₹${updatedRoom.baseRate}/night`);
+  };
+
+  // Update Hotel Profile & Address (Immediate Multi-Store Sync & Persistence)
+  const handleUpdateHotelProfile = (up: HotelProfile) => {
+    // 1. Update active hotelProfile state
+    setHotelProfile(up);
+
+    // 2. Immediately update hotels directory so switcher, header, and settings reflect it
+    setHotels(prev => {
+      const updated = prev.map(h => {
+        if (h.id === activeHotelId) {
+          return {
+            ...h,
+            name: up.name || h.name,
+            address: up.address !== undefined ? up.address : h.address,
+            city: up.city !== undefined ? up.city : h.city,
+            phone: up.phone || h.phone,
+            gstin: up.gstin || h.gstin,
+            tagline: up.tagline || h.tagline
+          };
+        }
+        return h;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save hotels', err);
+      }
+      return updated;
+    });
+
+    // 3. Immediately persist bundle to localStorage
+    const currentBundle: HotelDataBundle = {
+      hotelId: activeHotelId,
+      profile: up,
+      rooms,
+      bookings,
+      channels,
+      roomMappings,
+      syncLogs
+    };
+    try {
+      localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify(currentBundle));
+      if (activeHotelId === 'hotel-bighouse') {
+        localStorage.setItem('tripmakerz_pms_profile_v1', JSON.stringify(up));
+      }
+    } catch (err) {
+      console.error('Failed to save hotel bundle', err);
+    }
+
+    showToast('Hotel Profile & Address Saved!', `${up.name} • ${[up.address, up.city].filter(Boolean).join(', ')}`);
   };
 
   // Create User / Friend Login
@@ -1227,6 +1312,7 @@ export default function App() {
         {/* Top Header with Multi-Property Switcher & User Auth */}
         <Header
           propertyName={hotelProfile.name}
+          hotelProfile={hotelProfile}
           onNewBookingClick={() => {
             setEditingBooking(null);
             setPreSelectedRoomId(undefined);
@@ -1368,10 +1454,7 @@ export default function App() {
           {activeTab === 'settings' && (
             <SettingsView
               hotelProfile={hotelProfile}
-              onUpdateProfile={(up) => {
-                setHotelProfile(up);
-                showToast('Hotel Profile Updated', up.name);
-              }}
+              onUpdateProfile={handleUpdateHotelProfile}
               hotels={hotels}
               activeHotelId={activeHotelId}
               onSelectHotel={handleSelectHotel}

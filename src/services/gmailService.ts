@@ -154,7 +154,7 @@ export const generateBookingConfirmationEmail = (
   const taxableRoomTariff = Math.max(0, roomTariff - discountTotal);
   const extraChargesTotal = booking.extraCharges.reduce((a, b) => a + b.amount, 0);
   const totalTaxable = taxableRoomTariff + extraChargesTotal;
-  const taxes = Math.round((totalTaxable * (booking.taxRatePercent ?? 5)) / 100);
+  const taxes = Math.round((totalTaxable * (booking.taxRatePercent || 0)) / 100);
   const netAmount = totalTaxable + taxes;
   const paidAmount = booking.payments.reduce((a, b) => a + b.amount, 0);
   const balance = Math.max(0, netAmount - paidAmount);

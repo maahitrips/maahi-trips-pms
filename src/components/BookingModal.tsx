@@ -320,8 +320,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     existingBooking?.discountReason || ''
   );
 
-  // Billing (GST 5% Only)
-  const [taxRate, setTaxRate] = useState<number>(existingBooking?.taxRatePercent ?? 5);
+  // Billing (GST Optional: 5% or 0%)
+  const [applyGst, setApplyGst] = useState<boolean>(
+    existingBooking !== undefined ? ((existingBooking.taxRatePercent || 0) > 0) : true
+  );
+  const taxRate = applyGst ? 5 : 0;
   const [advanceAmount, setAdvanceAmount] = useState<number>(
     existingBooking?.payments.reduce((sum, p) => sum + p.amount, 0) || 0
   );
@@ -351,8 +354,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Taxable subtotal after discount deduction
   const taxableSubtotal = Math.max(0, subtotal - discountAmount);
 
-  // GST 5% Only (2.5% CGST + 2.5% SGST)
-  const taxes = Math.round((taxableSubtotal * taxRate) / 100);
+  // GST (Optional: 5% or 0%)
+  const taxes = applyGst ? Math.round((taxableSubtotal * 5) / 100) : 0;
   const totalAmount = taxableSubtotal + taxes;
   const balanceDue = Math.max(0, totalAmount - advanceAmount);
 
@@ -598,7 +601,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         discountType: discountAmount > 0 ? discountType : undefined,
         discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
         discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
-        taxRatePercent: Number(taxRate), // 5% GST Only
+        taxRatePercent: applyGst ? 5 : 0, // Optional GST
         extraCharges: existingBooking?.extraCharges || [],
         payments: advanceAmount > 0 ? [
           {
@@ -648,7 +651,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           discountType: discountAmount > 0 ? discountType : undefined,
           discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
           discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
-          taxRatePercent: Number(taxRate), // 5% GST Only
+          taxRatePercent: applyGst ? 5 : 0, // Optional GST
           extraCharges: [],
           payments: (isPrimary && advanceAmount > 0) ? [
             {
@@ -2095,12 +2098,63 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
+              {/* Optional GST Selection Card */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-colors ${
+                    applyGst ? 'bg-teal-700 text-white shadow-xs' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                  }`}>
+                    %
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm">Goods &amp; Services Tax (GST)</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                        Optional
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500 block">
+                      {applyGst 
+                        ? '5% GST applied (2.5% CGST + 2.5% SGST on net tariff)' 
+                        : 'GST disabled (0% Tax / Non-GST or Composition bill)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setApplyGst(false)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      !applyGst
+                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    No GST (0% Optional)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApplyGst(true)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      applyGst
+                        ? 'bg-teal-700 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Apply 5% GST
+                  </button>
+                </div>
+              </div>
+
               {/* Reservation Tariff Calculation */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
                 <div className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 flex items-center justify-between">
                   <span>Reservation Tariff Calculation</span>
-                  <span className="text-xs font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                    GST Fixed at 5% Only
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                    applyGst ? 'text-teal-800 bg-teal-50 border-teal-200' : 'text-slate-600 bg-slate-100 border-slate-200'
+                  }`}>
+                    {applyGst ? '5% GST Applied' : '0% (Non-GST Bill)'}
                   </span>
                 </div>
 
@@ -2150,16 +2204,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     </div>
                   )}
 
-                  {/* GST 5% Only */}
+                  {/* GST (Optional: 5% or 0%) */}
                   <div className="flex justify-between items-center text-slate-700 pt-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-800">GST (5% Only):</span>
-                      <div className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-900 border border-teal-200 px-2.5 py-0.5 rounded text-xs font-semibold">
-                        <span>5% GST</span>
-                        <span className="text-[10px] text-teal-700 font-normal">(2.5% CGST + 2.5% SGST)</span>
-                      </div>
+                      <span className="font-medium text-slate-800">GST:</span>
+                      {applyGst ? (
+                        <div className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-900 border border-teal-200 px-2.5 py-0.5 rounded text-xs font-semibold">
+                          <span>5% GST</span>
+                          <span className="text-[10px] text-teal-700 font-normal">(2.5% CGST + 2.5% SGST)</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-semibold">
+                          <span>0% (Not Applied)</span>
+                        </div>
+                      )}
                     </div>
-                    <span className="font-bold text-slate-900 font-mono">₹{taxes.toLocaleString()}</span>
+                    <span className="font-bold text-slate-900 font-mono">
+                      {applyGst ? `₹${taxes.toLocaleString()}` : '₹0'}
+                    </span>
                   </div>
 
                   <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-bold text-slate-900">
