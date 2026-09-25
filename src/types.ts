@@ -120,6 +120,9 @@ export interface Booking {
   id: string;
   bookingCode: string; // e.g. "BK-9021" or "MMT-8823"
   roomId: string;
+  roomNumber?: string;
+  groupId?: string; // Group / multi-room booking identifier
+  groupTotalRooms?: number; // Total rooms in this multi-room reservation
   guest: Guest;
   checkInDate: string; // YYYY-MM-DD
   checkOutDate: string; // YYYY-MM-DD
@@ -135,6 +138,7 @@ export interface Booking {
   status: BookingStatus;
   specialRequests?: string;
   createdAt: string;
+  notes?: string;
 }
 
 export interface OTAChannelConfig {

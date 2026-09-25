@@ -762,34 +762,62 @@ export default function App() {
     showToast(`New ${channelName} Booking Ingested!`, `${newBooking.guest.fullName} (#${newBooking.bookingCode}) placed on Desk calendar.`);
   };
 
-  // Booking Save (create or update)
-  const handleSaveBooking = (bookingPayload: Booking) => {
+  // Booking Save (create single or multi-room bookings)
+  const handleSaveBooking = (bookingPayload: Booking | Booking[]) => {
+    const payloads = Array.isArray(bookingPayload) ? bookingPayload : [bookingPayload];
+    if (payloads.length === 0) return;
+
     setBookings(prev => {
-      const exists = prev.some(b => b.id === bookingPayload.id);
-      if (exists) {
-        return prev.map(b => b.id === bookingPayload.id ? bookingPayload : b);
+      let updated = [...prev];
+      for (const item of payloads) {
+        const idx = updated.findIndex(b => b.id === item.id);
+        if (idx >= 0) {
+          updated[idx] = item;
+        } else {
+          updated = [item, ...updated];
+        }
       }
-      return [bookingPayload, ...prev];
+      return updated;
     });
 
-    // Immediately display the TripMakerz booking details interface requested by user ("booking submit ke bad aisa interfare aana chahiye")
-    setSelectedBooking(bookingPayload);
+    // Mark rooms as dirty/occupied if check-in is today
+    const today = getTodayDateStr();
+    payloads.forEach(b => {
+      if (b.checkInDate === today && b.status === 'checked_in') {
+        setRooms(prev => prev.map(r => r.id === b.roomId ? { ...r, status: 'dirty' } : r));
+      }
+    });
+
+    // Immediately display the TripMakerz booking details interface
+    setSelectedBooking(payloads[0]);
 
     // Add channel sync event
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const log: ChannelSyncLog = {
       id: `log-${Date.now()}`,
       timestamp: nowStr,
-      channel: bookingPayload.channel,
+      channel: payloads[0].channel,
       channelName: 'Channel Sync Engine',
       eventType: 'inventory_push',
       status: 'success',
-      message: `Inventory updated for room on ${bookingPayload.checkInDate} - ${bookingPayload.checkOutDate}. Customer ID KYC saved.`,
-      payloadSummary: `Guest: ${bookingPayload.guest.fullName} • ${bookingPayload.guest.idDocument.idType.toUpperCase()}`
+      message: payloads.length > 1
+        ? `Multi-room inventory updated for ${payloads.length} rooms on ${payloads[0].checkInDate} - ${payloads[0].checkOutDate}. Customer ID KYC saved.`
+        : `Inventory updated for room on ${payloads[0].checkInDate} - ${payloads[0].checkOutDate}. Customer ID KYC saved.`,
+      payloadSummary: `Guest: ${payloads[0].guest.fullName} • ${payloads.length} Room(s) • ${payloads[0].guest.idDocument.idType.toUpperCase()}`
     };
     setSyncLogs(prev => [log, ...prev]);
 
-    showToast('Reservation & Customer ID Saved!', `KYC proof registered for ${bookingPayload.guest.fullName}`);
+    if (payloads.length > 1) {
+      const roomLabels = payloads
+        .map(b => rooms.find(r => r.id === b.roomId)?.name || b.roomId)
+        .join(', ');
+      showToast(
+        `Multi-Room Booking Saved! (${payloads.length} Rooms)`, 
+        `${payloads[0].guest.fullName} booked for: ${roomLabels}`
+      );
+    } else {
+      showToast('Reservation & Customer ID Saved!', `KYC proof registered for ${payloads[0].guest.fullName}`);
+    }
   };
 
   // Status changes from details drawer
@@ -1390,6 +1418,8 @@ export default function App() {
       <BookingDetailsDrawer
         booking={selectedBooking}
         rooms={rooms}
+        bookings={bookings}
+        onSelectBooking={(b) => setSelectedBooking(b)}
         isOpen={Boolean(selectedBooking)}
         onClose={() => setSelectedBooking(null)}
         onEdit={handleOpenEditFromDrawer}

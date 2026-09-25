@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Booking, 
   Room, 
@@ -55,6 +55,7 @@ import {
 interface BookingDetailsDrawerProps {
   booking: Booking | null;
   rooms: Room[];
+  bookings?: Booking[];
   isOpen: boolean;
   onClose: () => void;
   onEdit: (booking: Booking) => void;
@@ -64,6 +65,7 @@ interface BookingDetailsDrawerProps {
   onOpenCheckInIdModal?: (booking: Booking) => void;
   onSendEmail?: (booking: Booking) => void;
   onShiftRoom?: (bookingId: string, newRoomId: string, newRoomNumber: string, reason?: string, markPreviousDirty?: boolean) => void;
+  onSelectBooking?: (booking: Booking) => void;
   hotelName?: string;
   hotelProfile?: HotelProfile;
 }
@@ -73,6 +75,7 @@ type ActiveTabType = 'details' | 'guests' | 'rooms' | 'documents' | 'payments' |
 export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   booking,
   rooms,
+  bookings,
   isOpen,
   onClose,
   onEdit,
@@ -82,6 +85,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   onOpenCheckInIdModal,
   onSendEmail,
   onShiftRoom,
+  onSelectBooking,
   hotelName = 'Big House Inn',
   hotelProfile
 }) => {
@@ -129,6 +133,26 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   ]);
 
   const room = rooms.find(r => r.id === booking.roomId);
+
+  // Find other rooms in this multi-room reservation or booked under the same guest
+  const linkedBookings = useMemo(() => {
+    if (!bookings || !booking) return [];
+    return bookings.filter(b => {
+      if (b.id === booking.id) return false;
+      if (booking.groupId && b.groupId === booking.groupId) return true;
+      if (
+        b.guest.fullName.trim().toLowerCase() === booking.guest.fullName.trim().toLowerCase() &&
+        b.checkInDate === booking.checkInDate &&
+        b.checkOutDate === booking.checkOutDate &&
+        b.status !== 'cancelled'
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [bookings, booking]);
+
+  const totalGroupRoomsCount = 1 + linkedBookings.length;
 
   // Financial calculations
   const roomTotal = booking.nights * booking.roomRatePerNight;
@@ -714,6 +738,11 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
             >
               <Bed size={16} className={activeTab === 'rooms' ? 'text-teal-700' : 'text-slate-500'} />
               <span>Rooms</span>
+              {totalGroupRoomsCount > 1 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-teal-100 text-teal-800 rounded-full border border-teal-300">
+                  {totalGroupRoomsCount}
+                </span>
+              )}
             </button>
 
             <button
@@ -1147,45 +1176,125 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     <span>Shift / Change Room</span>
                   </button>
                   <span className="text-xs font-bold px-2.5 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-md">
-                    1 Room Allocated
+                    {totalGroupRoomsCount} {totalGroupRoomsCount > 1 ? 'Rooms Allocated (Multi-Room)' : '1 Room Allocated'}
                   </span>
                 </div>
               </div>
 
-              {room ? (
-                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-slate-500 block">Room Number</span>
-                      <span className="text-xl font-black text-slate-900 font-mono">Room {room.number}</span>
+              {/* Multi-Room Group Notice Banner */}
+              {totalGroupRoomsCount > 1 && (
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-teal-700 text-white rounded font-bold text-[10px] uppercase">
+                      Multi-Room Stay
+                    </span>
+                    <span className="font-semibold text-teal-950">
+                      Total {totalGroupRoomsCount} rooms reserved under {booking.guest.fullName}
+                    </span>
+                  </div>
+                  <span className="text-teal-800 text-[11px] font-medium">
+                    {booking.checkInDate} to {booking.checkOutDate} ({booking.nights}N)
+                  </span>
+                </div>
+              )}
+
+              {/* Current Active Room Details */}
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  {totalGroupRoomsCount > 1 ? 'Current Viewed Room' : 'Assigned Room'}
+                </span>
+                {room ? (
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-slate-500 block">Room Number</span>
+                        <span className="text-xl font-black text-slate-900 font-mono">Room {room.number}</span>
+                      </div>
+                      <span className="px-3 py-1 bg-[#1e4d38] text-white text-xs font-bold rounded-md uppercase">
+                        {room.type}
+                      </span>
                     </div>
-                    <span className="px-3 py-1 bg-[#1e4d38] text-white text-xs font-bold rounded-md uppercase">
-                      {room.type}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-2 border-t border-slate-200">
+                      <div>
+                        <span className="text-slate-500 block">Floor</span>
+                        <span className="font-bold text-slate-800">Floor {room.floor}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Occupancy</span>
+                        <span className="font-bold text-slate-800">Max {room.maxOccupancy} Guests</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Base Tariff</span>
+                        <span className="font-bold text-slate-800 font-mono">₹{room.baseRate}/night</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Cleanliness</span>
+                        <span className="font-bold capitalize text-emerald-700">{room.status}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-amber-50 rounded-lg text-xs text-amber-800">
+                    Room unassigned. Please edit booking to assign a specific room.
+                  </div>
+                )}
+              </div>
+
+              {/* Other Rooms in this Multi-Room Group */}
+              {linkedBookings.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Other Linked Rooms for {booking.guest.fullName} ({linkedBookings.length})
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Click to switch and view room folio
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-2 border-t border-slate-200">
-                    <div>
-                      <span className="text-slate-500 block">Floor</span>
-                      <span className="font-bold text-slate-800">Floor {room.floor}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Occupancy</span>
-                      <span className="font-bold text-slate-800">Max {room.maxOccupancy} Guests</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Base Tariff</span>
-                      <span className="font-bold text-slate-800 font-mono">₹{room.baseRate}/night</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Cleanliness</span>
-                      <span className="font-bold capitalize text-emerald-700">{room.status}</span>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {linkedBookings.map((lb) => {
+                      const lbRoom = rooms.find(r => r.id === lb.roomId);
+                      return (
+                        <div
+                          key={lb.id}
+                          className="p-3.5 bg-white border border-slate-200 hover:border-teal-400 rounded-xl transition-all shadow-2xs space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                              <Bed size={15} className="text-teal-700" />
+                              Room {lbRoom?.number || lb.roomId}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              lb.status === 'checked_in'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : lb.status === 'confirmed'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {lb.status}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-slate-600 flex items-center justify-between">
+                            <span>{lbRoom?.type || 'Room'} • Floor {lbRoom?.floor || 1}</span>
+                            <span className="font-mono font-semibold text-slate-800">₹{lb.roomRatePerNight}/N</span>
+                          </div>
+
+                          {onSelectBooking && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectBooking(lb)}
+                              className="w-full py-1.5 px-2.5 bg-slate-50 hover:bg-teal-50 text-teal-800 hover:text-teal-900 border border-slate-200 hover:border-teal-300 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center"
+                            >
+                              Switch to Room {lbRoom?.number || lb.roomId} &rarr;
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-amber-50 rounded-lg text-xs text-amber-800">
-                  Room unassigned. Please edit booking to assign a specific room.
                 </div>
               )}
             </div>

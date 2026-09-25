@@ -44,7 +44,7 @@ interface BookingModalProps {
   initialRoomId?: string;
   initialDate?: string;
   initialCheckOutDate?: string;
-  onSaveBooking: (booking: Booking) => void;
+  onSaveBooking: (booking: Booking | Booking[]) => void;
   existingBooking?: Booking | null;
 }
 
@@ -118,26 +118,57 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return roomAvailabilityList.filter(item => !item.isAvailable);
   }, [roomAvailabilityList]);
 
-  // Selected room state (default to initialRoomId or first available room)
-  const [roomId, setRoomId] = useState<string>(() => {
-    if (existingBooking?.roomId) return existingBooking.roomId;
-    if (initialRoomId) return initialRoomId;
+  // Booking Selection Mode: 'single' (1 Room) or 'multi' (Multiple Rooms under 1 Guest Name)
+  const [bookingMode, setBookingMode] = useState<'single' | 'multi'>(() => {
+    if (existingBooking?.groupId || (existingBooking?.groupTotalRooms && existingBooking.groupTotalRooms > 1)) {
+      return 'multi';
+    }
+    return 'single';
+  });
+
+  // Selected Room IDs (array of strings supporting multi-room allocation)
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
+    if (existingBooking?.roomId) return [existingBooking.roomId];
+    if (initialRoomId) return [initialRoomId];
     // Otherwise pick first available room if one exists
     const firstFree = rooms.find(r => {
       const st = checkRoomAvailability(r.id, checkInDate, checkOutDate);
       return st.isAvailable;
     });
-    return firstFree?.id || rooms[0]?.id || '';
+    return firstFree ? [firstFree.id] : (rooms[0] ? [rooms[0].id] : []);
   });
 
-  // Check if the currently chosen room is blocked
-  const currentRoomStatus = useMemo(() => {
-    if (!roomId) return { isAvailable: false, conflict: null };
-    return checkRoomAvailability(roomId, checkInDate, checkOutDate);
-  }, [roomId, checkInDate, checkOutDate, bookings, existingBooking]);
+  // Custom rate per room (roomId -> nightly rate)
+  const [roomRates, setRoomRates] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    rooms.forEach(r => {
+      map[r.id] = r.baseRate;
+    });
+    if (existingBooking?.roomId && existingBooking.roomRatePerNight) {
+      map[existingBooking.roomId] = existingBooking.roomRatePerNight;
+    }
+    return map;
+  });
 
-  const isCurrentRoomBlocked = !currentRoomStatus.isAvailable;
-  const currentRoomConflict = currentRoomStatus.conflict;
+  // Primary room helper for backward-compatibility
+  const roomId = selectedRoomIds[0] || '';
+  const selectedRoom = rooms.find(r => r.id === roomId);
+
+  // Check if any of the chosen rooms are blocked
+  const selectedRoomsStatus = useMemo(() => {
+    if (selectedRoomIds.length === 0) return { isAvailable: false, conflicts: [] };
+    const conflicts = selectedRoomIds
+      .map(id => ({ id, status: checkRoomAvailability(id, checkInDate, checkOutDate) }))
+      .filter(item => !item.status.isAvailable);
+
+    return {
+      isAvailable: conflicts.length === 0,
+      conflicts
+    };
+  }, [selectedRoomIds, checkInDate, checkOutDate, bookings, existingBooking]);
+
+  const isCurrentRoomBlocked = !selectedRoomsStatus.isAvailable;
+  const currentRoomConflict = selectedRoomsStatus.conflicts[0]?.status.conflict || null;
 
   const [adults, setAdults] = useState<number>(existingBooking?.adults || 2);
   const [children, setChildren] = useState<number>(existingBooking?.children || 0);
@@ -145,11 +176,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [channelRefId, setChannelRefId] = useState<string>(existingBooking?.channelRefId || '');
   const [specialRequests, setSpecialRequests] = useState<string>(existingBooking?.specialRequests || '');
 
-  // Room Rate logic
-  const selectedRoom = rooms.find(r => r.id === roomId);
-  const [roomRate, setRoomRate] = useState<number>(
-    existingBooking?.roomRatePerNight || selectedRoom?.baseRate || 3000
-  );
+  // Calculate sum of room rates for all selected rooms
+  const totalRoomRatePerNight = useMemo(() => {
+    if (selectedRoomIds.length === 0) return 0;
+    return selectedRoomIds.reduce((sum, rId) => {
+      const rm = rooms.find(r => r.id === rId);
+      const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+      return sum + rate;
+    }, 0);
+  }, [selectedRoomIds, roomRates, rooms]);
+
+  const roomRate = totalRoomRatePerNight;
 
   // Quick duration presets (1N, 2N, 3N, 5N, 7N)
   const handleQuickDuration = (days: number) => {
@@ -161,20 +198,58 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     setTimeout(() => setSearchNotification(''), 2500);
   };
 
-  // Action to select and block an available room
+  // Action to toggle room in selection or set as single room
   const handleSelectAndBlockRoom = (targetRoomId: string) => {
     const status = checkRoomAvailability(targetRoomId, checkInDate, checkOutDate);
     if (!status.isAvailable) {
-      alert(`Cannot block this room: Room is already booked by ${status.conflict?.guest.fullName || 'another guest'}.`);
+      alert(`Cannot select this room: Room is already booked by ${status.conflict?.guest.fullName || 'another guest'}.`);
       return;
     }
-    setRoomId(targetRoomId);
-    const rm = rooms.find(r => r.id === targetRoomId);
-    if (rm) {
-      setRoomRate(rm.baseRate);
-      setSearchNotification(`✓ Room ${rm.name} (${rm.type}) selected & blocked for this stay!`);
-      setTimeout(() => setSearchNotification(''), 3000);
+
+    if (bookingMode === 'single') {
+      setSelectedRoomIds([targetRoomId]);
+      const rm = rooms.find(r => r.id === targetRoomId);
+      if (rm) {
+        setSearchNotification(`✓ Room ${rm.name} (${rm.type}) selected & blocked!`);
+        setTimeout(() => setSearchNotification(''), 3000);
+      }
+    } else {
+      setSelectedRoomIds(prev => {
+        if (prev.includes(targetRoomId)) {
+          if (prev.length <= 1) {
+            alert('At least 1 room must remain selected for this guest booking.');
+            return prev;
+          }
+          const filtered = prev.filter(id => id !== targetRoomId);
+          setSearchNotification(`Room deselected. ${filtered.length} room(s) currently selected.`);
+          setTimeout(() => setSearchNotification(''), 2500);
+          return filtered;
+        } else {
+          const updated = [...prev, targetRoomId];
+          const rm = rooms.find(r => r.id === targetRoomId);
+          setSearchNotification(`✓ Room ${rm?.name || targetRoomId} added! Total: ${updated.length} rooms under this guest.`);
+          setTimeout(() => setSearchNotification(''), 3000);
+          return updated;
+        }
+      });
     }
+  };
+
+  // Remove room from selection
+  const handleRemoveRoomFromSelection = (targetRoomId: string) => {
+    if (selectedRoomIds.length <= 1) {
+      alert('At least 1 room must remain selected.');
+      return;
+    }
+    setSelectedRoomIds(prev => prev.filter(id => id !== targetRoomId));
+  };
+
+  // Update specific room rate
+  const handleUpdateSpecificRoomRate = (targetRoomId: string, newRate: number) => {
+    setRoomRates(prev => ({
+      ...prev,
+      [targetRoomId]: Math.max(0, newRate)
+    }));
   };
 
   // Auto pick first available room if conflict occurs
@@ -252,11 +327,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // Update room rate when room changes
   const handleRoomChange = (newRoomId: string) => {
-    setRoomId(newRoomId);
-    const rm = rooms.find(r => r.id === newRoomId);
-    if (rm) {
-      setRoomRate(rm.baseRate);
-    }
+    handleSelectAndBlockRoom(newRoomId);
   };
 
   // Quick fill sample Aadhaar
@@ -395,20 +466,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     }
 
     // 2. Verify Room Selected and Not Blocked
-    if (!roomId) {
+    if (selectedRoomIds.length === 0) {
       setActiveTab('stay');
-      alert('Please search and select an available room to block for this reservation.');
+      alert('Please search and select at least one available room to block for this reservation.');
       return;
     }
 
-    const roomStatus = checkRoomAvailability(roomId, checkInDate, checkOutDate);
-    if (!roomStatus.isAvailable) {
-      setActiveTab('stay');
-      const conflictMsg = roomStatus.conflict 
-        ? `Room ${rooms.find(r => r.id === roomId)?.name || roomId} is ALREADY OCCUPIED by ${roomStatus.conflict.guest.fullName} from ${roomStatus.conflict.checkInDate} to ${roomStatus.conflict.checkOutDate}.`
-        : `Room ${rooms.find(r => r.id === roomId)?.name || roomId} is currently blocked for these dates.`;
-      alert(`⚠️ Room Conflict Detected!\n\n${conflictMsg}\n\nPlease select an available room from the list below to block.`);
-      return;
+    for (const rId of selectedRoomIds) {
+      const roomStatus = checkRoomAvailability(rId, checkInDate, checkOutDate);
+      if (!roomStatus.isAvailable) {
+        setActiveTab('stay');
+        const rm = rooms.find(r => r.id === rId);
+        const conflictMsg = roomStatus.conflict 
+          ? `Room ${rm?.name || rId} is ALREADY OCCUPIED by ${roomStatus.conflict.guest.fullName} from ${roomStatus.conflict.checkInDate} to ${roomStatus.conflict.checkOutDate}.`
+          : `Room ${rm?.name || rId} is currently blocked for these dates.`;
+        alert(`⚠️ Room Conflict Detected!\n\n${conflictMsg}\n\nPlease remove this room or select another available room from the list below.`);
+        return;
+      }
     }
 
     if (!fullName.trim()) {
@@ -467,36 +541,94 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       code = `${yy}${mm}${dd}${randomSuffix}`;
     }
 
-    const bookingPayload: Booking = {
-      id: existingBooking?.id || `bk-${Date.now()}`,
-      bookingCode: code,
-      roomId,
-      guest,
-      checkInDate,
-      checkOutDate,
-      nights,
-      adults,
-      children,
-      channel,
-      channelRefId: channelRefId.trim() || undefined,
-      roomRatePerNight: Number(roomRate),
-      taxRatePercent: Number(taxRate),
-      extraCharges: existingBooking?.extraCharges || [],
-      payments: advanceAmount > 0 ? [
-        {
-          id: `pay-${Date.now()}`,
-          amount: Number(advanceAmount),
-          mode: paymentMode,
-          reference: paymentRef.trim() || undefined,
-          date: new Date().toLocaleString()
-        }
-      ] : [],
-      status: existingBooking?.status || 'confirmed',
-      specialRequests,
-      createdAt: existingBooking?.createdAt || new Date().toLocaleString()
-    };
+    if (selectedRoomIds.length === 1) {
+      // Single Room Booking
+      const singleRoomId = selectedRoomIds[0];
+      const rm = rooms.find(r => r.id === singleRoomId);
+      const singleRate = roomRates[singleRoomId] !== undefined ? roomRates[singleRoomId] : (rm?.baseRate || 3000);
 
-    onSaveBooking(bookingPayload);
+      const bookingPayload: Booking = {
+        id: existingBooking?.id || `bk-${Date.now()}`,
+        bookingCode: code,
+        roomId: singleRoomId,
+        roomNumber: rm?.number,
+        groupId: existingBooking?.groupId || undefined,
+        groupTotalRooms: 1,
+        guest,
+        checkInDate,
+        checkOutDate,
+        nights,
+        adults,
+        children,
+        channel,
+        channelRefId: channelRefId.trim() || undefined,
+        roomRatePerNight: Number(singleRate),
+        taxRatePercent: Number(taxRate),
+        extraCharges: existingBooking?.extraCharges || [],
+        payments: advanceAmount > 0 ? [
+          {
+            id: `pay-${Date.now()}`,
+            amount: Number(advanceAmount),
+            mode: paymentMode,
+            reference: paymentRef.trim() || undefined,
+            date: new Date().toLocaleString()
+          }
+        ] : [],
+        status: existingBooking?.status || 'confirmed',
+        specialRequests,
+        createdAt: existingBooking?.createdAt || new Date().toLocaleString()
+      };
+
+      onSaveBooking(bookingPayload);
+    } else {
+      // Multi-Room Booking under 1 Guest Name
+      const groupId = existingBooking?.groupId || `grp-${Date.now()}`;
+      const multiPayloads: Booking[] = selectedRoomIds.map((rId, idx) => {
+        const rm = rooms.find(r => r.id === rId);
+        const rRate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+        const isPrimary = idx === 0;
+
+        return {
+          id: (existingBooking && idx === 0) ? existingBooking.id : `bk-${Date.now()}-${idx}`,
+          bookingCode: `${code}-${rm?.number || (idx + 1)}`,
+          roomId: rId,
+          roomNumber: rm?.number,
+          groupId,
+          groupTotalRooms: selectedRoomIds.length,
+          guest,
+          checkInDate,
+          checkOutDate,
+          nights,
+          adults: Math.max(1, Math.round(adults / selectedRoomIds.length)),
+          children: Math.round(children / selectedRoomIds.length),
+          channel,
+          channelRefId: channelRefId.trim() || undefined,
+          roomRatePerNight: Number(rRate),
+          taxRatePercent: Number(taxRate),
+          extraCharges: [],
+          payments: (isPrimary && advanceAmount > 0) ? [
+            {
+              id: `pay-${Date.now()}-${idx}`,
+              amount: Number(advanceAmount),
+              mode: paymentMode,
+              reference: paymentRef.trim() || undefined,
+              date: new Date().toLocaleString(),
+              notes: `Multi-Room Group Advance (Total ${selectedRoomIds.length} rooms for ${guest.fullName})`
+            }
+          ] : [],
+          status: existingBooking?.status || 'confirmed',
+          specialRequests: [
+            specialRequests.trim(),
+            `[Multi-Room Group: Room ${idx + 1} of ${selectedRoomIds.length} for ${guest.fullName}]`
+          ].filter(Boolean).join(' • '),
+          createdAt: existingBooking?.createdAt || new Date().toLocaleString(),
+          notes: `Multi-Room Group: ${selectedRoomIds.length} rooms booked under 1 guest (${guest.fullName})`
+        };
+      });
+
+      onSaveBooking(multiPayloads);
+    }
+
     onClose();
   };
 
@@ -722,6 +854,104 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   </div>
                 </div>
 
+                {/* Multi-Room Mode Selector Banner */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 bg-slate-900 text-white rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Building size={16} className="text-teal-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                        Room Allocation Mode:
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Ek hi guest ke naam par 2 ya zyada rooms add karne ke liye &ldquo;Multi-Room&rdquo; select karein
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBookingMode('single');
+                        if (selectedRoomIds.length > 1) {
+                          setSelectedRoomIds([selectedRoomIds[0]]);
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        bookingMode === 'single'
+                          ? 'bg-teal-500 text-slate-950 shadow-xs'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Single Room (1 Room)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingMode('multi')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                        bookingMode === 'multi'
+                          ? 'bg-teal-500 text-slate-950 shadow-xs'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <Sparkles size={13} className={bookingMode === 'multi' ? 'text-slate-950' : 'text-teal-400'} />
+                      <span>Multi-Room (1 Guest • Multi Rooms)</span>
+                      <span className="px-1.5 py-0.2 bg-teal-900/60 text-teal-200 rounded text-[10px] font-bold">
+                        {selectedRoomIds.length}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected Rooms Tray */}
+                {selectedRoomIds.length > 0 && (
+                  <div className="p-3 bg-teal-50/80 border border-teal-200 rounded-xl space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-teal-700" />
+                        <span className="text-xs font-bold text-teal-950">
+                          Selected Rooms for {fullName.trim() || 'Guest'} ({selectedRoomIds.length} {selectedRoomIds.length === 1 ? 'Room' : 'Rooms'} Selected):
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-teal-900">
+                        Combined Rate: ₹{totalRoomRatePerNight.toLocaleString()}/night ({nights} {nights === 1 ? 'Night' : 'Nights'} = ₹{subtotal.toLocaleString()})
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedRoomIds.map((rId) => {
+                        const rm = rooms.find(r => r.id === rId);
+                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+                        return (
+                          <div
+                            key={rId}
+                            className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-teal-300 shadow-2xs text-xs"
+                          >
+                            <span className="font-bold text-slate-900">
+                              Room {rm?.number || rId}
+                            </span>
+                            <span className="text-slate-500 text-[11px]">
+                              ({rm?.type})
+                            </span>
+                            <span className="font-semibold text-teal-800 font-mono">
+                              ₹{rate}/N
+                            </span>
+                            {selectedRoomIds.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRoomFromSelection(rId)}
+                                className="p-0.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                title="Remove this room from selection"
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Filter Chips */}
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
                   <span className="text-slate-500 font-semibold mr-1">Filter Rooms:</span>
@@ -793,7 +1023,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       const availItem = roomAvailabilityList.find(item => item.room.id === room.id);
                       const isAvail = availItem?.isAvailable ?? false;
                       const conflict = availItem?.conflict;
-                      const isSelected = roomId === room.id;
+                      const isSelected = selectedRoomIds.includes(room.id);
+                      const customRate = roomRates[room.id] !== undefined ? roomRates[room.id] : room.baseRate;
 
                       if (isAvail) {
                         return (
@@ -801,7 +1032,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                             key={room.id}
                             className={`rounded-xl border p-4 flex flex-col justify-between transition-all ${
                               isSelected
-                                ? 'border-2 border-teal-600 bg-teal-50/40 shadow-md ring-2 ring-teal-500/20'
+                                ? 'border-2 border-teal-600 bg-teal-50/50 shadow-md ring-2 ring-teal-500/20'
                                 : 'border-slate-200 bg-white hover:border-teal-400 hover:shadow-sm'
                             }`}
                           >
@@ -809,12 +1040,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                               {/* Top Bar: Room Name & Available Tag */}
                               <div className="flex items-center justify-between">
                                 <span className="font-bold text-base text-slate-900 flex items-center gap-1.5">
-                                  <Bed size={16} className="text-teal-700" />
+                                  <Bed size={16} className={isSelected ? 'text-teal-700' : 'text-slate-600'} />
                                   {room.name}
                                 </span>
-                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wide rounded-full border border-emerald-300">
-                                  🟢 Available
-                                </span>
+                                {isSelected ? (
+                                  <span className="px-2 py-0.5 bg-teal-700 text-white text-[10px] font-extrabold uppercase tracking-wide rounded-full shadow-2xs flex items-center gap-1">
+                                    <Check size={11} strokeWidth={3} />
+                                    <span>Selected</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wide rounded-full border border-emerald-300">
+                                    🟢 Available
+                                  </span>
+                                )}
                               </div>
 
                               {/* Details */}
@@ -829,11 +1067,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                               <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
                                 <div>
                                   <span className="text-xs text-slate-500">Tariff: </span>
-                                  <span className="text-sm font-bold text-slate-900">₹{room.baseRate}</span>
+                                  <span className="text-sm font-bold text-slate-900">₹{customRate}</span>
                                   <span className="text-[11px] text-slate-500">/night</span>
                                 </div>
                                 <div className="text-xs font-semibold text-teal-800">
-                                  Total: ₹{(room.baseRate * nights).toLocaleString()}
+                                  Total: ₹{(customRate * nights).toLocaleString()}
                                 </div>
                               </div>
                             </div>
@@ -841,20 +1079,49 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                             {/* Action Button: Block / Select Room */}
                             <div className="pt-3">
                               {isSelected ? (
-                                <div className="w-full py-2 px-3 bg-teal-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs">
-                                  <Check size={15} strokeWidth={2.5} />
-                                  <Lock size={13} />
-                                  <span>Selected &amp; Blocked</span>
-                                </div>
-                              ) : (
                                 <button
                                   type="button"
                                   onClick={() => handleSelectAndBlockRoom(room.id)}
-                                  className="w-full py-2 px-3 bg-white hover:bg-teal-700 text-teal-800 hover:text-white border border-teal-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="w-full py-2 px-3 bg-teal-800 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer group/btn"
+                                  title="Click to remove from selection"
                                 >
-                                  <span>Select &amp; Block Room</span>
-                                  <ArrowRight size={13} />
+                                  <Check size={15} strokeWidth={2.5} className="group-hover/btn:hidden" />
+                                  <X size={15} strokeWidth={2.5} className="hidden group-hover/btn:inline" />
+                                  <span className="group-hover/btn:hidden">
+                                    {selectedRoomIds.length > 1 ? `✓ Added (${selectedRoomIds.length} Rooms)` : '✓ Selected & Blocked'}
+                                  </span>
+                                  <span className="hidden group-hover/btn:inline">
+                                    Click to Remove
+                                  </span>
                                 </button>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectAndBlockRoom(room.id)}
+                                    className="flex-1 py-2 px-3 bg-white hover:bg-teal-700 text-teal-800 hover:text-white border border-teal-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <span>{bookingMode === 'multi' ? '+ Add to Multi-Room' : 'Select Room'}</span>
+                                    <ArrowRight size={13} />
+                                  </button>
+                                  {bookingMode === 'single' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setBookingMode('multi');
+                                        if (!selectedRoomIds.includes(room.id)) {
+                                          setSelectedRoomIds(prev => [...prev, room.id]);
+                                        }
+                                        setSearchNotification(`Switched to Multi-Room mode! Room ${room.name} added.`);
+                                        setTimeout(() => setSearchNotification(''), 3000);
+                                      }}
+                                      className="py-2 px-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
+                                      title="Add this room to multi-room booking"
+                                    >
+                                      + Multi
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -924,12 +1191,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-rose-950">
-                        Room Conflict: {selectedRoom?.name || 'Selected Room'} is Already Blocked!
+                        Room Conflict Detected in Selected Rooms!
                       </h4>
                       <p className="text-xs text-rose-800 mt-0.5">
-                        Occupied by <span className="font-bold">{currentRoomConflict?.guest.fullName}</span> from{' '}
+                        One or more selected rooms are already occupied from{' '}
                         <span className="font-semibold">{currentRoomConflict?.checkInDate}</span> to{' '}
-                        <span className="font-semibold">{currentRoomConflict?.checkOutDate}</span>. You cannot confirm this booking until an available room is selected.
+                        <span className="font-semibold">{currentRoomConflict?.checkOutDate}</span>. You cannot confirm this booking until conflicting rooms are deselected.
                       </p>
                     </div>
                   </div>
@@ -954,14 +1221,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                        <span>{selectedRoom?.name} ({selectedRoom?.type}) Blocked for Reservation</span>
+                        <span>
+                          {selectedRoomIds.length > 1 
+                            ? `Multi-Room (${selectedRoomIds.length} Rooms) Blocked for ${fullName || 'Guest'}` 
+                            : `${selectedRoom?.name} (${selectedRoom?.type}) Blocked for Reservation`
+                          }
+                        </span>
                         <span className="text-[10px] bg-emerald-200 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
                           Ready
                         </span>
                       </h4>
                       <p className="text-xs text-emerald-800 mt-0.5">
-                        Will be blocked from <span className="font-bold">{checkInDate}</span> to{' '}
-                        <span className="font-bold">{checkOutDate}</span> ({nights} nights) at ₹{roomRate}/night (Total ₹{(roomRate * nights).toLocaleString()}).
+                        {selectedRoomIds.length > 1
+                          ? `Rooms: ${selectedRoomIds.map(id => rooms.find(r => r.id === id)?.name || id).join(', ')} • `
+                          : ''
+                        }
+                        Stay from <span className="font-bold">{checkInDate}</span> to{' '}
+                        <span className="font-bold">{checkOutDate}</span> ({nights} nights) • Combined tariff: ₹{totalRoomRatePerNight.toLocaleString()}/night (Total ₹{(totalRoomRatePerNight * nights).toLocaleString()}).
                       </p>
                     </div>
                   </div>
@@ -978,71 +1254,117 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               )}
 
               {/* STEP 4: ROOM OCCUPANCY & TARIFF FINE-TUNING */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                {/* Fallback Dropdown */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Room Allocation
-                  </label>
-                  <select
-                    value={roomId}
-                    onChange={(e) => handleSelectAndBlockRoom(e.target.value)}
-                    className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
-                  >
-                    {rooms.map(rm => {
-                      const st = checkRoomAvailability(rm.id, checkInDate, checkOutDate);
-                      return (
-                        <option
-                          key={rm.id}
-                          value={rm.id}
-                          disabled={!st.isAvailable && rm.id !== roomId}
-                        >
-                          {st.isAvailable ? '🟢' : '🔴 [BLOCKED]'} {rm.name} — {rm.type} (₹{rm.baseRate})
-                        </option>
-                      );
-                    })}
-                  </select>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Room Occupancy &amp; Per-Night Tariff Setup
+                  </span>
+                  <span className="text-xs font-bold text-teal-800">
+                    {selectedRoomIds.length > 1 ? `Multi-Room Booking (${selectedRoomIds.length} Rooms)` : 'Single Room Stay'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Adults
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={adults}
-                    onChange={(e) => setAdults(Number(e.target.value))}
-                    className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  {/* Room Allocation Display / Dropdown */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {selectedRoomIds.length > 1 ? `Selected Rooms (${selectedRoomIds.length})` : 'Room Allocation'}
+                    </label>
+                    {selectedRoomIds.length > 1 ? (
+                      <div className="text-xs font-bold bg-white border border-teal-300 text-teal-900 rounded-lg p-2 truncate" title={selectedRoomIds.map(id => rooms.find(r => r.id === id)?.name || id).join(', ')}>
+                        {selectedRoomIds.map(id => rooms.find(r => r.id === id)?.number || id).join(', ')}
+                      </div>
+                    ) : (
+                      <select
+                        value={roomId}
+                        onChange={(e) => handleSelectAndBlockRoom(e.target.value)}
+                        className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                      >
+                        {rooms.map(rm => {
+                          const st = checkRoomAvailability(rm.id, checkInDate, checkOutDate);
+                          return (
+                            <option
+                              key={rm.id}
+                              value={rm.id}
+                              disabled={!st.isAvailable && rm.id !== roomId}
+                            >
+                              {st.isAvailable ? '🟢' : '🔴 [BLOCKED]'} {rm.name} — {rm.type} (₹{rm.baseRate})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Adults
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={adults}
+                      onChange={(e) => setAdults(Number(e.target.value))}
+                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Children
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={children}
+                      onChange={(e) => setChildren(Number(e.target.value))}
+                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Total Tariff / Night (₹)
+                    </label>
+                    <div className="w-full text-sm font-bold bg-teal-50 border border-teal-300 rounded-lg p-2 text-teal-950 flex items-center justify-between">
+                      <span>₹{totalRoomRatePerNight.toLocaleString()}</span>
+                      <span className="text-[10px] text-teal-700 font-medium">({selectedRoomIds.length} Rms)</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Children
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={6}
-                    value={children}
-                    onChange={(e) => setChildren(Number(e.target.value))}
-                    className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Tariff / Night (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={roomRate}
-                    onChange={(e) => setRoomRate(Number(e.target.value))}
-                    className="w-full text-sm font-semibold bg-white border border-slate-300 rounded-lg p-2 text-teal-900"
-                  />
-                </div>
+                {/* If multi-room, show individual room rate adjustments */}
+                {selectedRoomIds.length > 1 && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase">
+                      Individual Room Rates per Night:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {selectedRoomIds.map((rId) => {
+                        const rm = rooms.find(r => r.id === rId);
+                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+                        return (
+                          <div key={rId} className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-1">
+                            <span className="text-xs font-semibold text-slate-800 truncate">
+                              Room {rm?.number || rId}:
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-xs text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                value={rate}
+                                onChange={(e) => handleUpdateSpecificRoomRate(rId, Number(e.target.value))}
+                                className="w-20 text-xs font-bold p-1 border border-slate-300 rounded text-right"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* STEP 5: BOOKING SOURCE & OTA CHANNELS */}
@@ -1598,10 +1920,32 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
 
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Room Tariff ({nights} nights × ₹{roomRate}):</span>
-                    <span className="font-semibold text-slate-800">₹{subtotal.toLocaleString()}</span>
-                  </div>
+                  {selectedRoomIds.length > 1 ? (
+                    <div className="space-y-1.5 pb-2 border-b border-slate-200">
+                      <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Rooms Tariff Breakdown ({selectedRoomIds.length} Rooms):
+                      </div>
+                      {selectedRoomIds.map(rId => {
+                        const rm = rooms.find(r => r.id === rId);
+                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+                        return (
+                          <div key={rId} className="flex justify-between text-xs text-slate-600">
+                            <span>Room {rm?.number || rId} ({rm?.type}) — {nights}N × ₹{rate}:</span>
+                            <span className="font-semibold text-slate-800">₹{(nights * rate).toLocaleString()}</span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex justify-between text-slate-800 font-bold text-xs pt-1">
+                        <span>Combined Accommodation ({selectedRoomIds.length} Rooms):</span>
+                        <span>₹{subtotal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Room Tariff ({nights} nights × ₹{roomRate}):</span>
+                      <span className="font-semibold text-slate-800">₹{subtotal.toLocaleString()}</span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center text-slate-600">
                     <div className="flex items-center gap-2">

@@ -885,6 +885,15 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                                   <span className="text-[9px] font-extrabold uppercase px-1 py-0.2 bg-black/25 text-white rounded">
                                     {styleInfo.label}
                                   </span>
+
+                                  {booking.groupTotalRooms && booking.groupTotalRooms > 1 && (
+                                    <span 
+                                      className="text-[8px] font-bold px-1 py-0.2 bg-slate-900/60 text-amber-200 rounded border border-amber-400/40"
+                                      title={`Multi-Room Booking (${booking.groupTotalRooms} Rooms under ${booking.guest.fullName})`}
+                                    >
+                                      {booking.groupTotalRooms} Rms
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
