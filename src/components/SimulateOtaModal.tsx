@@ -80,7 +80,7 @@ export const SimulateOtaModal: React.FC<SimulateOtaModalProps> = ({
     const bookingCode = `${currentCh.prefix}-${randomNum}`;
     const nights = Math.max(1, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)));
     const totalTariff = nights * ratePerNight;
-    const taxes = Math.round(totalTariff * 0.12);
+    const taxes = Math.round(totalTariff * 0.05);
     const grandTotal = totalTariff + taxes;
 
     const newBooking: Booking = {
@@ -114,7 +114,7 @@ export const SimulateOtaModal: React.FC<SimulateOtaModalProps> = ({
       channel,
       channelRefId: `${currentCh.prefix}-VCC-${Date.now().toString().slice(-6)}`,
       roomRatePerNight: ratePerNight,
-      taxRatePercent: 12,
+      taxRatePercent: 5,
       extraCharges: [],
       payments: [
         {

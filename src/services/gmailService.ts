@@ -149,10 +149,13 @@ export const generateBookingConfirmationEmail = (
   room?: Room
 ): { subject: string; bodyHtml: string; bodyText: string } => {
   const roomName = room ? `${room.name} (${room.type})` : 'Deluxe Room';
-  const totalAmount = (booking.nights * booking.roomRatePerNight) + 
-    booking.extraCharges.reduce((a, b) => a + b.amount, 0);
-  const taxes = Math.round((totalAmount * booking.taxRatePercent) / 100);
-  const netAmount = totalAmount + taxes;
+  const roomTariff = booking.nights * booking.roomRatePerNight;
+  const discountTotal = booking.discountAmount || 0;
+  const taxableRoomTariff = Math.max(0, roomTariff - discountTotal);
+  const extraChargesTotal = booking.extraCharges.reduce((a, b) => a + b.amount, 0);
+  const totalTaxable = taxableRoomTariff + extraChargesTotal;
+  const taxes = Math.round((totalTaxable * (booking.taxRatePercent ?? 5)) / 100);
+  const netAmount = totalTaxable + taxes;
   const paidAmount = booking.payments.reduce((a, b) => a + b.amount, 0);
   const balance = Math.max(0, netAmount - paidAmount);
 

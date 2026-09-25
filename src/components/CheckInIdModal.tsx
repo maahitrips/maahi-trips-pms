@@ -61,9 +61,11 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
   // Quick Payment collection during check-in
   const totalPaid = booking.payments.reduce((sum, p) => sum + p.amount, 0);
   const roomTotal = booking.roomRatePerNight * booking.nights;
-  const tax = (roomTotal * booking.taxRatePercent) / 100;
+  const discountTotal = booking.discountAmount || 0;
+  const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
+  const tax = Math.round((taxableRoomTotal * (booking.taxRatePercent ?? 5)) / 100);
   const extraTotal = booking.extraCharges.reduce((sum, e) => sum + e.amount, 0);
-  const grandTotal = roomTotal + tax + extraTotal;
+  const grandTotal = taxableRoomTotal + tax + extraTotal;
   const balanceDue = Math.max(0, grandTotal - totalPaid);
 
   const [collectPaymentNow, setCollectPaymentNow] = useState<boolean>(balanceDue > 0);

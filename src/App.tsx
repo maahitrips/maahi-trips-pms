@@ -63,27 +63,33 @@ const STORAGE_KEY_DELETION_REQUESTS = 'tripmakerz_deletion_requests_v2';
 // Helper to get bundle storage key
 const getHotelBundleKey = (hotelId: string) => `tripmakerz_pms_bundle_${hotelId}`;
 
-// Helper to migrate any old 17-Sept seed bookings forward by +8 days
+// Helper to migrate any old 17-Sept seed bookings forward by +8 days and ensure 5% GST
 const migrateOldDates = (bundle: HotelDataBundle): HotelDataBundle => {
   if (!bundle || !bundle.bookings) return bundle;
-  const hasOld17Sept = bundle.bookings.some(b => b.checkInDate === '2026-09-17');
-  if (hasOld17Sept) {
-    bundle.bookings = bundle.bookings.map(b => {
-      if (b.checkInDate && b.checkInDate.startsWith('2026-09-1')) {
-        const partsIn = b.checkInDate.split('-').map(Number);
-        const partsOut = b.checkOutDate.split('-').map(Number);
-        const dIn = new Date(partsIn[0], partsIn[1] - 1, partsIn[2]);
-        const dOut = new Date(partsOut[0], partsOut[1] - 1, partsOut[2]);
-        dIn.setDate(dIn.getDate() + 8);
-        dOut.setDate(dOut.getDate() + 8);
-        return {
-          ...b,
-          checkInDate: getTodayDateStr(dIn),
-          checkOutDate: getTodayDateStr(dOut)
-        };
-      }
-      return b;
-    });
+  let hasChanges = false;
+  
+  bundle.bookings = bundle.bookings.map(b => {
+    let updated = { ...b };
+    // Enforce 5% GST standard across all bookings
+    if (updated.taxRatePercent !== 5) {
+      updated.taxRatePercent = 5;
+      hasChanges = true;
+    }
+    if (updated.checkInDate && updated.checkInDate.startsWith('2026-09-1')) {
+      const partsIn = updated.checkInDate.split('-').map(Number);
+      const partsOut = updated.checkOutDate.split('-').map(Number);
+      const dIn = new Date(partsIn[0], partsIn[1] - 1, partsIn[2]);
+      const dOut = new Date(partsOut[0], partsOut[1] - 1, partsOut[2]);
+      dIn.setDate(dIn.getDate() + 8);
+      dOut.setDate(dOut.getDate() + 8);
+      updated.checkInDate = getTodayDateStr(dIn);
+      updated.checkOutDate = getTodayDateStr(dOut);
+      hasChanges = true;
+    }
+    return updated;
+  });
+
+  if (hasChanges) {
     try {
       localStorage.setItem(getHotelBundleKey(bundle.hotelId), JSON.stringify(bundle));
     } catch {

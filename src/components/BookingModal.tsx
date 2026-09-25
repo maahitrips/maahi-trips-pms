@@ -33,7 +33,10 @@ import {
   Bed,
   ArrowRight,
   Clock,
-  Building
+  Building,
+  Tag,
+  Percent,
+  BadgePercent
 } from 'lucide-react';
 
 interface BookingModalProps {
@@ -304,8 +307,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
-  // Billing
-  const [taxRate, setTaxRate] = useState<number>(existingBooking?.taxRatePercent || 12);
+  // Discount Option & Concession
+  const [discountType, setDiscountType] = useState<'flat' | 'percentage'>(
+    existingBooking?.discountType || 'flat'
+  );
+  const [discountValue, setDiscountValue] = useState<number>(
+    existingBooking?.discountValue !== undefined
+      ? existingBooking.discountValue
+      : (existingBooking?.discountAmount || 0)
+  );
+  const [discountReason, setDiscountReason] = useState<string>(
+    existingBooking?.discountReason || ''
+  );
+
+  // Billing (GST 5% Only)
+  const [taxRate, setTaxRate] = useState<number>(existingBooking?.taxRatePercent ?? 5);
   const [advanceAmount, setAdvanceAmount] = useState<number>(
     existingBooking?.payments.reduce((sum, p) => sum + p.amount, 0) || 0
   );
@@ -321,8 +337,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
   const nights = computeNights();
   const subtotal = nights * roomRate;
-  const taxes = Math.round((subtotal * taxRate) / 100);
-  const totalAmount = subtotal + taxes;
+
+  // Calculate discount deduction
+  const discountAmount = useMemo(() => {
+    if (!discountValue || discountValue <= 0) return 0;
+    if (discountType === 'percentage') {
+      const pct = Math.min(100, Math.max(0, discountValue));
+      return Math.round((subtotal * pct) / 100);
+    }
+    return Math.min(subtotal, Math.max(0, discountValue));
+  }, [discountType, discountValue, subtotal]);
+
+  // Taxable subtotal after discount deduction
+  const taxableSubtotal = Math.max(0, subtotal - discountAmount);
+
+  // GST 5% Only (2.5% CGST + 2.5% SGST)
+  const taxes = Math.round((taxableSubtotal * taxRate) / 100);
+  const totalAmount = taxableSubtotal + taxes;
   const balanceDue = Math.max(0, totalAmount - advanceAmount);
 
   // Update room rate when room changes
@@ -563,7 +594,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         channel,
         channelRefId: channelRefId.trim() || undefined,
         roomRatePerNight: Number(singleRate),
-        taxRatePercent: Number(taxRate),
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        discountType: discountAmount > 0 ? discountType : undefined,
+        discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
+        discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
+        taxRatePercent: Number(taxRate), // 5% GST Only
         extraCharges: existingBooking?.extraCharges || [],
         payments: advanceAmount > 0 ? [
           {
@@ -583,10 +618,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     } else {
       // Multi-Room Booking under 1 Guest Name
       const groupId = existingBooking?.groupId || `grp-${Date.now()}`;
+      const numRooms = selectedRoomIds.length;
+      const baseRoomDiscount = numRooms > 0 ? Math.floor(discountAmount / numRooms) : 0;
+      const remainderDiscount = numRooms > 0 ? (discountAmount % numRooms) : 0;
+
       const multiPayloads: Booking[] = selectedRoomIds.map((rId, idx) => {
         const rm = rooms.find(r => r.id === rId);
         const rRate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
         const isPrimary = idx === 0;
+        const roomDiscount = idx === 0 ? baseRoomDiscount + remainderDiscount : baseRoomDiscount;
 
         return {
           id: (existingBooking && idx === 0) ? existingBooking.id : `bk-${Date.now()}-${idx}`,
@@ -604,7 +644,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           channel,
           channelRefId: channelRefId.trim() || undefined,
           roomRatePerNight: Number(rRate),
-          taxRatePercent: Number(taxRate),
+          discountAmount: roomDiscount > 0 ? roomDiscount : undefined,
+          discountType: discountAmount > 0 ? discountType : undefined,
+          discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
+          discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
+          taxRatePercent: Number(taxRate), // 5% GST Only
           extraCharges: [],
           payments: (isPrimary && advanceAmount > 0) ? [
             {
@@ -1911,12 +1955,153 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: BILLING & ADVANCE PAYMENTS */}
+          {/* TAB 3: BILLING, DISCOUNT & ADVANCE PAYMENTS */}
           {activeTab === 'billing' && (
             <div className="space-y-5 animate-in fade-in-50 duration-150">
+              
+              {/* Special Discount Option Card */}
+              <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-emerald-200/70 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                      <Tag size={15} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 text-sm block">Special Discount / Rate Concession</span>
+                      <span className="text-[11px] text-emerald-800">Apply promotional offer, walk-in discount, or corporate concession</span>
+                    </div>
+                  </div>
+                  {discountAmount > 0 ? (
+                    <span className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-full shadow-xs flex items-center gap-1">
+                      <Check size={12} />
+                      Save ₹{discountAmount.toLocaleString()}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 font-medium">No discount applied</span>
+                  )}
+                </div>
+
+                {/* Discount Type Toggle & Value Input */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Discount Mode</label>
+                    <div className="grid grid-cols-2 p-1 bg-white border border-slate-300 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('flat')}
+                        className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                          discountType === 'flat'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        ₹ Flat (Rupees)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('percentage')}
+                        className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                          discountType === 'percentage'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        % Percentage
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {discountType === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max={discountType === 'percentage' ? 100 : subtotal}
+                        value={discountValue || ''}
+                        onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                        placeholder={discountType === 'percentage' ? 'e.g. 10 for 10%' : 'e.g. 500'}
+                        className="w-full text-sm font-bold bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 pl-8 font-mono"
+                      />
+                      <span className="absolute left-2.5 top-2.5 text-slate-400 font-bold text-sm">
+                        {discountType === 'percentage' ? '%' : '₹'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Discount Reason / Note</label>
+                    <input
+                      type="text"
+                      value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      placeholder="e.g. Direct Walk-in / Corporate"
+                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="pt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-[11px] font-bold text-slate-500 mr-1">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountValue(0); setDiscountReason(''); }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                      discountAmount === 0 
+                        ? 'bg-slate-200 border-slate-300 text-slate-800 font-bold' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    No Discount
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('percentage'); setDiscountValue(5); if (!discountReason) setDiscountReason('5% Direct Booking Discount'); }}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
+                  >
+                    5% Off
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('percentage'); setDiscountValue(10); if (!discountReason) setDiscountReason('10% Privilege Discount'); }}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
+                  >
+                    10% Off
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('flat'); setDiscountValue(200); if (!discountReason) setDiscountReason('₹200 Walk-in Discount'); }}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
+                  >
+                    ₹200 Off
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('flat'); setDiscountValue(500); if (!discountReason) setDiscountReason('₹500 Special Concession'); }}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
+                  >
+                    ₹500 Off
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('flat'); setDiscountValue(1000); if (!discountReason) setDiscountReason('₹1,000 Corporate Deal'); }}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
+                  >
+                    ₹1,000 Off
+                  </button>
+                </div>
+              </div>
+
+              {/* Reservation Tariff Calculation */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-                <div className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
-                  Reservation Tariff Calculation
+                <div className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 flex items-center justify-between">
+                  <span>Reservation Tariff Calculation</span>
+                  <span className="text-xs font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    GST Fixed at 5% Only
+                  </span>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -1936,7 +2121,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                         );
                       })}
                       <div className="flex justify-between text-slate-800 font-bold text-xs pt-1">
-                        <span>Combined Accommodation ({selectedRoomIds.length} Rooms):</span>
+                        <span>Gross Combined Accommodation ({selectedRoomIds.length} Rooms):</span>
                         <span>₹{subtotal.toLocaleString()}</span>
                       </div>
                     </div>
@@ -1947,20 +2132,34 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span>GST Tax:</span>
-                      <select
-                        value={taxRate}
-                        onChange={(e) => setTaxRate(Number(e.target.value))}
-                        className="text-xs border border-slate-300 rounded px-2 py-0.5 bg-white"
-                      >
-                        <option value={0}>0% (Exempt)</option>
-                        <option value={12}>12% GST</option>
-                        <option value={18}>18% GST</option>
-                      </select>
+                  {/* Discount row if applied */}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between items-center text-emerald-800 font-semibold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Tag size={13} className="text-emerald-700" />
+                        <span>Discount Applied ({discountType === 'percentage' ? `${discountValue}%` : `₹${discountValue}`}{discountReason ? ` • ${discountReason}` : ''}):</span>
+                      </div>
+                      <span className="font-bold font-mono">- ₹{discountAmount.toLocaleString()}</span>
                     </div>
-                    <span className="font-semibold text-slate-800">₹{taxes.toLocaleString()}</span>
+                  )}
+
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-slate-700 font-medium text-xs">
+                      <span>Net Taxable Tariff:</span>
+                      <span className="font-semibold text-slate-900">₹{taxableSubtotal.toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  {/* GST 5% Only */}
+                  <div className="flex justify-between items-center text-slate-700 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-800">GST (5% Only):</span>
+                      <div className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-900 border border-teal-200 px-2.5 py-0.5 rounded text-xs font-semibold">
+                        <span>5% GST</span>
+                        <span className="text-[10px] text-teal-700 font-normal">(2.5% CGST + 2.5% SGST)</span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-slate-900 font-mono">₹{taxes.toLocaleString()}</span>
                   </div>
 
                   <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-bold text-slate-900">

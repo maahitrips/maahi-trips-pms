@@ -46,15 +46,22 @@ export const formatBookingConfirmationWhatsAppMessage = (
     : options?.roomType || 'Standard / Executive Room';
 
   const roomTotal = booking.nights * booking.roomRatePerNight;
+  const discountTotal = booking.discountAmount || 0;
+  const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = (booking.extraCharges || []).reduce((acc, c) => acc + c.amount, 0);
-  const subtotal = roomTotal + extraTotal;
-  const taxes = Math.round((subtotal * (booking.taxRatePercent || 12)) / 100);
+  const subtotal = taxableRoomTotal + extraTotal;
+  const gstRate = booking.taxRatePercent ?? 5;
+  const taxes = Math.round((subtotal * gstRate) / 100);
   const grandTotal = subtotal + taxes;
   const totalPaid = (booking.payments || []).reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
 
   const checkInTime = options?.hotelProfile?.checkInTime || '12:00 PM';
   const checkOutTime = options?.hotelProfile?.checkOutTime || '11:00 AM';
+
+  const discountText = discountTotal > 0
+    ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || (booking.discountType === 'percentage' ? `${booking.discountValue}% Off` : 'Special Concession')})\n`
+    : '';
 
   return (
 `🏨 *${hotelName.toUpperCase()} - OFFICIAL BOOKING CONFIRMATION*
@@ -70,6 +77,8 @@ Greetings from *${hotelName}*! Your reservation has been successfully confirmed.
 👥 *Guests:* ${booking.adults} Adults${booking.children ? `, ${booking.children} Children` : ''}
 
 💰 *PAYMENT & TARIFF SUMMARY:*
+• Accommodation Tariff: ₹${roomTotal.toLocaleString()}
+${discountText}• GST (5% Only): ₹${taxes.toLocaleString()}
 • Total Booking Amount: ₹${grandTotal.toLocaleString()}
 • Advance Received: ₹${totalPaid.toLocaleString()}
 • Balance at Check-In: ₹${balanceDue.toLocaleString()} ${balanceDue === 0 ? '✅ (Fully Paid)' : ''}
@@ -101,12 +110,19 @@ export const formatInvoiceWhatsAppMessage = (
     : options?.roomType || 'Standard Room';
 
   const roomTotal = booking.nights * booking.roomRatePerNight;
+  const discountTotal = booking.discountAmount || 0;
+  const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = (booking.extraCharges || []).reduce((acc, c) => acc + c.amount, 0);
-  const subtotal = roomTotal + extraTotal;
-  const taxes = Math.round((subtotal * (booking.taxRatePercent || 12)) / 100);
+  const subtotal = taxableRoomTotal + extraTotal;
+  const gstRate = booking.taxRatePercent ?? 5;
+  const taxes = Math.round((subtotal * gstRate) / 100);
   const grandTotal = subtotal + taxes;
   const totalPaid = (booking.payments || []).reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
+
+  const discountText = discountTotal > 0
+    ? `• Less Discount: -₹${discountTotal.toLocaleString()} (${booking.discountReason || (booking.discountType === 'percentage' ? `${booking.discountValue}% Off` : 'Special Concession')})\n`
+    : '';
 
   const extraChargesText = (booking.extraCharges || []).length > 0
     ? booking.extraCharges.map(c => `• ${c.description || 'Addon Charge'}: ₹${c.amount.toLocaleString()}`).join('\n')
@@ -125,7 +141,7 @@ Phone: ${hotelPhone}${gstin}
 
 💳 *CHARGES BREAKDOWN:*
 • Room Tariff (${booking.nights}N @ ₹${booking.roomRatePerNight.toLocaleString()}): ₹${roomTotal.toLocaleString()}
-${extraChargesText ? `${extraChargesText}\n` : ''}• GST (${booking.taxRatePercent || 12}%): ₹${taxes.toLocaleString()}
+${discountText}${extraChargesText ? `${extraChargesText}\n` : ''}• GST (5% Only - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}
 ------------------------------------------------
 *Grand Total:* ₹${grandTotal.toLocaleString()}
 *Total Amount Paid:* ₹${totalPaid.toLocaleString()}

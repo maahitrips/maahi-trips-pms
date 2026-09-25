@@ -38,6 +38,7 @@ import {
   Clock,
   Sparkles,
   DollarSign,
+  Tag,
   Send,
   MessageCircle,
   ArrowRightLeft,
@@ -156,9 +157,11 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
 
   // Financial calculations
   const roomTotal = booking.nights * booking.roomRatePerNight;
+  const discountTotal = booking.discountAmount || 0;
+  const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
   const extraTotal = booking.extraCharges.reduce((acc, c) => acc + c.amount, 0);
-  const subtotal = roomTotal + extraTotal;
-  const taxes = Math.round((subtotal * booking.taxRatePercent) / 100);
+  const subtotal = taxableRoomTotal + extraTotal;
+  const taxes = Math.round((subtotal * (booking.taxRatePercent ?? 5)) / 100);
   const grandTotal = subtotal + taxes;
   const totalPaid = booking.payments.reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
@@ -974,13 +977,21 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className={`grid grid-cols-2 ${discountTotal > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3 text-xs`}>
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Tariff ({booking.nights}N @ ₹{booking.roomRatePerNight})</span>
                     <span className="font-bold text-sm text-slate-900 font-mono">₹{roomTotal}</span>
                   </div>
+                  {discountTotal > 0 && (
+                    <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
+                      <span className="text-emerald-700 block text-[11px] font-semibold">
+                        Discount ({booking.discountReason || (booking.discountType === 'percentage' ? `${booking.discountValue}%` : 'Flat')})
+                      </span>
+                      <span className="font-bold text-sm text-emerald-800 font-mono">-₹{discountTotal}</span>
+                    </div>
+                  )}
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                    <span className="text-slate-500 block text-[11px]">Taxes ({booking.taxRatePercent}% GST)</span>
+                    <span className="text-slate-500 block text-[11px]">Taxes (5% GST Only)</span>
                     <span className="font-bold text-sm text-slate-900 font-mono">₹{taxes}</span>
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
@@ -1490,6 +1501,44 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     <Plus size={14} />
                     <span>Record Payment</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Folio Billing Summary Bar with Discount & 5% GST */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Tag size={13} className="text-teal-700" />
+                    Guest Folio Billing Summary
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(booking)}
+                    className="text-[11px] font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <Edit3 size={11} />
+                    <span>Edit Tariff / Discount</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-slate-600">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Room Tariff:</span>
+                    <span className="font-semibold text-slate-900 font-mono">₹{roomTotal.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Discount Concession:</span>
+                    <span className={`font-semibold font-mono ${discountTotal > 0 ? 'text-emerald-700 font-bold' : 'text-slate-400'}`}>
+                      {discountTotal > 0 ? `-₹${discountTotal.toLocaleString()}` : '₹0 (None)'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">GST (5% Only):</span>
+                    <span className="font-semibold text-slate-900 font-mono">₹{taxes.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Folio Net Total:</span>
+                    <span className="font-bold text-slate-950 font-mono">₹{grandTotal.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 

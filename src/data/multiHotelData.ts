@@ -226,7 +226,7 @@ const saiResidencyBookings: Booking[] = [
     children: 1,
     channel: 'walkin',
     roomRatePerNight: 3200,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [
       { id: 'ext-hsr-1', description: 'Ganga Aarti Special Boat Escort', amount: 800, date: '2026-09-25' }
     ],
@@ -268,7 +268,7 @@ const saiResidencyBookings: Booking[] = [
     channel: 'makemytrip',
     channelRefId: 'MMT-KASHI-9921',
     roomRatePerNight: 4800,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: 'pm-hsr-2', amount: 16128, mode: 'ota_virtual_card', reference: 'MMT-VC-8831', date: '2026-09-25' }
@@ -337,7 +337,7 @@ const grandHeritageBookings: Booking[] = [
     channel: 'booking_com',
     channelRefId: 'BC-99210-UK',
     roomRatePerNight: 12500,
-    taxRatePercent: 18,
+    taxRatePercent: 5,
     extraCharges: [
       { id: 'ext-tgh-1', description: 'Palace Folk Dance & Candlelight Dinner', amount: 3500, date: '2026-09-25' }
     ],

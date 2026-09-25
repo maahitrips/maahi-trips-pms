@@ -132,7 +132,11 @@ export interface Booking {
   channel: BookingChannel;
   channelRefId?: string;
   roomRatePerNight: number;
-  taxRatePercent: number; // e.g. 12 or 18% GST
+  discountAmount?: number; // Total ₹ discount given on stay
+  discountType?: 'flat' | 'percentage';
+  discountValue?: number; // Raw entered value (e.g. 500 or 10%)
+  discountReason?: string; // e.g. "Corporate Rate", "Direct Walk-in"
+  taxRatePercent: number; // e.g. 5% GST (2.5% CGST + 2.5% SGST)
   extraCharges: ExtraCharge[];
   payments: PaymentItem[];
   status: BookingStatus;

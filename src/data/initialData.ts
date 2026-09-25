@@ -217,7 +217,11 @@ export const initialBookings: Booking[] = [
     channel: "walkin",
     channelRefId: "WALK-20260924-01",
     roomRatePerNight: 2800,
-    taxRatePercent: 12,
+    discountAmount: 200,
+    discountType: 'flat',
+    discountValue: 200,
+    discountReason: 'Front Desk Walk-in Concession',
+    taxRatePercent: 5,
     extraCharges: [
       { id: "ext-1", description: "Buffet Dinner for 2", amount: 900, date: "2026-09-24" }
     ],
@@ -264,7 +268,7 @@ export const initialBookings: Booking[] = [
     channel: "makemytrip",
     channelRefId: "MMT-CONF-9840291",
     roomRatePerNight: 2600,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: "pay-2", amount: 2912, mode: "ota_virtual_card", reference: "MMT-VCC-9021", date: "2026-09-24 04:00 PM" }
@@ -308,7 +312,7 @@ export const initialBookings: Booking[] = [
     channel: "makemytrip",
     channelRefId: "MMT-CONF-449102",
     roomRatePerNight: 4200,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [
       { id: "ext-3", description: "Terrace Candlelight Setup", amount: 1500, date: "2026-09-25" }
     ],
@@ -351,7 +355,7 @@ export const initialBookings: Booking[] = [
     channel: "booking_com",
     channelRefId: "BDC-RES-881902",
     roomRatePerNight: 4500,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: "pay-4", amount: 5000, mode: "card", reference: "PAYU-99214", date: "2026-09-24 06:30 PM" }
@@ -393,7 +397,7 @@ export const initialBookings: Booking[] = [
     channel: "agoda",
     channelRefId: "AGODA-INT-7721",
     roomRatePerNight: 5200,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [
       { id: "ext-5", description: "Airport Pickup Sedan", amount: 1200, date: "2026-09-28" }
     ],
@@ -436,7 +440,7 @@ export const initialBookings: Booking[] = [
     channel: "airbnb",
     channelRefId: "HM589X29A",
     roomRatePerNight: 6800,
-    taxRatePercent: 18,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: "pay-6", amount: 24072, mode: "ota_virtual_card", reference: "AIRBNB-PAYOUT-9912", date: "2026-09-20 11:05 AM" }
@@ -478,7 +482,7 @@ export const initialBookings: Booking[] = [
     channel: "cleartrip",
     channelRefId: "CTR-RES-99381",
     roomRatePerNight: 3200,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: "pay-7", amount: 10752, mode: "ota_virtual_card", reference: "CTR-VCC-5821", date: "2026-09-24 03:25 PM" }
@@ -520,7 +524,7 @@ export const initialBookings: Booking[] = [
     channel: "oyo",
     channelRefId: "OYO-IN-44210",
     roomRatePerNight: 3100,
-    taxRatePercent: 12,
+    taxRatePercent: 5,
     extraCharges: [],
     payments: [
       { id: "pay-8", amount: 6944, mode: "ota_virtual_card", reference: "OYO-VCC-9420", date: "2026-09-22 05:45 PM" }
