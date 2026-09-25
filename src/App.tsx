@@ -1580,6 +1580,7 @@ export default function App() {
           onClose={() => setInvoiceModal({ isOpen: false, booking: null, mode: 'invoice' })}
           booking={invoiceModal.booking}
           rooms={rooms}
+          bookings={bookings}
           hotelProfile={hotelProfile}
           mode={invoiceModal.mode}
         />

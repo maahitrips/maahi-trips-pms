@@ -646,7 +646,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                         className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 cursor-pointer font-medium"
                       >
                         <Send size={14} className="text-emerald-600 shrink-0" />
-                        <span>Send Invoice to Guest</span>
+                        <span>Send Invoice {totalGroupRoomsCount > 1 ? `(${totalGroupRoomsCount} Rooms)` : 'to Guest'}</span>
                       </button>
 
                       <button
@@ -657,7 +657,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                         className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
                       >
                         <Printer size={14} className="text-slate-500 shrink-0" />
-                        <span>Print Tax Invoice</span>
+                        <span>Print Tax Invoice {totalGroupRoomsCount > 1 ? `(${totalGroupRoomsCount} Rooms Combined)` : ''}</span>
                       </button>
 
                       <button
@@ -668,7 +668,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                         className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
                       >
                         <FileText size={14} className="text-slate-500 shrink-0" />
-                        <span>Print GRC (Registration)</span>
+                        <span>Print GRC {totalGroupRoomsCount > 1 ? `(${totalGroupRoomsCount} Rooms)` : '(Registration)'}</span>
                       </button>
 
                       <button
@@ -967,7 +967,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                       title="Send or Print Invoice for Guest"
                     >
                       <Send size={12} className="text-emerald-700" />
-                      <span>Send Invoice</span>
+                      <span>Send Invoice {totalGroupRoomsCount > 1 ? `(${totalGroupRoomsCount} Rms)` : ''}</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('payments')}
@@ -1257,13 +1257,24 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
               {/* Other Rooms in this Multi-Room Group */}
               {linkedBookings.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Other Linked Rooms for {booking.guest.fullName} ({linkedBookings.length})
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Click to switch and view room folio
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                        Other Linked Rooms for {booking.guest.fullName} ({linkedBookings.length} Additional)
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Total {totalGroupRoomsCount} rooms reserved under this guest folio
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onPrintInvoice(booking, 'invoice')}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Printer size={13} />
+                      <span>Print Combined Invoice ({totalGroupRoomsCount} Rooms)</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

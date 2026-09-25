@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Booking, Room, HotelProfile, formatIdTypeName, isIdVerifiedCheck } from '../types';
 import { 
   X, 
@@ -15,7 +15,8 @@ import {
   Check,
   Phone,
   Calendar,
-  Layers
+  Layers,
+  Bed
 } from 'lucide-react';
 import { openWhatsAppMessage } from '../utils/whatsappHelper';
 
@@ -24,6 +25,7 @@ interface InvoiceModalProps {
   onClose: () => void;
   booking: Booking | null;
   rooms: Room[];
+  bookings?: Booking[];
   hotelProfile: HotelProfile;
   mode: 'invoice' | 'grc';
 }
@@ -33,6 +35,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   booking,
   rooms,
+  bookings = [],
   hotelProfile,
   mode
 }) => {
@@ -44,13 +47,56 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [sentSuccessMsg, setSentSuccessMsg] = useState<string | null>(null);
 
+  // Find all linked rooms if this booking is part of a multi-room group
+  const linkedBookings = useMemo(() => {
+    if (!bookings || !booking) return [];
+    return bookings.filter(b => {
+      if (b.id === booking.id) return false;
+      if (booking.groupId && b.groupId === booking.groupId) return true;
+      if (
+        b.guest?.fullName?.trim().toLowerCase() === booking.guest?.fullName?.trim().toLowerCase() &&
+        b.checkInDate === booking.checkInDate &&
+        b.checkOutDate === booking.checkOutDate &&
+        b.status !== 'cancelled'
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [bookings, booking]);
+
+  const hasMultipleRooms = linkedBookings.length > 0;
+  // Default to group invoice if multi-room, but allow switching to single-room folio
+  const [invoiceScope, setInvoiceScope] = useState<'group' | 'single'>('group');
+
+  const activeBookings = (hasMultipleRooms && invoiceScope === 'group')
+    ? [booking, ...linkedBookings]
+    : [booking];
+
   const room = rooms.find(r => r.id === booking.roomId);
 
+  // Build itemized rooms for all active bookings
+  const roomItems = activeBookings.map(b => {
+    const rm = rooms.find(r => r.id === b.roomId);
+    const n = b.nights || 1;
+    const rate = b.roomRatePerNight || 0;
+    const total = n * rate;
+    return {
+      bookingId: b.id,
+      roomNumber: rm?.number || b.roomNumber,
+      roomType: rm?.type || 'Standard Room',
+      nights: n,
+      ratePerNight: rate,
+      total
+    };
+  });
+
   // Financial calculations
-  const roomTotal = booking.nights * booking.roomRatePerNight;
-  const discountTotal = booking.discountAmount || 0;
+  const roomTotal = roomItems.reduce((acc, it) => acc + it.total, 0);
+  const discountTotal = activeBookings.reduce((acc, b) => acc + (b.discountAmount || 0), 0);
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
-  const extraTotal = booking.extraCharges.reduce((acc, c) => acc + c.amount, 0);
+  const allExtraCharges = activeBookings.flatMap(b => b.extraCharges || []);
+  const extraTotal = allExtraCharges.reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
   const gstRate = booking.taxRatePercent !== undefined ? booking.taxRatePercent : 5;
   const isGstApplied = gstRate > 0;
@@ -58,19 +104,26 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const cgst = Math.round(taxes / 2);
   const sgst = taxes - cgst;
   const grandTotal = subtotal + taxes;
-  const totalPaid = booking.payments.reduce((acc, p) => acc + p.amount, 0);
+  const allPayments = activeBookings.flatMap(b => b.payments || []);
+  const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
   const isIdVerified = isIdVerifiedCheck(booking.guest.idDocument);
   const idTypeName = formatIdTypeName(booking.guest.idDocument.idType);
+
+  const totalAdults = activeBookings.reduce((acc, b) => acc + (b.adults || 1), 0);
+  const totalChildren = activeBookings.reduce((acc, b) => acc + (b.children || 0), 0);
 
   const handlePrint = () => {
     window.print();
   };
 
-  // Generate plain-text invoice message for WhatsApp / Email / SMS (NO ROOM NUMBER - strictly count of rooms only)
+  // Generate plain-text invoice message for WhatsApp / Email / SMS
   const generateInvoiceText = () => {
-    const roomCategory = room?.type || 'Deluxe Room';
     const hotelFullAddress = [hotelProfile.address, hotelProfile.city].filter(Boolean).join(', ');
+    const roomsSummary = activeBookings.length === 1
+      ? `1 Room (${roomItems[0]?.roomType || 'Deluxe Room'})`
+      : `${activeBookings.length} Rooms (${roomItems.map(it => `Room ${it.roomNumber || ''} - ${it.roomType}`).join(', ')})`;
+
     return (
 `*HOTEL TAX INVOICE & RESERVATION CONFIRMATION*
 *${hotelProfile.name}*
@@ -78,16 +131,16 @@ ${hotelFullAddress}
 Phone: ${hotelProfile.phone} | GSTIN: ${hotelProfile.gstin}
 ------------------------------------------------
 *Guest Name:* ${booking.guest.fullName}
-*Booking Ref:* #${booking.bookingCode}
+*Booking Ref:* #${booking.bookingCode}${hasMultipleRooms && invoiceScope === 'group' ? ` (Group: ${activeBookings.length} Rooms)` : ''}
 *Dates:* ${booking.checkInDate} to ${booking.checkOutDate} (${booking.nights} Night${booking.nights > 1 ? 's' : ''})
-*Total Rooms:* 1 Room (${roomCategory})
-*Guests:* ${booking.adults} Adults${booking.children ? `, ${booking.children} Children` : ''}
+*Total Rooms:* ${roomsSummary}
+*Guests:* ${totalAdults} Adults${totalChildren ? `, ${totalChildren} Children` : ''}
 *ID Type:* ${idTypeName}
 *ID Status:* ${isIdVerified ? `VERIFIED (#${booking.guest.idDocument.idNumber})` : 'PENDING - SUBMIT AT CHECK IN TIME'}
 
 *BILLING BREAKDOWN:*
-• Accommodation (${booking.nights}N @ ₹${booking.roomRatePerNight}): ₹${roomTotal.toLocaleString()}
-${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${(booking.extraCharges || []).map(c => `• ${c.description || (c as any).title || 'Charge'}: ₹${c.amount.toLocaleString()}`).join('\n')}${booking.extraCharges.length > 0 ? '\n' : ''}${isGstApplied ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}` : '• GST: ₹0 (Non-GST / Exempt)'}
+${roomItems.map(it => `• Room ${it.roomNumber || ''} (${it.roomType}): ${it.nights}N @ ₹${it.ratePerNight.toLocaleString()}/N = ₹${it.total.toLocaleString()}`).join('\n')}
+${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${allExtraCharges.map(c => `• ${c.description || (c as any).title || 'Charge'}: ₹${c.amount.toLocaleString()}`).join('\n')}${allExtraCharges.length > 0 ? '\n' : ''}${isGstApplied ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}` : '• GST: ₹0 (Non-GST / Exempt)'}
 ------------------------------------------------
 *Grand Total:* ₹${grandTotal.toLocaleString()}
 *Amount Paid:* ₹${totalPaid.toLocaleString()}
@@ -139,6 +192,38 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
             </span>
             <span className="text-xs text-slate-400 font-mono">#{booking.bookingCode}</span>
           </div>
+
+          {/* If Multi-room Group: Allow toggling between Combined Group Invoice and Single Room Folio */}
+          {hasMultipleRooms && (
+            <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setInvoiceScope('group')}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  invoiceScope === 'group'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Print combined invoice for all booked rooms under this guest"
+              >
+                <Layers size={13} />
+                <span>All {linkedBookings.length + 1} Rooms (Combined Group)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInvoiceScope('single')}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  invoiceScope === 'single'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Print single room folio only"
+              >
+                <Bed size={13} />
+                <span>Room {room?.number || booking.roomNumber} Only</span>
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             {/* Send to Guest Toggle */}
@@ -352,15 +437,18 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
             </div>
           </div>
 
-          {/* Stay Specifics (ROOM NUMBER STRICTLY REMOVED - ONLY ROOM COUNT & CATEGORY SHOWN) */}
+          {/* Stay Specifics */}
           <div className="grid grid-cols-4 gap-2 text-center p-3 border border-slate-200 rounded-lg bg-white">
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Total Rooms</span>
               <div className="font-bold text-slate-900 text-xs mt-0.5">
-                1 Room
+                {activeBookings.length} {activeBookings.length === 1 ? 'Room' : 'Rooms'}
               </div>
-              <div className="text-[10px] text-slate-500 font-medium">
-                {room?.type || 'Deluxe Room'}
+              <div className="text-[10px] text-slate-500 font-medium truncate" title={roomItems.map(it => `Room ${it.roomNumber || ''} (${it.roomType})`).join(', ')}>
+                {activeBookings.length === 1
+                  ? (roomItems[0]?.roomType || 'Standard Room')
+                  : `${activeBookings.length} Rooms Reserved`
+                }
               </div>
             </div>
             <div>
@@ -374,12 +462,12 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Occupants</span>
               <div className="font-bold text-slate-900 text-xs mt-0.5">
-                {booking.adults} Adults {booking.children ? `• ${booking.children} Ch` : ''} • {booking.nights}N
+                {totalAdults} Adults {totalChildren ? `• ${totalChildren} Ch` : ''} • {booking.nights}N
               </div>
             </div>
           </div>
 
-          {/* Charges Table (NO ROOM NUMBER - ONLY ROOM COUNT) */}
+          {/* Charges Table - Itemized All Reserved Rooms & Tariffs */}
           <table className="w-full text-left border-collapse border border-slate-200">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600">
@@ -391,31 +479,35 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              <tr>
-                <td className="p-2.5 border-r border-slate-200 font-semibold">
-                  {room?.type || 'Standard Room'} Accommodation
-                </td>
-                <td className="p-2.5 border-r border-slate-200 text-center font-bold text-slate-900">
-                  1
-                </td>
-                <td className="p-2.5 border-r border-slate-200 text-center">{booking.nights}</td>
-                <td className="p-2.5 border-r border-slate-200 text-right">₹{booking.roomRatePerNight}</td>
-                <td className="p-2.5 text-right font-semibold">₹{roomTotal.toLocaleString()}</td>
-              </tr>
-              {(booking.extraCharges || []).map(c => (
+              {roomItems.map((item, idx) => (
+                <tr key={item.bookingId || idx}>
+                  <td className="p-2.5 border-r border-slate-200 font-semibold">
+                    Room {item.roomNumber || (idx + 1)} ({item.roomType}) Accommodation
+                  </td>
+                  <td className="p-2.5 border-r border-slate-200 text-center font-bold text-slate-900">
+                    1
+                  </td>
+                  <td className="p-2.5 border-r border-slate-200 text-center">{item.nights}</td>
+                  <td className="p-2.5 border-r border-slate-200 text-right font-mono">₹{item.ratePerNight.toLocaleString()}</td>
+                  <td className="p-2.5 text-right font-semibold font-mono">₹{item.total.toLocaleString()}</td>
+                </tr>
+              ))}
+              {allExtraCharges.map(c => (
                 <tr key={c.id}>
                   <td className="p-2.5 border-r border-slate-200">{c.description || (c as any).title || 'Addon Charge'}</td>
                   <td className="p-2.5 border-r border-slate-200 text-center text-slate-400">-</td>
                   <td className="p-2.5 border-r border-slate-200 text-center">1</td>
-                  <td className="p-2.5 border-r border-slate-200 text-right">₹{c.amount}</td>
-                  <td className="p-2.5 text-right font-semibold">₹{c.amount.toLocaleString()}</td>
+                  <td className="p-2.5 border-r border-slate-200 text-right font-mono">₹{c.amount}</td>
+                  <td className="p-2.5 text-right font-semibold font-mono">₹{c.amount.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-slate-200">
-                <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">Gross Tariff:</td>
-                <td className="p-2 text-right font-bold">₹{roomTotal.toLocaleString()}</td>
+                <td colSpan={4} className="p-2 text-right font-semibold text-slate-600">
+                  Gross Accommodation Tariff ({activeBookings.length} {activeBookings.length === 1 ? 'Room' : 'Rooms'}):
+                </td>
+                <td className="p-2 text-right font-bold font-mono">₹{roomTotal.toLocaleString()}</td>
               </tr>
               {discountTotal > 0 && (
                 <tr className="text-emerald-800 bg-emerald-50/50">
