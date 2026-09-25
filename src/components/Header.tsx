@@ -20,7 +20,8 @@ import {
   Check,
   Trash2,
   Settings,
-  Menu
+  Menu,
+  Cloud
 } from 'lucide-react';
 import { UserAccount, Hotel, HotelProfile } from '../types';
 import { 
@@ -52,6 +53,8 @@ interface HeaderProps {
   onOpenLogin: () => void;
   onLogout: () => void;
   onExportBackup?: () => void;
+  isCloudConnected?: boolean;
+  onOpenCloudSync?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -73,7 +76,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMobileMenu,
   onOpenLogin,
   onLogout,
-  onExportBackup
+  onExportBackup,
+  isCloudConnected = true,
+  onOpenCloudSync
 }) => {
   const [isHotelMenuOpen, setIsHotelMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -319,7 +324,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Primary "+ New Booking" button matching Tripmakerz screenshot styling */}
+        {/* Primary "+ New Booking" button matching Maahi Trips styling */}
         <button
           id="btn-new-booking"
           onClick={onNewBookingClick}
@@ -343,6 +348,24 @@ export const Header: React.FC<HeaderProps> = ({
           <Globe2 size={14} className="text-emerald-700" />
           <span>OTA Sync Active ({activeChannelsCount})</span>
           <RefreshCw size={12} className={`text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+        </div>
+
+        {/* Multi-Device Cloud Sync Status pill */}
+        <div 
+          onClick={onOpenCloudSync}
+          className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border ${
+            isCloudConnected 
+              ? 'bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100'
+              : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+          }`}
+          title={isCloudConnected ? "Google Cloud Firestore Real-Time Multi-Device Sync Active" : "Local Storage Only (Offline)"}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isCloudConnected ? 'bg-teal-400' : 'bg-amber-400'}`}></span>
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudConnected ? 'bg-teal-600' : 'bg-amber-600'}`}></span>
+          </span>
+          <Cloud size={13} className={isCloudConnected ? "text-teal-700" : "text-amber-700"} />
+          <span>{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
         </div>
       </div>
 

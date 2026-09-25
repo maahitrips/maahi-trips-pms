@@ -54,6 +54,17 @@ import { GmailView } from './components/GmailView';
 import { CheckCircle2, Zap, X } from 'lucide-react';
 import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
 import { getTodayDateStr } from './utils/dateHelper';
+import { 
+  saveHotelBundleToCloud, 
+  subscribeToHotelBundle, 
+  saveHotelsToCloud, 
+  subscribeToHotels, 
+  saveUsersToCloud, 
+  subscribeToUsers, 
+  saveDeletionRequestsToCloud, 
+  subscribeToDeletionRequests,
+  testFirebaseConnection 
+} from './services/firebase';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
 const STORAGE_KEY_USERS = 'tripmakerz_users_v2';
@@ -310,18 +321,83 @@ export default function App() {
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastNotification, setToastNotification] = useState<{ message: string; sub?: string } | null>(null);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+
+  // Initialize and verify Firestore Cloud Connection, seeding cloud with initial bundle
+  useEffect(() => {
+    testFirebaseConnection().then(connected => {
+      setIsCloudConnected(connected);
+      if (connected) {
+        const currentBundle: HotelDataBundle = {
+          hotelId: activeHotelId,
+          profile: hotelProfile,
+          rooms,
+          bookings,
+          channels,
+          roomMappings,
+          syncLogs
+        };
+        saveHotelBundleToCloud(activeHotelId, currentBundle);
+        saveHotelsToCloud(hotels);
+        saveUsersToCloud(users);
+      }
+    });
+  }, []);
+
+  // Real-time Cloud Subscriptions across devices (hotels, users, deletion requests)
+  useEffect(() => {
+    const unsubHotels = subscribeToHotels((cloudHotels) => {
+      if (cloudHotels && cloudHotels.length > 0) {
+        setHotels(cloudHotels);
+      }
+    });
+    const unsubUsers = subscribeToUsers((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUsers(cloudUsers);
+      }
+    });
+    const unsubRequests = subscribeToDeletionRequests((cloudReqs) => {
+      if (cloudReqs) {
+        setDeletionRequests(cloudReqs);
+      }
+    });
+    return () => {
+      unsubHotels();
+      unsubUsers();
+      unsubRequests();
+    };
+  }, []);
+
+  // Real-time active hotel bundle subscription for multi-device sync
+  useEffect(() => {
+    if (!activeHotelId) return;
+    const unsubBundle = subscribeToHotelBundle(activeHotelId, (cloudBundle) => {
+      if (cloudBundle) {
+        if (cloudBundle.profile) setHotelProfile(cloudBundle.profile);
+        if (cloudBundle.rooms) setRooms(cloudBundle.rooms);
+        if (cloudBundle.bookings) setBookings(cloudBundle.bookings);
+        if (cloudBundle.channels) setChannels(cloudBundle.channels);
+        if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
+        if (cloudBundle.syncLogs) setSyncLogs(cloudBundle.syncLogs);
+      }
+    });
+    return () => unsubBundle();
+  }, [activeHotelId]);
 
   // Persist multi-hotel metadata & active user
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(hotels));
+    saveHotelsToCloud(hotels);
   }, [hotels]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+    saveUsersToCloud(users);
   }, [users]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_DELETION_REQUESTS, JSON.stringify(deletionRequests));
+    saveDeletionRequestsToCloud(deletionRequests);
   }, [deletionRequests]);
 
   useEffect(() => {
@@ -348,6 +424,7 @@ export default function App() {
       syncLogs
     };
     localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify(currentBundle));
+    saveHotelBundleToCloud(activeHotelId, currentBundle);
 
     // Also update legacy keys if Big House Inn
     if (activeHotelId === 'hotel-bighouse') {
@@ -724,7 +801,7 @@ export default function App() {
 
     const backupData = {
       exportedAt: new Date().toISOString(),
-      system: 'Tripmakerz PMS Cloud Suite',
+      system: 'Maahi Trips PMS Cloud Suite',
       version: '2.5-multi-tenant',
       hotels,
       users,
@@ -1345,6 +1422,11 @@ export default function App() {
           onOpenLogin={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
           onExportBackup={handleExportBackup}
+          isCloudConnected={isCloudConnected}
+          onOpenCloudSync={() => {
+            setSettingsInitialSubTab('backup');
+            setActiveTab('settings');
+          }}
         />
 
         {/* View Router */}
@@ -1487,6 +1569,8 @@ export default function App() {
               deletionRequests={deletionRequests}
               onApproveDeleteRequest={handleApproveDeleteRequest}
               onRejectDeleteRequest={handleRejectDeleteRequest}
+              onShowToast={showToast}
+              isCloudConnected={isCloudConnected}
             />
           )}
         </main>

@@ -28,7 +28,13 @@ import {
   Globe,
   Code,
   Edit3,
-  MapPin
+  MapPin,
+  Cloud,
+  CloudOff,
+  Info,
+  Smartphone,
+  Laptop,
+  X
 } from 'lucide-react';
 import { 
   canUserAddProperty, 
@@ -65,6 +71,8 @@ interface SettingsViewProps {
   deletionRequests?: DeletionRequest[];
   onApproveDeleteRequest?: (req: DeletionRequest) => void;
   onRejectDeleteRequest?: (reqId: string) => void;
+  onShowToast?: (message: string, sub?: string) => void;
+  isCloudConnected?: boolean;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -88,9 +96,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenCreateUser,
   deletionRequests = [],
   onApproveDeleteRequest,
-  onRejectDeleteRequest
+  onRejectDeleteRequest,
+  onShowToast,
+  isCloudConnected = true
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>(initialSubTab || 'profile');
+  const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialSubTab) {
@@ -108,6 +119,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 
+  const handleTriggerCloudSyncNotice = () => {
+    setShowCloudSyncModal(true);
+    if (onShowToast) {
+      if (isCloudConnected) {
+        onShowToast(
+          'Cloud Sync Active: Real-time Multi-Device Sync',
+          'Google Cloud Firestore is connected. All devices share live hotel data.'
+        );
+      } else {
+        onShowToast(
+          'Cloud Sync Status: Local-Only Data',
+          'Data is saved only on this device. Export regular backups to prevent data loss.'
+        );
+      }
+    }
+  };
+
   const isSuperAdmin = isSuperAdminUser(currentUser);
   const isOwner = isPropertyOwnerUser(currentUser);
   const isStaff = isStaffUser(currentUser);
@@ -124,7 +152,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const copyCredentials = (u: UserAccount) => {
-    const text = `🏨 Tripmakerz PMS Login:\nUsername: ${u.username}\nPassword: ${u.password || 'password123'}\nRole: ${u.designation}`;
+    const text = `🏨 Maahi Trips PMS Login:\nUsername: ${u.username}\nPassword: ${u.password || 'password123'}\nRole: ${u.designation}`;
     navigator.clipboard.writeText(text);
     setCopiedUserId(u.id);
     setTimeout(() => setCopiedUserId(null), 2000);
@@ -148,13 +176,101 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </p>
         </div>
 
-        {saved && (
-          <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300 self-start">
-            <CheckCircle2 size={15} />
-            <span>Settings Saved!</span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center shrink-0">
+          {/* Prominent Cloud Sync Button */}
+          <button
+            type="button"
+            onClick={handleTriggerCloudSyncNotice}
+            className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg flex items-center gap-2 transition-all cursor-pointer border group shrink-0 ${
+              isCloudConnected
+                ? 'bg-gradient-to-r from-teal-700 via-emerald-700 to-teal-800 hover:from-teal-800 hover:to-emerald-800 border-emerald-400/40'
+                : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-700 hover:from-blue-700 hover:to-indigo-800 border-blue-400/40'
+            }`}
+            title="Check Cloud Sync Status & Multi-Device Information"
+          >
+            <Cloud size={16} className={`${isCloudConnected ? 'text-emerald-200' : 'text-blue-200'} group-hover:scale-110 transition-transform`} />
+            <span>{isCloudConnected ? 'Cloud Sync Active' : 'Enable Cloud Sync'}</span>
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 ${
+              isCloudConnected ? 'bg-emerald-300 text-emerald-950' : 'bg-amber-400 text-amber-950'
+            }`}>
+              {isCloudConnected ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-900 inline-block animate-pulse"></span>
+                  Live Online
+                </>
+              ) : (
+                'Local Only'
+              )}
+            </span>
+          </button>
+
+          {saved && (
+            <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300">
+              <CheckCircle2 size={15} />
+              <span>Settings Saved!</span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Cloud Sync Status Notice Banner */}
+      {isCloudConnected ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-emerald-950">
+            <Cloud size={18} className="text-emerald-700 shrink-0" />
+            <span>
+              <strong>Multi-Device Cloud Sync is ACTIVE!</strong> Live synchronized with Google Cloud Firestore database. Any booking or room change is reflected in real-time across all your phones, tablets, and computers.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleTriggerCloudSyncNotice}
+              className="text-[11px] font-bold text-teal-800 hover:text-teal-950 underline cursor-pointer"
+            >
+              Cloud Sync Details &rarr;
+            </button>
+            {onExportBackup && (
+              <button
+                type="button"
+                onClick={onExportBackup}
+                className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 rounded-md font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Download size={12} />
+                <span>Backup JSON</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-950">
+            <CloudOff size={16} className="text-amber-700 shrink-0" />
+            <span>
+              <strong>Cloud Sync Status: Local Storage Only.</strong> Data on this phone/computer is not synced live to other devices. Remember to export regular JSON backups.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleTriggerCloudSyncNotice}
+              className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+            >
+              Learn More / Enable Cloud Sync &rarr;
+            </button>
+            {onExportBackup && (
+              <button
+                type="button"
+                onClick={onExportBackup}
+                className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-md font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Download size={12} />
+                <span>Backup JSON</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sub Tabs Navigation */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
@@ -1055,6 +1171,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          {/* Cloud Sync Advisory inside Backup tab */}
+          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
+                  <CloudOff size={18} />
+                </div>
+                <div>
+                  <span className="font-bold text-amber-950 text-sm block">Current Mode: Local Device Storage (Offline)</span>
+                  <span className="text-[11px] text-amber-800">No cloud database connected. Different phones or laptops will display different data.</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleTriggerCloudSyncNotice}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <Cloud size={14} />
+                <span>Enable Cloud Sync</span>
+              </button>
+            </div>
+            <p className="text-slate-600 leading-relaxed text-[11px]">
+              Until an online cloud database is active, <strong>export a JSON backup regularly</strong> using the button below. This protects your hotel rooms, bookings, and customer KYC proofs against device loss or browser cache resets.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <div className="flex items-center gap-2">
@@ -1080,7 +1222,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="font-bold text-slate-900 text-sm">Restore from Backup File</span>
               </div>
               <p className="text-slate-600 leading-relaxed">
-                Restore data from a previously exported Tripmakerz JSON backup file to sync states or restore on a new computer.
+                Restore data from a previously exported Maahi Trips JSON backup file to sync states or restore on a new computer.
               </p>
               <label className="w-full py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center justify-center gap-2">
                 <Upload size={15} />
@@ -1279,6 +1421,175 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span className="text-[10px] bg-teal-800 text-white font-bold px-2 py-1 rounded">
               Full Master Access
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Sync Status & Multi-Device Notification Modal */}
+      {showCloudSyncModal && (
+        <div className="fixed inset-0 z-60 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className={`p-5 flex items-start justify-between text-white ${
+              isCloudConnected 
+                ? 'bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900' 
+                : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl border ${
+                  isCloudConnected 
+                    ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' 
+                    : 'bg-blue-500/20 border-blue-400/30 text-blue-300'
+                }`}>
+                  <Cloud size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-white">Multi-Device Cloud Synchronization</h3>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                      isCloudConnected 
+                        ? 'bg-emerald-400 text-emerald-950' 
+                        : 'bg-amber-400 text-amber-950'
+                    }`}>
+                      {isCloudConnected ? '🟢 Live Online' : 'Local Only'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    {isCloudConnected ? 'Google Cloud Firestore Connected' : 'Data storage and multi-device sharing status'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCloudSyncModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              {isCloudConnected ? (
+                <>
+                  {/* Connected Status Box */}
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wide">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      <span>Cloud Database Successfully Connected</span>
+                    </div>
+                    <p className="text-emerald-900 leading-relaxed">
+                      Aapka PMS ab Google Cloud Firestore Database se jud gaya hai. Ab aap jo bhi booking, check-in, room shifting ya rates badlenge, wo <strong>online live sync</strong> ho jayega.
+                    </p>
+                  </div>
+
+                  {/* Multi-Device Synchronized Info */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <span className="font-bold text-slate-900 block text-xs">
+                      Sabhi Devices Par Same Live Data:
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-teal-800">
+                          <Smartphone size={13} />
+                          <span>Mobile Devices</span>
+                        </div>
+                        <p className="text-slate-500">Staff ya owner ke mobile me live updates turant dikhenge.</p>
+                      </div>
+                      <div className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-teal-800">
+                          <Laptop size={13} />
+                          <span>Laptops &amp; PCs</span>
+                        </div>
+                        <p className="text-slate-500">Reception desk PC par bhi bilkul wahi booking show hogi.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Backup Still Advised Box */}
+                  <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                      <ShieldCheck size={15} className="text-blue-700 shrink-0" />
+                      <span>Safety Best Practice: Export Periodic Backups</span>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Data cloud par safe hai, lekin extra safety aur offline archive ke liye aap mahine me ek baar <strong>Export Complete Backup (JSON)</strong> file download karke rakh sakte hain.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Notice Box */}
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wide">
+                      <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+                      <span>Data is Currently Stored Locally Only</span>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Aapka sara hotel data (rooms, bookings, folios, guest KYC proof) abhi sirf isi device ke <strong>localStorage</strong> me save hai. Yeh online cloud database se connected nahi hai.
+                    </p>
+                  </div>
+
+                  {/* Multi-Device Explanation */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <span className="font-bold text-slate-900 block text-xs">
+                      Why different devices show different data:
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-slate-800">
+                          <Smartphone size={13} className="text-teal-700" />
+                          <span>Device A (Mobile)</span>
+                        </div>
+                        <p className="text-slate-500">Saves data in Mobile Browser memory only.</p>
+                      </div>
+                      <div className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-slate-800">
+                          <Laptop size={13} className="text-teal-700" />
+                          <span>Device B (PC / Other)</span>
+                        </div>
+                        <p className="text-slate-500">Has separate local memory, so data does not match.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendation Box */}
+                  <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                      <ShieldCheck size={15} className="text-blue-700 shrink-0" />
+                      <span>Important Recommendation: Backup Regularly!</span>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Jab tak online cloud database connect nahi hota, <strong>apne data ka regular JSON backup export karein</strong>. Agar aapka browser cache delete hota hai ya phone badalte hain, to yeh backup file aapka sara data wapas restore kar degi.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+              {onExportBackup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onExportBackup();
+                    setShowCloudSyncModal(false);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Export Full Backup (JSON)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowCloudSyncModal(false)}
+                className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl transition-colors cursor-pointer text-center"
+              >
+                Got It / Close
+              </button>
+            </div>
           </div>
         </div>
       )}

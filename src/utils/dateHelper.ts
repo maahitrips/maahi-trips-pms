@@ -1,5 +1,5 @@
 /**
- * Date helper utilities for Tripmakerz Hotel PMS
+ * Date helper utilities for Maahi Trips Hotel PMS
  * Provides robust, timezone-safe date calculations and formatting
  */
 

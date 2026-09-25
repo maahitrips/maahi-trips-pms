@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Hotels multi-property registry
+    match /hotels/{hotelId} {
+      allow read, write: if true;
+    }
+
+    // User accounts and roles
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Deletion requests for admin approval
+    match /deletionRequests/{requestId} {
+      allow read, write: if true;
+    }
+
+    // Live hotel inventory, bookings, KYC IDs, and rate configurations
+    match /hotelBundles/{hotelId} {
+      allow read, write: if true;
+    }
+
+    // Connection health test
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

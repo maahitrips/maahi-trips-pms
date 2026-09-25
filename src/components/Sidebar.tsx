@@ -213,7 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Sparkles size={12} className="text-teal-400" />
               <span>Two-Way OTA Connected</span>
             </div>
-            <p className="text-[10px] text-slate-500">© 2016-2026 Tripmakerz • v2.0.4</p>
+            <p className="text-[10px] text-slate-500">© 2016-2026 Maahi Trips • v2.0.4</p>
           </div>
         ) : (
           <span className="text-[10px] font-bold text-teal-400">v2.0</span>

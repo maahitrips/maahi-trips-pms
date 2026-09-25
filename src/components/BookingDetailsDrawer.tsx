@@ -184,7 +184,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   };
 
   // Format date like: "15 Sept 2026"
-  const formatTripmakerzDate = (dateStr: string) => {
+  const formatMaahiDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
@@ -384,7 +384,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                 {booking.bookingCode}
               </p>
               <p className="text-xs text-slate-600 mt-0.5">
-                {formatTripmakerzDate(booking.checkInDate)} &mdash; {formatTripmakerzDate(booking.checkOutDate)}
+                {formatMaahiDate(booking.checkInDate)} &mdash; {formatMaahiDate(booking.checkOutDate)}
               </p>
             </div>
 
@@ -861,12 +861,12 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                   {/* Row 1 */}
                   <div>
                     <span className="text-slate-500 block text-xs mb-1">Check-in</span>
-                    <span className="font-medium text-slate-800">{formatTripmakerzDate(booking.checkInDate)}</span>
+                    <span className="font-medium text-slate-800">{formatMaahiDate(booking.checkInDate)}</span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 block text-xs mb-1">Check-out</span>
-                    <span className="font-medium text-slate-800">{formatTripmakerzDate(booking.checkOutDate)}</span>
+                    <span className="font-medium text-slate-800">{formatMaahiDate(booking.checkOutDate)}</span>
                   </div>
 
                   <div>
@@ -2035,7 +2035,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {formatTripmakerzDate(booking.checkInDate)} &rarr; {formatTripmakerzDate(booking.checkOutDate)} ({booking.nights} Nights) &bull; ₹{booking.roomRatePerNight}/night
+                    {formatMaahiDate(booking.checkInDate)} &rarr; {formatMaahiDate(booking.checkOutDate)} ({booking.nights} Nights) &bull; ₹{booking.roomRatePerNight}/night
                   </div>
                 </div>
 
