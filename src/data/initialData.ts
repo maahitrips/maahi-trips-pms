@@ -202,31 +202,31 @@ export const initialBookings: Booking[] = [
         frontImageUrl: sampleAadhaarFront,
         backImageUrl: sampleAadhaarBack,
         isVerified: true,
-        uploadedAt: "2026-09-17 10:45 AM",
+        uploadedAt: "2026-09-24 10:45 AM",
         notes: "Biometric Aadhaar QR scanned at check-in desk"
       },
       vipTag: false,
       previousStaysCount: 2,
       totalSpent: 12400
     },
-    checkInDate: "2026-09-17",
-    checkOutDate: "2026-09-19",
-    nights: 2,
+    checkInDate: "2026-09-24",
+    checkOutDate: "2026-09-27",
+    nights: 3,
     adults: 2,
     children: 0,
     channel: "walkin",
-    channelRefId: "WALK-20260917-01",
+    channelRefId: "WALK-20260924-01",
     roomRatePerNight: 2800,
     taxRatePercent: 12,
     extraCharges: [
-      { id: "ext-1", description: "Buffet Dinner for 2", amount: 900, date: "2026-09-17" }
+      { id: "ext-1", description: "Buffet Dinner for 2", amount: 900, date: "2026-09-24" }
     ],
     payments: [
-      { id: "pay-1", amount: 3500, mode: "upi", reference: "UPI/329482109/HDFC", date: "2026-09-17 11:00 AM" }
+      { id: "pay-1", amount: 3500, mode: "upi", reference: "UPI/329482109/HDFC", date: "2026-09-24 11:00 AM" }
     ],
     status: "checked_in",
     specialRequests: "Non-smoking room, extra pillow requested",
-    createdAt: "2026-09-17 10:30 AM"
+    createdAt: "2026-09-24 10:30 AM"
   },
   {
     id: "bk-002",
@@ -249,16 +249,16 @@ export const initialBookings: Booking[] = [
         frontImageUrl: samplePassportFront,
         expiryDate: "2031-09-18",
         isVerified: true,
-        uploadedAt: "2026-09-17 11:20 AM",
+        uploadedAt: "2026-09-25 11:20 AM",
         notes: "Original passport verified at front desk"
       },
       vipTag: true,
       previousStaysCount: 1,
       totalSpent: 6200
     },
-    checkInDate: "2026-09-17",
-    checkOutDate: "2026-09-18",
-    nights: 1,
+    checkInDate: "2026-09-25",
+    checkOutDate: "2026-09-28",
+    nights: 3,
     adults: 1,
     children: 0,
     channel: "makemytrip",
@@ -267,11 +267,11 @@ export const initialBookings: Booking[] = [
     taxRatePercent: 12,
     extraCharges: [],
     payments: [
-      { id: "pay-2", amount: 2912, mode: "ota_virtual_card", reference: "MMT-VCC-9021", date: "2026-09-16 04:00 PM" }
+      { id: "pay-2", amount: 2912, mode: "ota_virtual_card", reference: "MMT-VCC-9021", date: "2026-09-24 04:00 PM" }
     ],
     status: "checked_in",
     specialRequests: "Quiet corner room, late check-out requested",
-    createdAt: "2026-09-16 03:45 PM"
+    createdAt: "2026-09-24 03:45 PM"
   },
   {
     id: "bk-003",
@@ -293,15 +293,15 @@ export const initialBookings: Booking[] = [
         idNumber: "MH02 20180092143",
         expiryDate: "2038-04-12",
         isVerified: true,
-        uploadedAt: "2026-09-15 02:10 PM",
+        uploadedAt: "2026-09-25 02:10 PM",
         notes: "Pre-checked in via OTA Guest Portal"
       },
       vipTag: true,
       previousStaysCount: 4,
       totalSpent: 38900
     },
-    checkInDate: "2026-09-21",
-    checkOutDate: "2026-09-23",
+    checkInDate: "2026-09-25",
+    checkOutDate: "2026-09-27",
     nights: 2,
     adults: 2,
     children: 0,
@@ -310,14 +310,14 @@ export const initialBookings: Booking[] = [
     roomRatePerNight: 4200,
     taxRatePercent: 12,
     extraCharges: [
-      { id: "ext-3", description: "Terrace Candlelight Setup", amount: 1500, date: "2026-09-21" }
+      { id: "ext-3", description: "Terrace Candlelight Setup", amount: 1500, date: "2026-09-25" }
     ],
     payments: [
-      { id: "pay-3", amount: 9408, mode: "ota_virtual_card", reference: "MMT-VCC-4491", date: "2026-09-15 02:00 PM" }
+      { id: "pay-3", amount: 9408, mode: "ota_virtual_card", reference: "MMT-VCC-4491", date: "2026-09-24 02:00 PM" }
     ],
-    status: "confirmed",
+    status: "checked_in",
     specialRequests: "Terrace room preparation with flower decor",
-    createdAt: "2026-09-15 01:55 PM"
+    createdAt: "2026-09-24 01:55 PM"
   },
   {
     id: "bk-004",
@@ -338,13 +338,13 @@ export const initialBookings: Booking[] = [
         idType: "aadhaar",
         idNumber: "9102 3341 8729",
         isVerified: true,
-        uploadedAt: "2026-09-16 06:15 PM"
+        uploadedAt: "2026-09-24 06:15 PM"
       },
       previousStaysCount: 0,
       totalSpent: 0
     },
-    checkInDate: "2026-09-23",
-    checkOutDate: "2026-09-26",
+    checkInDate: "2026-10-01",
+    checkOutDate: "2026-10-04",
     nights: 3,
     adults: 3,
     children: 1,
@@ -354,10 +354,10 @@ export const initialBookings: Booking[] = [
     taxRatePercent: 12,
     extraCharges: [],
     payments: [
-      { id: "pay-4", amount: 5000, mode: "card", reference: "PAYU-99214", date: "2026-09-16 06:30 PM" }
+      { id: "pay-4", amount: 5000, mode: "card", reference: "PAYU-99214", date: "2026-09-24 06:30 PM" }
     ],
     status: "confirmed",
-    createdAt: "2026-09-16 06:00 PM"
+    createdAt: "2026-09-24 06:00 PM"
   },
   {
     id: "bk-005",
@@ -379,14 +379,14 @@ export const initialBookings: Booking[] = [
         idNumber: "USA-489102941",
         expiryDate: "2029-11-20",
         isVerified: true,
-        uploadedAt: "2026-09-14 09:12 AM"
+        uploadedAt: "2026-09-22 09:12 AM"
       },
       vipTag: true,
       previousStaysCount: 3,
       totalSpent: 42000
     },
-    checkInDate: "2026-09-20",
-    checkOutDate: "2026-09-24",
+    checkInDate: "2026-09-28",
+    checkOutDate: "2026-10-02",
     nights: 4,
     adults: 2,
     children: 0,
@@ -395,13 +395,13 @@ export const initialBookings: Booking[] = [
     roomRatePerNight: 5200,
     taxRatePercent: 12,
     extraCharges: [
-      { id: "ext-5", description: "Airport Pickup Sedan", amount: 1200, date: "2026-09-20" }
+      { id: "ext-5", description: "Airport Pickup Sedan", amount: 1200, date: "2026-09-28" }
     ],
     payments: [
-      { id: "pay-5", amount: 23296, mode: "ota_virtual_card", reference: "AGODA-VCC-3042", date: "2026-09-14 09:00 AM" }
+      { id: "pay-5", amount: 23296, mode: "ota_virtual_card", reference: "AGODA-VCC-3042", date: "2026-09-22 09:00 AM" }
     ],
     status: "confirmed",
-    createdAt: "2026-09-14 08:45 AM"
+    createdAt: "2026-09-22 08:45 AM"
   },
   {
     id: "bk-006",
@@ -422,14 +422,14 @@ export const initialBookings: Booking[] = [
         idType: "aadhaar",
         idNumber: "3892 0019 4410",
         isVerified: true,
-        uploadedAt: "2026-09-12 11:00 AM"
+        uploadedAt: "2026-09-20 11:00 AM"
       },
       vipTag: true,
       previousStaysCount: 5,
       totalSpent: 85000
     },
-    checkInDate: "2026-09-18",
-    checkOutDate: "2026-09-21",
+    checkInDate: "2026-09-26",
+    checkOutDate: "2026-09-29",
     nights: 3,
     adults: 2,
     children: 1,
@@ -439,10 +439,10 @@ export const initialBookings: Booking[] = [
     taxRatePercent: 18,
     extraCharges: [],
     payments: [
-      { id: "pay-6", amount: 24072, mode: "ota_virtual_card", reference: "AIRBNB-PAYOUT-9912", date: "2026-09-12 11:05 AM" }
+      { id: "pay-6", amount: 24072, mode: "ota_virtual_card", reference: "AIRBNB-PAYOUT-9912", date: "2026-09-20 11:05 AM" }
     ],
     status: "confirmed",
-    createdAt: "2026-09-12 10:50 AM"
+    createdAt: "2026-09-20 10:50 AM"
   },
   {
     id: "bk-007",
@@ -470,8 +470,8 @@ export const initialBookings: Booking[] = [
       previousStaysCount: 2,
       totalSpent: 14500
     },
-    checkInDate: "2026-09-17",
-    checkOutDate: "2026-09-20",
+    checkInDate: "2026-09-25",
+    checkOutDate: "2026-09-28",
     nights: 3,
     adults: 2,
     children: 0,
@@ -481,10 +481,10 @@ export const initialBookings: Booking[] = [
     taxRatePercent: 12,
     extraCharges: [],
     payments: [
-      { id: "pay-7", amount: 10752, mode: "ota_virtual_card", reference: "CTR-VCC-5821", date: "2026-09-16 03:25 PM" }
+      { id: "pay-7", amount: 10752, mode: "ota_virtual_card", reference: "CTR-VCC-5821", date: "2026-09-24 03:25 PM" }
     ],
     status: "confirmed",
-    createdAt: "2026-09-16 03:15 PM"
+    createdAt: "2026-09-24 03:15 PM"
   },
   {
     id: "bk-008",
@@ -512,8 +512,8 @@ export const initialBookings: Booking[] = [
       previousStaysCount: 3,
       totalSpent: 18200
     },
-    checkInDate: "2026-09-17",
-    checkOutDate: "2026-09-19",
+    checkInDate: "2026-09-23",
+    checkOutDate: "2026-09-25",
     nights: 2,
     adults: 2,
     children: 0,
@@ -523,10 +523,10 @@ export const initialBookings: Booking[] = [
     taxRatePercent: 12,
     extraCharges: [],
     payments: [
-      { id: "pay-8", amount: 6944, mode: "ota_virtual_card", reference: "OYO-VCC-9420", date: "2026-09-16 05:45 PM" }
+      { id: "pay-8", amount: 6944, mode: "ota_virtual_card", reference: "OYO-VCC-9420", date: "2026-09-22 05:45 PM" }
     ],
     status: "checked_in",
-    createdAt: "2026-09-16 05:30 PM"
+    createdAt: "2026-09-22 05:30 PM"
   }
 ];
 

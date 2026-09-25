@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Room, 
   Booking, 
@@ -6,6 +6,7 @@ import {
   UserAccount
 } from '../types';
 import { isSuperAdminUser } from '../utils/permissionHelper';
+import { getTodayDateStr, addDaysToStr, formatDisplayDate } from '../utils/dateHelper';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -36,7 +37,7 @@ import {
 interface DeskCalendarProps {
   rooms: Room[];
   bookings: Booking[];
-  startDateStr: string; // e.g. "2026-09-17"
+  startDateStr?: string; // e.g. "2026-09-25"
   daysToShow?: number;
   onSelectBooking: (booking: Booking) => void;
   onCellClick: (roomId: string, dateStr: string) => void;
@@ -61,6 +62,8 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   currentUser,
 }) => {
   const isSuperAdmin = isSuperAdminUser(currentUser);
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+  const [calendarBaseDate, setCalendarBaseDate] = useState<string>(() => startDateStr || todayStr);
   const [currentStartOffset, setCurrentStartOffset] = useState<number>(0);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'clean' | 'dirty' | 'occupied'>('all');
@@ -68,18 +71,23 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   const [agendaTab, setAgendaTab] = useState<'all' | 'arrivals' | 'in_house' | 'departures'>('all');
   const [agendaSearch, setAgendaSearch] = useState<string>('');
 
-  const todayStr = '2026-09-17';
+  // Keep calendar in sync if parent updates startDateStr
+  useEffect(() => {
+    if (startDateStr) {
+      setCalendarBaseDate(startDateStr);
+      setCurrentStartOffset(0);
+    }
+  }, [startDateStr]);
 
   // Compute date series
   const dates = useMemo(() => {
     const list: { dateStr: string; dayName: string; dayNumber: number; monthName: string; isToday: boolean; isWeekend: boolean }[] = [];
-    const base = new Date(startDateStr);
-    base.setDate(base.getDate() + currentStartOffset);
+    const effectiveBase = addDaysToStr(calendarBaseDate, currentStartOffset);
 
     for (let i = 0; i < daysToShow; i++) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
+      const iso = addDaysToStr(effectiveBase, i);
+      const [y, m, dNum] = iso.split('-').map(Number);
+      const d = new Date(y, m - 1, dNum);
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
       const monthName = d.toLocaleDateString('en-US', { month: 'short' });
       const dayNumber = d.getDate();
@@ -96,7 +104,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
       });
     }
     return list;
-  }, [startDateStr, currentStartOffset, daysToShow, todayStr]);
+  }, [calendarBaseDate, currentStartOffset, daysToShow, todayStr]);
 
   // Today's Operations computed lists for mobile / quick agenda
   const todayArrivals = useMemo(() => {
@@ -292,38 +300,73 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
           </div>
         </div>
 
-        {/* Date Selector Row matching screenshot `17 Sep 2026 — 17 Oct 2026 [X] | 31 days` */}
+        {/* Date Selector Row with interactive date picker and dynamic range */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-white border border-slate-300 rounded-lg text-xs md:text-sm font-medium text-slate-800 shadow-2xs">
-              <CalendarIcon size={14} className="text-slate-500 shrink-0" />
-              <span className="text-xs">17 Sep 2026 — 17 Oct 2026</span>
+            <label 
+              className="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-white border border-slate-300 hover:border-teal-700 rounded-lg text-xs md:text-sm font-medium text-slate-800 shadow-2xs transition-all cursor-pointer group"
+              title="Click to jump to another date"
+            >
+              <CalendarIcon size={14} className="text-teal-700 shrink-0 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-bold text-slate-900">
+                {dates[0] && dates[dates.length - 1] 
+                  ? `${dates[0].dayNumber} ${dates[0].monthName} ${dates[0].dateStr.split('-')[0]} — ${dates[dates.length - 1].dayNumber} ${dates[dates.length - 1].monthName} ${dates[dates.length - 1].dateStr.split('-')[0]}`
+                  : ''}
+              </span>
               <span className="text-slate-300">|</span>
-              <span className="text-[11px] text-slate-500 font-normal">31 days</span>
-            </div>
+              <span className="text-[11px] text-slate-500 font-normal">{dates.length} days</span>
+              <input
+                type="date"
+                value={dates[0]?.dateStr || todayStr}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setCalendarBaseDate(e.target.value);
+                    setCurrentStartOffset(0);
+                  }
+                }}
+                className="sr-only"
+              />
+            </label>
 
             {/* Quick Navigation Buttons */}
             <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
               <button
+                type="button"
                 onClick={() => setCurrentStartOffset(prev => prev - 7)}
-                className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer"
+                className="p-1 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                 title="Previous 7 days"
               >
                 <ChevronLeft size={15} />
               </button>
               <button
-                onClick={() => setCurrentStartOffset(0)}
-                className="px-2 py-0.5 text-xs font-semibold text-teal-800 hover:bg-teal-50 rounded transition-colors cursor-pointer"
+                type="button"
+                onClick={() => {
+                  setCalendarBaseDate(todayStr);
+                  setCurrentStartOffset(0);
+                }}
+                className={`px-2.5 py-0.5 text-xs font-bold rounded transition-colors cursor-pointer ${
+                  dates[0]?.dateStr === todayStr
+                    ? 'bg-teal-800 text-white shadow-2xs'
+                    : 'text-teal-800 hover:bg-teal-50'
+                }`}
+                title={`Jump to Today (${formatDisplayDate(todayStr)})`}
               >
                 Today
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentStartOffset(prev => prev + 7)}
-                className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer"
+                className="p-1 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                 title="Next 7 days"
               >
                 <ChevronRight size={15} />
               </button>
+            </div>
+
+            {/* Today indicator badge */}
+            <div className="hidden xs:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
+              <span>Today: {formatDisplayDate(todayStr)}</span>
             </div>
           </div>
 

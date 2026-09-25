@@ -8,6 +8,7 @@ import {
   Guest 
 } from '../types';
 import { sampleAadhaarFront, sampleAadhaarBack, samplePassportFront } from '../data/initialData';
+import { getTodayDateStr, addDaysToStr } from '../utils/dateHelper';
 import { 
   X, 
   Calendar, 
@@ -65,14 +66,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // Stay & Date Range info
   const [checkInDate, setCheckInDate] = useState<string>(
-    existingBooking?.checkInDate || initialDate || '2026-09-17'
+    existingBooking?.checkInDate || initialDate || getTodayDateStr()
   );
   const [checkOutDate, setCheckOutDate] = useState<string>(() => {
     if (existingBooking?.checkOutDate) return existingBooking.checkOutDate;
     if (initialCheckOutDate) return initialCheckOutDate;
-    const d = new Date(initialDate || '2026-09-17');
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    return addDaysToStr(initialDate || getTodayDateStr(), 1);
   });
 
   // Room search state

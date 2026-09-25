@@ -52,6 +52,7 @@ import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
 import { CheckCircle2, Zap, X } from 'lucide-react';
 import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
+import { getTodayDateStr } from './utils/dateHelper';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
 const STORAGE_KEY_USERS = 'tripmakerz_users_v2';
@@ -62,12 +63,43 @@ const STORAGE_KEY_DELETION_REQUESTS = 'tripmakerz_deletion_requests_v2';
 // Helper to get bundle storage key
 const getHotelBundleKey = (hotelId: string) => `tripmakerz_pms_bundle_${hotelId}`;
 
+// Helper to migrate any old 17-Sept seed bookings forward by +8 days
+const migrateOldDates = (bundle: HotelDataBundle): HotelDataBundle => {
+  if (!bundle || !bundle.bookings) return bundle;
+  const hasOld17Sept = bundle.bookings.some(b => b.checkInDate === '2026-09-17');
+  if (hasOld17Sept) {
+    bundle.bookings = bundle.bookings.map(b => {
+      if (b.checkInDate && b.checkInDate.startsWith('2026-09-1')) {
+        const partsIn = b.checkInDate.split('-').map(Number);
+        const partsOut = b.checkOutDate.split('-').map(Number);
+        const dIn = new Date(partsIn[0], partsIn[1] - 1, partsIn[2]);
+        const dOut = new Date(partsOut[0], partsOut[1] - 1, partsOut[2]);
+        dIn.setDate(dIn.getDate() + 8);
+        dOut.setDate(dOut.getDate() + 8);
+        return {
+          ...b,
+          checkInDate: getTodayDateStr(dIn),
+          checkOutDate: getTodayDateStr(dOut)
+        };
+      }
+      return b;
+    });
+    try {
+      localStorage.setItem(getHotelBundleKey(bundle.hotelId), JSON.stringify(bundle));
+    } catch {
+      // ignore
+    }
+  }
+  return bundle;
+};
+
 // Helper to load hotel data bundle with legacy data preservation
 const loadHotelBundle = (hotelId: string): HotelDataBundle => {
   const saved = localStorage.getItem(getHotelBundleKey(hotelId));
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      return migrateOldDates(parsed);
     } catch (e) {
       console.error('Error parsing hotel bundle', e);
     }
@@ -83,7 +115,7 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
     const legacyProfile = localStorage.getItem('tripmakerz_pms_profile_v1');
 
     if (legacyRooms || legacyBookings) {
-      return {
+      const bundle: HotelDataBundle = {
         hotelId: 'hotel-bighouse',
         profile: legacyProfile ? JSON.parse(legacyProfile) : initialHotelProfile,
         rooms: legacyRooms ? JSON.parse(legacyRooms) : initialRooms,
@@ -92,6 +124,7 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
         roomMappings: legacyMappings ? JSON.parse(legacyMappings) : initialRoomMappings,
         syncLogs: legacyLogs ? JSON.parse(legacyLogs) : initialSyncLogs
       };
+      return migrateOldDates(bundle);
     }
   }
 
@@ -708,7 +741,7 @@ export default function App() {
     setBookings(prev => [newBooking, ...prev]);
 
     // Mark room as occupied if checkin is today
-    if (newBooking.checkInDate === '2026-09-17') {
+    if (newBooking.checkInDate === getTodayDateStr()) {
       setRooms(prev => prev.map(r => r.id === newBooking.roomId ? { ...r, status: 'dirty' } : r));
     }
 
@@ -1163,7 +1196,7 @@ export default function App() {
           onNewBookingClick={() => {
             setEditingBooking(null);
             setPreSelectedRoomId(undefined);
-            setPreSelectedDate('2026-09-17');
+            setPreSelectedDate(getTodayDateStr());
             setIsBookingModalOpen(true);
           }}
           onSimulateOtaClick={() => setIsSimulateModalOpen(true)}
@@ -1193,7 +1226,7 @@ export default function App() {
             <DeskCalendar
               rooms={rooms}
               bookings={bookings}
-              startDateStr="2026-09-17"
+              startDateStr={getTodayDateStr()}
               daysToShow={20}
               onSelectBooking={handleSelectBooking}
               onCellClick={handleCellClick}
@@ -1344,7 +1377,7 @@ export default function App() {
           onOpenNewBooking={() => {
             setEditingBooking(null);
             setPreSelectedRoomId(undefined);
-            setPreSelectedDate('2026-09-17');
+            setPreSelectedDate(getTodayDateStr());
             setIsBookingModalOpen(true);
           }}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}

@@ -219,8 +219,8 @@ const saiResidencyBookings: Booking[] = [
         notes: 'Original Aadhaar verified at front desk for Kashi Darshan Form'
       }
     },
-    checkInDate: '2026-09-16',
-    checkOutDate: '2026-09-19',
+    checkInDate: '2026-09-24',
+    checkOutDate: '2026-09-27',
     nights: 3,
     adults: 2,
     children: 1,
@@ -228,14 +228,14 @@ const saiResidencyBookings: Booking[] = [
     roomRatePerNight: 3200,
     taxRatePercent: 12,
     extraCharges: [
-      { id: 'ext-hsr-1', description: 'Ganga Aarti Special Boat Escort', amount: 800, date: '2026-09-17' }
+      { id: 'ext-hsr-1', description: 'Ganga Aarti Special Boat Escort', amount: 800, date: '2026-09-25' }
     ],
     payments: [
-      { id: 'pm-hsr-1', amount: 5000, mode: 'upi', reference: 'UPI/HDFC/9048201', date: '2026-09-16', notes: 'Advance paid' }
+      { id: 'pm-hsr-1', amount: 5000, mode: 'upi', reference: 'UPI/HDFC/9048201', date: '2026-09-24', notes: 'Advance paid' }
     ],
     status: 'checked_in',
     specialRequests: 'Early check-in for morning temple Mangala Aarti',
-    createdAt: '2026-09-15T11:00:00Z'
+    createdAt: '2026-09-23T11:00:00Z'
   },
   {
     id: 'bk-varanasi-2',
@@ -256,12 +256,12 @@ const saiResidencyBookings: Booking[] = [
         idType: 'voter_id',
         idNumber: 'WB/04/281/09281',
         isVerified: true,
-        uploadedAt: '2026-09-14T15:30:00Z',
+        uploadedAt: '2026-09-22T15:30:00Z',
         issuedBy: 'Election Commission of India'
       }
     },
-    checkInDate: '2026-09-17',
-    checkOutDate: '2026-09-20',
+    checkInDate: '2026-09-25',
+    checkOutDate: '2026-09-28',
     nights: 3,
     adults: 4,
     children: 0,
@@ -271,11 +271,11 @@ const saiResidencyBookings: Booking[] = [
     taxRatePercent: 12,
     extraCharges: [],
     payments: [
-      { id: 'pm-hsr-2', amount: 16128, mode: 'ota_virtual_card', reference: 'MMT-VC-8831', date: '2026-09-17' }
+      { id: 'pm-hsr-2', amount: 16128, mode: 'ota_virtual_card', reference: 'MMT-VC-8831', date: '2026-09-25' }
     ],
     status: 'confirmed',
     specialRequests: 'Elderly parents travelling, please assign room near lift',
-    createdAt: '2026-09-14T15:30:00Z'
+    createdAt: '2026-09-22T15:30:00Z'
   }
 ];
 
@@ -329,8 +329,8 @@ const grandHeritageBookings: Booking[] = [
         notes: 'Foreign tourist Form-C e-FRRO submitted online'
       }
     },
-    checkInDate: '2026-09-16',
-    checkOutDate: '2026-09-20',
+    checkInDate: '2026-09-24',
+    checkOutDate: '2026-09-28',
     nights: 4,
     adults: 2,
     children: 0,
@@ -339,14 +339,14 @@ const grandHeritageBookings: Booking[] = [
     roomRatePerNight: 12500,
     taxRatePercent: 18,
     extraCharges: [
-      { id: 'ext-tgh-1', description: 'Palace Folk Dance & Candlelight Dinner', amount: 3500, date: '2026-09-17' }
+      { id: 'ext-tgh-1', description: 'Palace Folk Dance & Candlelight Dinner', amount: 3500, date: '2026-09-25' }
     ],
     payments: [
-      { id: 'pm-tgh-1', amount: 30000, mode: 'card', reference: 'VISA/BARCLAYS/4482', date: '2026-09-16' }
+      { id: 'pm-tgh-1', amount: 30000, mode: 'card', reference: 'VISA/BARCLAYS/4482', date: '2026-09-24' }
     ],
     status: 'checked_in',
     specialRequests: 'Honeymoon couple, flower setup in Jacuzzi requested',
-    createdAt: '2026-09-10T12:00:00Z'
+    createdAt: '2026-09-20T12:00:00Z'
   }
 ];
 

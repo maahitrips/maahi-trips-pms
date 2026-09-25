@@ -5,6 +5,7 @@ import {
   Room 
 } from '../types';
 import { sampleAadhaarFront, samplePassportFront } from '../data/initialData';
+import { getTodayDateStr, addDaysToStr } from '../utils/dateHelper';
 import { 
   X, 
   Zap, 
@@ -36,8 +37,8 @@ export const SimulateOtaModal: React.FC<SimulateOtaModalProps> = ({
   const [guestName, setGuestName] = useState<string>('Rohan Mehra');
   const [phone, setPhone] = useState<string>('+91 99887 11223');
   const [roomId, setRoomId] = useState<string>(rooms[1]?.id || rooms[0]?.id || '');
-  const [checkInDate, setCheckInDate] = useState<string>('2026-09-22');
-  const [checkOutDate, setCheckOutDate] = useState<string>('2026-09-24');
+  const [checkInDate, setCheckInDate] = useState<string>(() => getTodayDateStr());
+  const [checkOutDate, setCheckOutDate] = useState<string>(() => addDaysToStr(getTodayDateStr(), 2));
   const [ratePerNight, setRatePerNight] = useState<number>(3800);
   const [idType, setIdType] = useState<'aadhaar' | 'passport'>('aadhaar');
 
