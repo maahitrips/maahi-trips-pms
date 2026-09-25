@@ -35,6 +35,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
     window.location.reload();
   };
 
+  public handleClearAndReload = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    window.location.href = window.location.pathname;
+  };
+
   public override render() {
     if (this.state.hasError) {
       return (
@@ -49,13 +54,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 {this.state.error?.message || 'An unexpected rendering error occurred.'}
               </p>
             </div>
-            <button
-              onClick={this.handleReset}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
-            >
-              <RefreshCw size={14} />
-              <span>Reload Application</span>
-            </button>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={this.handleReset}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+              >
+                <RefreshCw size={14} />
+                <span>Reload Application</span>
+              </button>
+            </div>
           </div>
         </div>
       );

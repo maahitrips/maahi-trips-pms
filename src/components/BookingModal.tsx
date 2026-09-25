@@ -121,7 +121,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // Booking Selection Mode: 'single' (1 Room) or 'multi' (Multiple Rooms under 1 Guest Name)
   const [bookingMode, setBookingMode] = useState<'single' | 'multi'>(() => {
-    if (existingBooking?.groupId || (existingBooking?.groupTotalRooms && existingBooking.groupTotalRooms > 1)) {
+    if (existingBooking?.groupId || ((existingBooking?.groupTotalRooms ?? 0) > 1)) {
       return 'multi';
     }
     return 'single';
@@ -145,7 +145,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     rooms.forEach(r => {
       map[r.id] = r.baseRate;
     });
-    if (existingBooking?.roomId && existingBooking.roomRatePerNight) {
+    if (existingBooking?.roomId && existingBooking?.roomRatePerNight) {
       map[existingBooking.roomId] = existingBooking.roomRatePerNight;
     }
     return map;
@@ -270,16 +270,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   // Guest Details
-  const [fullName, setFullName] = useState<string>(existingBooking?.guest.fullName || '');
-  const [phone, setPhone] = useState<string>(existingBooking?.guest.phone || '');
-  const [email, setEmail] = useState<string>(existingBooking?.guest.email || '');
-  const [address, setAddress] = useState<string>(existingBooking?.guest.address || '');
-  const [city, setCity] = useState<string>(existingBooking?.guest.city || '');
-  const [state, setState] = useState<string>(existingBooking?.guest.state || '');
-  const [nationality, setNationality] = useState<string>(existingBooking?.guest.nationality || 'Indian');
-  const [purposeOfVisit, setPurposeOfVisit] = useState<string>(existingBooking?.guest.purposeOfVisit || 'Tourism & Leisure');
-  const [vehicleNumber, setVehicleNumber] = useState<string>(existingBooking?.guest.vehicleNumber || '');
-  const [emergencyContact, setEmergencyContact] = useState<string>(existingBooking?.guest.emergencyContact || '');
+  const [fullName, setFullName] = useState<string>(existingBooking?.guest?.fullName || '');
+  const [phone, setPhone] = useState<string>(existingBooking?.guest?.phone || '');
+  const [email, setEmail] = useState<string>(existingBooking?.guest?.email || '');
+  const [address, setAddress] = useState<string>(existingBooking?.guest?.address || '');
+  const [city, setCity] = useState<string>(existingBooking?.guest?.city || '');
+  const [state, setState] = useState<string>(existingBooking?.guest?.state || '');
+  const [nationality, setNationality] = useState<string>(existingBooking?.guest?.nationality || 'Indian');
+  const [purposeOfVisit, setPurposeOfVisit] = useState<string>(existingBooking?.guest?.purposeOfVisit || 'Tourism & Leisure');
+  const [vehicleNumber, setVehicleNumber] = useState<string>(existingBooking?.guest?.vehicleNumber || '');
+  const [emergencyContact, setEmergencyContact] = useState<string>(existingBooking?.guest?.emergencyContact || '');
 
   // ID Proof Details (Hotel Workflow: ID is submitted during check-in)
   const [idSubmissionPolicy, setIdSubmissionPolicy] = useState<'at_checkin' | 'submit_now'>(
@@ -287,7 +287,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   );
   const [idType, setIdType] = useState<IdType>(existingBooking?.guest?.idDocument?.idType || 'aadhaar');
   const [idNumber, setIdNumber] = useState<string>(
-    existingBooking?.guest?.idDocument?.idNumber && existingBooking.guest.idDocument.idNumber !== 'Pending at Check-in'
+    existingBooking?.guest?.idDocument?.idNumber && existingBooking?.guest?.idDocument?.idNumber !== 'Pending at Check-in'
       ? existingBooking.guest.idDocument.idNumber 
       : ''
   );
@@ -311,7 +311,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   );
   const [discountValue, setDiscountValue] = useState<number>(
     existingBooking?.discountValue !== undefined
-      ? existingBooking.discountValue
+      ? (existingBooking?.discountValue ?? 0)
       : (existingBooking?.discountAmount || 0)
   );
   const [discountReason, setDiscountReason] = useState<string>(
@@ -320,7 +320,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // Billing (GST Optional: 5% or 0%)
   const [applyGst, setApplyGst] = useState<boolean>(
-    existingBooking !== undefined ? ((existingBooking.taxRatePercent || 0) > 0) : true
+    existingBooking ? ((existingBooking?.taxRatePercent ?? 5) > 0) : true
   );
   const taxRate = applyGst ? 5 : 0;
   const [advanceAmount, setAdvanceAmount] = useState<number>(
