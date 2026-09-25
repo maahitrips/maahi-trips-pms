@@ -179,13 +179,13 @@ export const GmailView: React.FC<GmailViewProps> = ({
         `📅 *Check-In:* ${booking.checkInDate} (Check-in from 12:00 PM)\n` +
         `📅 *Check-Out:* ${booking.checkOutDate} (Check-out by 11:00 AM)\n` +
         `🛏️ *Room Allotted:* ${booking.roomNumber ? `Room #${booking.roomNumber}` : 'Standard / Executive'}\n` +
-        `👥 *Guests:* ${booking.guestsCount.adults} Adults${booking.guestsCount.children > 0 ? `, ${booking.guestsCount.children} Children` : ''}\n` +
-        `💰 *Total Booking Amount:* ₹${booking.totalAmount.toLocaleString()}\n` +
-        `✅ *Advance Paid:* ₹${booking.paidAmount.toLocaleString()}\n` +
-        `⚠️ *Balance at Check-in:* ₹${Math.max(0, booking.totalAmount - booking.paidAmount).toLocaleString()}\n\n` +
+        `👥 *Guests:* ${booking.adults} Adults${booking.children > 0 ? `, ${booking.children} Children` : ''}\n` +
+        `💰 *Total Booking Amount:* ₹${((booking.nights || 1) * (booking.roomRatePerNight || 0)).toLocaleString()}\n` +
+        `✅ *Advance Paid:* ₹${(booking.payments || []).reduce((acc, p) => acc + p.amount, 0).toLocaleString()}\n` +
+        `⚠️ *Balance at Check-in:* ₹${Math.max(0, ((booking.nights || 1) * (booking.roomRatePerNight || 0)) - (booking.payments || []).reduce((acc, p) => acc + p.amount, 0)).toLocaleString()}\n\n` +
         `📍 *Hotel Address:* ${hotelProfile.address}, ${hotelProfile.city}\n` +
         `📞 *Reception Helpline:* ${hotelProfile.phone}\n` +
-        (hotelProfile.wifiPassword ? `📶 *Complimentary Wi-Fi:* ${hotelProfile.wifiPassword}\n` : '') +
+        ((hotelProfile as any).wifiPassword ? `📶 *Complimentary Wi-Fi:* ${(hotelProfile as any).wifiPassword}\n` : '') +
         `\n_Thank you for choosing ${hotelProfile.name}! We look forward to hosting you._`;
     } else {
       whatsappText = emailBody;

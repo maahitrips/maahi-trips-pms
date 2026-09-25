@@ -87,7 +87,7 @@ Phone: ${hotelProfile.phone} | GSTIN: ${hotelProfile.gstin}
 
 *BILLING BREAKDOWN:*
 • Accommodation (${booking.nights}N @ ₹${booking.roomRatePerNight}): ₹${roomTotal.toLocaleString()}
-${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${booking.extraCharges.map(c => `• ${c.title}: ₹${c.amount.toLocaleString()}`).join('\n')}${booking.extraCharges.length > 0 ? '\n' : ''}${isGstApplied ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}` : '• GST: ₹0 (Non-GST / Exempt)'}
+${discountTotal > 0 ? `• Discount Applied: -₹${discountTotal.toLocaleString()} (${booking.discountReason || 'Special Concession'})\n` : ''}${(booking.extraCharges || []).map(c => `• ${c.description || (c as any).title || 'Charge'}: ₹${c.amount.toLocaleString()}`).join('\n')}${booking.extraCharges.length > 0 ? '\n' : ''}${isGstApplied ? `• GST (5% - 2.5% CGST + 2.5% SGST): ₹${taxes.toLocaleString()}` : '• GST: ₹0 (Non-GST / Exempt)'}
 ------------------------------------------------
 *Grand Total:* ₹${grandTotal.toLocaleString()}
 *Amount Paid:* ₹${totalPaid.toLocaleString()}
@@ -402,9 +402,9 @@ Thank you for staying with us! For assistance, contact ${hotelProfile.phone}.`
                 <td className="p-2.5 border-r border-slate-200 text-right">₹{booking.roomRatePerNight}</td>
                 <td className="p-2.5 text-right font-semibold">₹{roomTotal.toLocaleString()}</td>
               </tr>
-              {booking.extraCharges.map(c => (
+              {(booking.extraCharges || []).map(c => (
                 <tr key={c.id}>
-                  <td className="p-2.5 border-r border-slate-200">{c.title}</td>
+                  <td className="p-2.5 border-r border-slate-200">{c.description || (c as any).title || 'Addon Charge'}</td>
                   <td className="p-2.5 border-r border-slate-200 text-center text-slate-400">-</td>
                   <td className="p-2.5 border-r border-slate-200 text-center">1</td>
                   <td className="p-2.5 border-r border-slate-200 text-right">₹{c.amount}</td>

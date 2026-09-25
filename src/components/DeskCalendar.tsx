@@ -646,7 +646,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                           <span>•</span>
                           <span>{b.nights} Nights</span>
                           <span>•</span>
-                          <span className="font-semibold text-slate-700">₹{b.totalAmount}</span>
+                          <span className="font-semibold text-slate-700">₹{(b.nights * b.roomRatePerNight).toLocaleString()}</span>
                         </div>
 
                         <div className="mt-1 flex items-center gap-2 flex-wrap">

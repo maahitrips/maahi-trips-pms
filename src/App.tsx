@@ -13,7 +13,8 @@ import {
   UserAccount,
   HotelDataBundle,
   DeletionRequest,
-  DynamicPricingConfig
+  DynamicPricingConfig,
+  PaymentMode
 } from './types';
 import { 
   initialHotelProfile, 
@@ -981,23 +982,29 @@ export default function App() {
   const handleConfirmCheckInWithId = (
     bookingId: string,
     idDoc: IdDocument,
-    status: Booking['status'],
-    collectedPayment?: { amount: number; paymentMode: any }
+    markCheckedIn: boolean | Booking['status'],
+    paymentRecord?: { amount: number; mode: PaymentMode; reference?: string } | { amount: number; paymentMode: any }
   ) => {
+    const finalStatus: Booking['status'] = typeof markCheckedIn === 'boolean'
+      ? (markCheckedIn ? 'checked_in' : 'confirmed')
+      : markCheckedIn;
+    const pAmount = paymentRecord?.amount || 0;
+    const pMode = (paymentRecord as any)?.mode || (paymentRecord as any)?.paymentMode || 'cash';
+
     setBookings(prev => prev.map(b => {
       if (b.id !== bookingId) return b;
       const updatedPayments = [...b.payments];
-      if (collectedPayment && collectedPayment.amount > 0) {
+      if (pAmount > 0) {
         updatedPayments.push({
           id: `pay-${Date.now()}`,
-          amount: collectedPayment.amount,
-          mode: collectedPayment.paymentMode,
+          amount: pAmount,
+          mode: pMode,
           date: new Date().toLocaleString()
         });
       }
       return {
         ...b,
-        status,
+        status: finalStatus,
         guest: {
           ...b.guest,
           idDocument: idDoc
@@ -1010,17 +1017,17 @@ export default function App() {
       setSelectedBooking(prev => {
         if (!prev) return null;
         const updatedPayments = [...prev.payments];
-        if (collectedPayment && collectedPayment.amount > 0) {
+        if (pAmount > 0) {
           updatedPayments.push({
             id: `pay-${Date.now()}`,
-            amount: collectedPayment.amount,
-            mode: collectedPayment.paymentMode,
+            amount: pAmount,
+            mode: pMode,
             date: new Date().toLocaleString()
           });
         }
         return {
           ...prev,
-          status,
+          status: finalStatus,
           guest: {
             ...prev.guest,
             idDocument: idDoc
@@ -1031,7 +1038,7 @@ export default function App() {
     }
 
     showToast(
-      status === 'checked_in' ? 'Check-In Complete & Customer ID Verified' : 'Customer ID Proof Saved & Verified',
+      finalStatus === 'checked_in' ? 'Check-In Complete & Customer ID Verified' : 'Customer ID Proof Saved & Verified',
       `${idDoc.idType.toUpperCase()} (${idDoc.idNumber}) recorded for hotel KYC compliance`
     );
   };
@@ -1245,7 +1252,7 @@ export default function App() {
   const handleUpdateDynamicPricing = (newConfig: DynamicPricingConfig) => {
     setDynamicPricing(newConfig);
 
-    const occupiedCount = rooms.filter(r => r.status === 'occupied').length;
+    const occupiedCount = rooms.filter(r => (r.status as string) === 'occupied' || (r.status as string) === 'dirty').length;
     const occPercent = rooms.length > 0 ? Math.round((occupiedCount / rooms.length) * 100) : 0;
     
     let surge = 0;
@@ -1504,69 +1511,79 @@ export default function App() {
       </div>
 
       {/* Booking Drawer (Details, ID View & Actions) */}
-      <BookingDetailsDrawer
-        booking={selectedBooking}
-        rooms={rooms}
-        bookings={bookings}
-        onSelectBooking={(b) => setSelectedBooking(b)}
-        isOpen={Boolean(selectedBooking)}
-        onClose={() => setSelectedBooking(null)}
-        onEdit={handleOpenEditFromDrawer}
-        onStatusChange={handleBookingStatusChange}
-        onPrintInvoice={handlePrintInvoice}
-        onAddPayment={handleAddPayment}
-        onOpenCheckInIdModal={(b) => setCheckInIdModalBooking(b)}
-        onSendEmail={(b) => {
-          setSelectedBooking(null);
-          setActiveTab('gmail');
-          showToast('Gmail Dispatcher', `Prepared voucher for ${b.guest.fullName}`);
-        }}
-        onShiftRoom={handleShiftRoom}
-        hotelName={hotelProfile.name}
-        hotelProfile={hotelProfile}
-      />
+      {selectedBooking && (
+        <BookingDetailsDrawer
+          booking={selectedBooking}
+          rooms={rooms}
+          bookings={bookings}
+          onSelectBooking={(b) => setSelectedBooking(b)}
+          isOpen={Boolean(selectedBooking)}
+          onClose={() => setSelectedBooking(null)}
+          onEdit={handleOpenEditFromDrawer}
+          onStatusChange={handleBookingStatusChange}
+          onPrintInvoice={handlePrintInvoice}
+          onAddPayment={handleAddPayment}
+          onOpenCheckInIdModal={(b) => setCheckInIdModalBooking(b)}
+          onSendEmail={(b) => {
+            setSelectedBooking(null);
+            setActiveTab('gmail');
+            showToast('Gmail Dispatcher', `Prepared voucher for ${b.guest.fullName}`);
+          }}
+          onShiftRoom={handleShiftRoom}
+          hotelName={hotelProfile.name}
+          hotelProfile={hotelProfile}
+        />
+      )}
 
       {/* Customer Check-In ID Submission Modal ("customar ke check in ke bad id submit hoti h") */}
-      <CheckInIdModal
-        isOpen={Boolean(checkInIdModalBooking)}
-        onClose={() => setCheckInIdModalBooking(null)}
-        booking={checkInIdModalBooking}
-        rooms={rooms}
-        onConfirmCheckIn={handleConfirmCheckInWithId}
-      />
+      {checkInIdModalBooking && (
+        <CheckInIdModal
+          isOpen={Boolean(checkInIdModalBooking)}
+          onClose={() => setCheckInIdModalBooking(null)}
+          booking={checkInIdModalBooking}
+          room={rooms.find(r => r.id === checkInIdModalBooking.roomId)}
+          onConfirmCheckInWithId={handleConfirmCheckInWithId}
+        />
+      )}
 
       {/* New / Edit Booking & KYC ID Modal */}
-      <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => {
-          setIsBookingModalOpen(false);
-          setEditingBooking(null);
-        }}
-        rooms={rooms}
-        bookings={bookings}
-        initialRoomId={preSelectedRoomId}
-        initialDate={preSelectedDate}
-        onSaveBooking={handleSaveBooking}
-        existingBooking={editingBooking}
-      />
+      {isBookingModalOpen && (
+        <BookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => {
+            setIsBookingModalOpen(false);
+            setEditingBooking(null);
+          }}
+          rooms={rooms}
+          bookings={bookings}
+          initialRoomId={preSelectedRoomId}
+          initialDate={preSelectedDate}
+          onSaveBooking={handleSaveBooking}
+          existingBooking={editingBooking}
+        />
+      )}
 
       {/* OTA Inbound Booking Simulator Modal */}
-      <SimulateOtaModal
-        isOpen={isSimulateModalOpen}
-        onClose={() => setIsSimulateModalOpen(false)}
-        rooms={rooms}
-        onIngestOtaBooking={handleIngestOtaBooking}
-      />
+      {isSimulateModalOpen && (
+        <SimulateOtaModal
+          isOpen={isSimulateModalOpen}
+          onClose={() => setIsSimulateModalOpen(false)}
+          rooms={rooms}
+          onIngestOtaBooking={handleIngestOtaBooking}
+        />
+      )}
 
       {/* Printable GST Tax Invoice / GRC Modal */}
-      <InvoiceModal
-        isOpen={invoiceModal.isOpen}
-        onClose={() => setInvoiceModal({ isOpen: false, booking: null, mode: 'invoice' })}
-        booking={invoiceModal.booking}
-        rooms={rooms}
-        hotelProfile={hotelProfile}
-        mode={invoiceModal.mode}
-      />
+      {invoiceModal.isOpen && invoiceModal.booking && (
+        <InvoiceModal
+          isOpen={invoiceModal.isOpen}
+          onClose={() => setInvoiceModal({ isOpen: false, booking: null, mode: 'invoice' })}
+          booking={invoiceModal.booking}
+          rooms={rooms}
+          hotelProfile={hotelProfile}
+          mode={invoiceModal.mode}
+        />
+      )}
 
       {/* Global Spotlight Search (Ctrl + K) */}
       <GlobalSearchModal

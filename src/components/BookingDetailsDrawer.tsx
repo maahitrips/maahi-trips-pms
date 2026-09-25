@@ -156,15 +156,16 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
   const totalGroupRoomsCount = 1 + linkedBookings.length;
 
   // Financial calculations
-  const roomTotal = booking.nights * booking.roomRatePerNight;
+  const roomTotal = (booking.nights || 1) * (booking.roomRatePerNight || 0);
   const discountTotal = booking.discountAmount || 0;
   const taxableRoomTotal = Math.max(0, roomTotal - discountTotal);
-  const extraTotal = booking.extraCharges.reduce((acc, c) => acc + c.amount, 0);
+  const extraTotal = (booking.extraCharges || []).reduce((acc, c) => acc + c.amount, 0);
   const subtotal = taxableRoomTotal + extraTotal;
-  const isGstApplied = (booking.taxRatePercent || 0) > 0;
-  const taxes = isGstApplied ? Math.round((subtotal * booking.taxRatePercent) / 100) : 0;
+  const gstRate = booking.taxRatePercent !== undefined ? booking.taxRatePercent : 5;
+  const isGstApplied = gstRate > 0;
+  const taxes = isGstApplied ? Math.round((subtotal * gstRate) / 100) : 0;
   const grandTotal = subtotal + taxes;
-  const totalPaid = booking.payments.reduce((acc, p) => acc + p.amount, 0);
+  const totalPaid = (booking.payments || []).reduce((acc, p) => acc + p.amount, 0);
   const balanceDue = Math.max(0, grandTotal - totalPaid);
 
   // WhatsApp dynamic message preview and dispatch
@@ -1716,7 +1717,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                   {booking.extraCharges.map((charge) => (
                     <div key={charge.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50">
                       <div>
-                        <span className="font-bold text-slate-900 block">{charge.title}</span>
+                        <span className="font-bold text-slate-900 block">{charge.description || (charge as any).title || 'Addon Charge'}</span>
                         <span className="text-[11px] text-slate-500">{charge.date}</span>
                       </div>
                       <span className="font-mono font-bold text-slate-800">₹{charge.amount}</span>

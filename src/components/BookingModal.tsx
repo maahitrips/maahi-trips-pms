@@ -54,16 +54,14 @@ interface BookingModalProps {
 export const BookingModal: React.FC<BookingModalProps> = ({
   isOpen,
   onClose,
-  rooms,
-  bookings,
+  rooms = [],
+  bookings = [],
   initialRoomId,
   initialDate,
   initialCheckOutDate,
   onSaveBooking,
   existingBooking
 }) => {
-  if (!isOpen) return null;
-
   // Active step tab: 'stay' | 'guest_id' | 'billing'
   const [activeTab, setActiveTab] = useState<'stay' | 'guest_id' | 'billing'>('stay');
 
@@ -285,20 +283,20 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // ID Proof Details (Hotel Workflow: ID is submitted during check-in)
   const [idSubmissionPolicy, setIdSubmissionPolicy] = useState<'at_checkin' | 'submit_now'>(
-    existingBooking?.guest.idDocument.isVerified ? 'submit_now' : 'at_checkin'
+    existingBooking?.guest?.idDocument?.isVerified ? 'submit_now' : 'at_checkin'
   );
-  const [idType, setIdType] = useState<IdType>(existingBooking?.guest.idDocument.idType || 'aadhaar');
+  const [idType, setIdType] = useState<IdType>(existingBooking?.guest?.idDocument?.idType || 'aadhaar');
   const [idNumber, setIdNumber] = useState<string>(
-    existingBooking?.guest.idDocument.idNumber && existingBooking.guest.idDocument.idNumber !== 'Pending at Check-in'
+    existingBooking?.guest?.idDocument?.idNumber && existingBooking.guest.idDocument.idNumber !== 'Pending at Check-in'
       ? existingBooking.guest.idDocument.idNumber 
       : ''
   );
-  const [frontImageUrl, setFrontImageUrl] = useState<string>(existingBooking?.guest.idDocument.frontImageUrl || '');
-  const [backImageUrl, setBackImageUrl] = useState<string>(existingBooking?.guest.idDocument.backImageUrl || '');
-  const [expiryDate, setExpiryDate] = useState<string>(existingBooking?.guest.idDocument.expiryDate || '');
-  const [isVerified, setIsVerified] = useState<boolean>(existingBooking?.guest.idDocument.isVerified ?? false);
+  const [frontImageUrl, setFrontImageUrl] = useState<string>(existingBooking?.guest?.idDocument?.frontImageUrl || '');
+  const [backImageUrl, setBackImageUrl] = useState<string>(existingBooking?.guest?.idDocument?.backImageUrl || '');
+  const [expiryDate, setExpiryDate] = useState<string>(existingBooking?.guest?.idDocument?.expiryDate || '');
+  const [isVerified, setIsVerified] = useState<boolean>(existingBooking?.guest?.idDocument?.isVerified ?? false);
   const [idNotes, setIdNotes] = useState<string>(
-    existingBooking?.guest.idDocument.notes || 'Customer ID to be submitted upon arrival at check-in'
+    existingBooking?.guest?.idDocument?.notes || 'Customer ID to be submitted upon arrival at check-in'
   );
 
   // Camera capture state
@@ -326,17 +324,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   );
   const taxRate = applyGst ? 5 : 0;
   const [advanceAmount, setAdvanceAmount] = useState<number>(
-    existingBooking?.payments.reduce((sum, p) => sum + p.amount, 0) || 0
+    (existingBooking?.payments || []).reduce((sum, p) => sum + p.amount, 0)
   );
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card' | 'ota_virtual_card'>('upi');
   const [paymentRef, setPaymentRef] = useState<string>('');
 
   // Calculate nights
   const computeNights = () => {
+    if (!checkInDate || !checkOutDate) return 1;
     const start = new Date(checkInDate).getTime();
     const end = new Date(checkOutDate).getTime();
     const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    return Math.max(1, diff || 1);
+    return (!isNaN(diff) && diff > 0) ? diff : 1;
   };
   const nights = computeNights();
   const subtotal = nights * roomRate;
@@ -678,6 +677,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
@@ -1106,7 +1107,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                               <div className="text-xs text-slate-600 space-y-1">
                                 <div className="font-semibold text-slate-800">{room.type} • Floor {room.floor}</div>
                                 <div className="text-slate-500 text-[11px] truncate">
-                                  {room.bedType} • Max {room.capacity} Guests • AC
+                                  Max {room.maxOccupancy || 2} Guests • AC Room
                                 </div>
                               </div>
 

@@ -139,7 +139,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
   const webhookUrl = `https://hotelpms.maahitrips.in/api/v2/webhook/${hotelSlug}/events`;
 
   // Occupancy Calculations
-  const occupiedRoomsCount = rooms.filter(r => r.status === 'occupied').length;
+  const occupiedRoomsCount = rooms.filter(r => (r.status as string) === 'occupied' || (r.status as string) === 'dirty').length;
   const liveOccupancyPercent = rooms.length > 0 ? Math.round((occupiedRoomsCount / rooms.length) * 100) : 0;
   const effectiveOccupancyPercent = simulatedOccupancyOverride !== null ? simulatedOccupancyOverride : liveOccupancyPercent;
 
