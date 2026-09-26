@@ -6,10 +6,12 @@ import {
   getDoc, 
   onSnapshot, 
   getDocFromServer,
+  collection,
+  deleteDoc,
   Unsubscribe 
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Hotel, UserAccount, HotelDataBundle, DeletionRequest } from '../types';
+import { Hotel, UserAccount, HotelDataBundle, DeletionRequest, Booking } from '../types';
 
 // Initialize Firebase App
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -42,15 +44,63 @@ testFirebaseConnection();
  * Cloud Sync Service for Multi-Device Real-Time Synchronization
  */
 
-// 1. Save Hotel Bundle to Cloud
-export async function saveHotelBundleToCloud(hotelId: string, bundle: HotelDataBundle): Promise<void> {
+// 1. Fetch Hotel Bundle directly from Cloud
+export async function fetchHotelBundleFromCloud(hotelId: string): Promise<HotelDataBundle | null> {
   try {
     const docRef = doc(db, 'hotelBundles', hotelId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as HotelDataBundle;
+    }
+    return null;
+  } catch (error) {
+    console.warn(`Failed to fetch hotel bundle ${hotelId} from cloud:`, error);
+    return null;
+  }
+}
+
+// 2. Save Hotel Bundle to Cloud with safe booking merge
+export async function saveHotelBundleToCloud(
+  hotelId: string, 
+  bundle: HotelDataBundle, 
+  preserveCloudBookings = true
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'hotelBundles', hotelId);
+    
+    let finalBookings = [...(bundle.bookings || [])];
+
+    // Safe merge: ensure we don't accidentally wipe out bookings created on mobile/other device
+    if (preserveCloudBookings) {
+      try {
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const cloudData = snap.data();
+          if (Array.isArray(cloudData.bookings) && cloudData.bookings.length > 0) {
+            const bookingMap = new Map<string, any>();
+            // Cloud bookings first
+            cloudData.bookings.forEach((b: any) => {
+              if (b && b.id) bookingMap.set(b.id, b);
+            });
+            // Local bookings override/add
+            finalBookings.forEach((b: any) => {
+              if (b && b.id) bookingMap.set(b.id, b);
+            });
+            finalBookings = Array.from(bookingMap.values());
+          }
+        }
+      } catch (mergeErr) {
+        console.warn('Safe merge fallback:', mergeErr);
+      }
+    }
+
     // Sanitize undefined fields which Firestore rejects
     const payload = JSON.parse(JSON.stringify({
       ...bundle,
+      bookings: finalBookings,
       hotelId,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      updatedAtMs: Date.now()
     }));
     await setDoc(docRef, payload, { merge: true });
   } catch (error) {
@@ -58,7 +108,83 @@ export async function saveHotelBundleToCloud(hotelId: string, bundle: HotelDataB
   }
 }
 
-// 2. Real-time Subscription to Active Hotel Bundle
+// 3. Instant Single Booking Cloud Sync (Pushes directly so mobile <-> PC is instant)
+export async function syncSingleBookingToCloud(hotelId: string, booking: Booking): Promise<void> {
+  try {
+    // Write to subcollection for instant change listener
+    const bRef = doc(db, 'hotelBundles', hotelId, 'liveBookings', booking.id);
+    await setDoc(bRef, JSON.parse(JSON.stringify({
+      ...booking,
+      hotelId,
+      updatedAtMs: Date.now()
+    })), { merge: true });
+
+    // Also update parent bundle's booking list so anyone fetching the bundle gets it
+    const bundleRef = doc(db, 'hotelBundles', hotelId);
+    const snap = await getDoc(bundleRef);
+    if (snap.exists()) {
+      const data = snap.data() as HotelDataBundle;
+      const existing = Array.isArray(data.bookings) ? [...data.bookings] : [];
+      const idx = existing.findIndex(b => b.id === booking.id);
+      if (idx >= 0) {
+        existing[idx] = booking;
+      } else {
+        existing.unshift(booking);
+      }
+      await setDoc(bundleRef, {
+        bookings: JSON.parse(JSON.stringify(existing)),
+        updatedAt: new Date().toISOString(),
+        updatedAtMs: Date.now()
+      }, { merge: true });
+    }
+  } catch (error) {
+    console.warn('Failed to push single booking to cloud:', error);
+  }
+}
+
+// 4. Delete Single Booking from Cloud
+export async function deleteSingleBookingFromCloud(hotelId: string, bookingId: string): Promise<void> {
+  try {
+    const bRef = doc(db, 'hotelBundles', hotelId, 'liveBookings', bookingId);
+    await deleteDoc(bRef);
+
+    const bundleRef = doc(db, 'hotelBundles', hotelId);
+    const snap = await getDoc(bundleRef);
+    if (snap.exists()) {
+      const data = snap.data() as HotelDataBundle;
+      if (Array.isArray(data.bookings)) {
+        const filtered = data.bookings.filter(b => b.id !== bookingId);
+        await setDoc(bundleRef, {
+          bookings: JSON.parse(JSON.stringify(filtered)),
+          updatedAt: new Date().toISOString(),
+          updatedAtMs: Date.now()
+        }, { merge: true });
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete booking from cloud:', error);
+  }
+}
+
+// 5. Subscribe to Live Bookings Subcollection for Instant Cross-Device Sync
+export function subscribeToLiveBookings(
+  hotelId: string,
+  onBookingChange: (booking: Booking, type: 'added' | 'modified' | 'removed') => void
+): Unsubscribe {
+  const colRef = collection(db, 'hotelBundles', hotelId, 'liveBookings');
+  return onSnapshot(colRef, (snap) => {
+    snap.docChanges().forEach((change) => {
+      const data = change.doc.data() as Booking;
+      if (data && data.id) {
+        onBookingChange(data, change.type);
+      }
+    });
+  }, (err) => {
+    console.warn('Live bookings subcollection listener notice:', err);
+  });
+}
+
+// 6. Real-time Subscription to Active Hotel Bundle
 export function subscribeToHotelBundle(
   hotelId: string, 
   onData: (bundle: HotelDataBundle) => void

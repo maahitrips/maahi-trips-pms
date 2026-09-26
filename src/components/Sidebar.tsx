@@ -19,7 +19,7 @@ import {
   X
 } from 'lucide-react';
 
-export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'settings';
+export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'gemini_assistant' | 'settings';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -64,6 +64,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'housekeeping', label: 'Housekeeping', sublabel: 'Room cleanliness & status', icon: BedDouble },
         { id: 'invoices', label: 'Billing & Folios', sublabel: 'GST Invoices & GRC Cards', icon: Receipt },
         { id: 'gmail', label: 'Gmail & Vouchers', sublabel: 'Guest vouchers & inquiries', icon: Mail, badge: 'Gmail' },
+      ]
+    },
+    {
+      group: 'AI INTELLIGENCE',
+      items: [
+        { id: 'gemini_assistant', label: 'Gemini AI Assistant', sublabel: 'Maps & Search Grounded Chat', icon: Sparkles, badge: 'Live AI' },
       ]
     },
     {

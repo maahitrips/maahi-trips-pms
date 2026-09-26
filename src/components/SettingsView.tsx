@@ -34,6 +34,7 @@ import {
   Info,
   Smartphone,
   Laptop,
+  Sparkles,
   X
 } from 'lucide-react';
 import { 
@@ -1172,30 +1173,65 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Cloud Sync Advisory inside Backup tab */}
-          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
-                  <CloudOff size={18} />
+          {isCloudConnected ? (
+            <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-100 rounded-lg text-emerald-800 shrink-0">
+                    <Cloud size={18} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-emerald-950 text-sm block">Current Mode: Live Cloud Sync (Automatic ON)</span>
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-700 text-white tracking-wide flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 inline-block animate-pulse"></span>
+                        Live Online
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-800">
+                      Cloud sync is automatically active. Any booking made on mobile phones, laptops, or tablets syncs in real-time across all screens.
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-bold text-amber-950 text-sm block">Current Mode: Local Device Storage (Offline)</span>
-                  <span className="text-[11px] text-amber-800">No cloud database connected. Different phones or laptops will display different data.</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleTriggerCloudSyncNotice}
+                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+                >
+                  <Sparkles size={14} />
+                  <span>Cloud Active</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleTriggerCloudSyncNotice}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
-              >
-                <Cloud size={14} />
-                <span>Enable Cloud Sync</span>
-              </button>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Your data is automatically saved to Google Cloud Firestore in real-time. You can also download a regular offline JSON backup below for your hotel records or bookkeeping.
+              </p>
             </div>
-            <p className="text-slate-600 leading-relaxed text-[11px]">
-              Until an online cloud database is active, <strong>export a JSON backup regularly</strong> using the button below. This protects your hotel rooms, bookings, and customer KYC proofs against device loss or browser cache resets.
-            </p>
-          </div>
+          ) : (
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
+                    <CloudOff size={18} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-950 text-sm block">Current Mode: Local Device Storage (Offline)</span>
+                    <span className="text-[11px] text-amber-800">No cloud database connected. Different phones or laptops will display different data.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTriggerCloudSyncNotice}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+                >
+                  <Cloud size={14} />
+                  <span>Enable Cloud Sync</span>
+                </button>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Until an online cloud database is active, <strong>export a JSON backup regularly</strong> using the button below. This protects your hotel rooms, bookings, and customer KYC proofs against device loss or browser cache resets.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">

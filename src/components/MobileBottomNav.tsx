@@ -99,12 +99,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         type="button"
         onClick={onOpenMobileMenu}
         className={`flex flex-col items-center justify-center flex-1 py-1 rounded-lg transition-colors cursor-pointer ${
-          ['housekeeping', 'invoices', 'gmail', 'settings', 'analytics'].includes(activeTab)
+          ['housekeeping', 'invoices', 'gmail', 'settings', 'analytics', 'gemini_assistant'].includes(activeTab)
             ? 'text-teal-800 font-bold' 
             : 'text-slate-500 hover:text-slate-800 font-medium'
         }`}
       >
-        <Menu size={19} className={['housekeeping', 'invoices', 'gmail', 'settings', 'analytics'].includes(activeTab) ? 'stroke-[2.5px] text-teal-800' : 'text-slate-500'} />
+        <Menu size={19} className={['housekeeping', 'invoices', 'gmail', 'settings', 'analytics', 'gemini_assistant'].includes(activeTab) ? 'stroke-[2.5px] text-teal-800' : 'text-slate-500'} />
         <span className="text-[10px] mt-0.5 tracking-tight">Menu</span>
       </button>
     </nav>

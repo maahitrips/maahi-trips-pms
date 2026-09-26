@@ -16,13 +16,27 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Live hotel inventory, bookings, KYC IDs, and rate configurations
+    // Live hotel inventory, bookings, KYC IDs, and rate configurations + subcollections
+    match /hotelBundles/{hotelId}/{document=**} {
+      allow read, write: if true;
+    }
+
     match /hotelBundles/{hotelId} {
+      allow read, write: if true;
+    }
+
+    // Individual live bookings collection for instant multi-device sync
+    match /liveBookings/{bookingId} {
       allow read, write: if true;
     }
 
     // Connection health test
     match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Fallback for all app documents
+    match /{document=**} {
       allow read, write: if true;
     }
   }

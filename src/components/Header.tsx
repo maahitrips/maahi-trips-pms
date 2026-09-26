@@ -353,19 +353,20 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Multi-Device Cloud Sync Status pill */}
         <div 
           onClick={onOpenCloudSync}
-          className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border ${
+          className={`flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shrink-0 ${
             isCloudConnected 
               ? 'bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100'
               : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
           }`}
           title={isCloudConnected ? "Google Cloud Firestore Real-Time Multi-Device Sync Active" : "Local Storage Only (Offline)"}
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2 shrink-0">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isCloudConnected ? 'bg-teal-400' : 'bg-amber-400'}`}></span>
             <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudConnected ? 'bg-teal-600' : 'bg-amber-600'}`}></span>
           </span>
-          <Cloud size={13} className={isCloudConnected ? "text-teal-700" : "text-amber-700"} />
-          <span>{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
+          <Cloud size={13} className={`${isCloudConnected ? "text-teal-700" : "text-amber-700"} shrink-0`} />
+          <span className="hidden sm:inline">{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
+          <span className="sm:hidden">{isCloudConnected ? "Cloud" : "Local"}</span>
         </div>
       </div>
 

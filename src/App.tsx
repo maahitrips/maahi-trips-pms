@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Room, 
   Booking, 
@@ -51,11 +51,16 @@ import { AddRoomModal } from './components/AddRoomModal';
 import { CreateUserModal } from './components/CreateUserModal';
 import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
+import { GeminiChatView } from './components/GeminiChatView';
+import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { CheckCircle2, Zap, X } from 'lucide-react';
 import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
 import { getTodayDateStr } from './utils/dateHelper';
 import { 
   saveHotelBundleToCloud, 
+  fetchHotelBundleFromCloud,
+  syncSingleBookingToCloud,
+  subscribeToLiveBookings,
   subscribeToHotelBundle, 
   saveHotelsToCloud, 
   subscribeToHotels, 
@@ -323,26 +328,69 @@ export default function App() {
   const [toastNotification, setToastNotification] = useState<{ message: string; sub?: string } | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
 
-  // Initialize and verify Firestore Cloud Connection, seeding cloud with initial bundle
+  // Sync state tracking refs to avoid echo ping-pong loops and startup overwrites
+  const isRemoteSyncRef = useRef<boolean>(false);
+  const isInitialBootRef = useRef<boolean>(true);
+
+  // Initialize and verify Firestore Cloud Connection, and fetch latest cloud state FIRST
   useEffect(() => {
-    testFirebaseConnection().then(connected => {
+    let isMounted = true;
+    testFirebaseConnection().then(async (connected) => {
+      if (!isMounted) return;
       setIsCloudConnected(connected);
       if (connected) {
-        const currentBundle: HotelDataBundle = {
-          hotelId: activeHotelId,
-          profile: hotelProfile,
-          rooms,
-          bookings,
-          channels,
-          roomMappings,
-          syncLogs
-        };
-        saveHotelBundleToCloud(activeHotelId, currentBundle);
-        saveHotelsToCloud(hotels);
-        saveUsersToCloud(users);
+        try {
+          // Fetch latest cloud bundle to ensure any booking created on mobile or another computer is loaded immediately
+          const cloudBundle = await fetchHotelBundleFromCloud(activeHotelId);
+          if (cloudBundle && Array.isArray(cloudBundle.bookings) && cloudBundle.bookings.length > 0) {
+            isRemoteSyncRef.current = true;
+            
+            // Merge with local storage in case local device had unpushed records
+            const localBundle = loadHotelBundle(activeHotelId);
+            const bookingMap = new Map<string, Booking>();
+            (localBundle.bookings || []).forEach(b => bookingMap.set(b.id, b));
+            cloudBundle.bookings.forEach(b => bookingMap.set(b.id, b));
+            const mergedBookings = Array.from(bookingMap.values());
+
+            if (cloudBundle.profile) setHotelProfile(cloudBundle.profile);
+            if (cloudBundle.rooms) setRooms(cloudBundle.rooms);
+            setBookings(mergedBookings);
+            if (cloudBundle.channels) setChannels(cloudBundle.channels);
+            if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
+
+            // Update local storage cache with cloud data
+            localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify({
+              ...cloudBundle,
+              bookings: mergedBookings
+            }));
+          } else {
+            // Cloud has no data yet, safely seed it with local state
+            const currentBundle: HotelDataBundle = {
+              hotelId: activeHotelId,
+              profile: hotelProfile,
+              rooms,
+              bookings,
+              channels,
+              roomMappings,
+              syncLogs
+            };
+            saveHotelBundleToCloud(activeHotelId, currentBundle, false);
+            saveHotelsToCloud(hotels);
+            saveUsersToCloud(users);
+          }
+        } catch (err) {
+          console.warn('Initial cloud sync error:', err);
+        } finally {
+          setTimeout(() => {
+            isInitialBootRef.current = false;
+          }, 600);
+        }
+      } else {
+        isInitialBootRef.current = false;
       }
     });
-  }, []);
+    return () => { isMounted = false; };
+  }, [activeHotelId]);
 
   // Real-time Cloud Subscriptions across devices (hotels, users, deletion requests)
   useEffect(() => {
@@ -368,20 +416,52 @@ export default function App() {
     };
   }, []);
 
-  // Real-time active hotel bundle subscription for multi-device sync
+  // Real-time active hotel bundle AND liveBookings subcollection subscription for instant multi-device sync
   useEffect(() => {
     if (!activeHotelId) return;
+
+    // 1. Full bundle changes (rooms, rates, profiles, full booking list)
     const unsubBundle = subscribeToHotelBundle(activeHotelId, (cloudBundle) => {
       if (cloudBundle) {
+        isRemoteSyncRef.current = true;
         if (cloudBundle.profile) setHotelProfile(cloudBundle.profile);
         if (cloudBundle.rooms) setRooms(cloudBundle.rooms);
-        if (cloudBundle.bookings) setBookings(cloudBundle.bookings);
+        if (cloudBundle.bookings && Array.isArray(cloudBundle.bookings)) {
+          setBookings(prev => {
+            const map = new Map<string, Booking>();
+            prev.forEach(b => map.set(b.id, b));
+            cloudBundle.bookings.forEach(b => map.set(b.id, b));
+            return Array.from(map.values());
+          });
+        }
         if (cloudBundle.channels) setChannels(cloudBundle.channels);
         if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
         if (cloudBundle.syncLogs) setSyncLogs(cloudBundle.syncLogs);
       }
     });
-    return () => unsubBundle();
+
+    // 2. Instant sub-second single booking updates (when mobile or any device saves a booking)
+    const unsubLive = subscribeToLiveBookings(activeHotelId, (booking, changeType) => {
+      isRemoteSyncRef.current = true;
+      if (changeType === 'removed') {
+        setBookings(prev => prev.filter(b => b.id !== booking.id));
+      } else {
+        setBookings(prev => {
+          const idx = prev.findIndex(b => b.id === booking.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = booking;
+            return copy;
+          }
+          return [booking, ...prev];
+        });
+      }
+    });
+
+    return () => {
+      unsubBundle();
+      unsubLive();
+    };
   }, [activeHotelId]);
 
   // Persist multi-hotel metadata & active user
@@ -423,8 +503,22 @@ export default function App() {
       roomMappings,
       syncLogs
     };
+
+    // Always update local cache
     localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify(currentBundle));
-    saveHotelBundleToCloud(activeHotelId, currentBundle);
+
+    // If change was received from cloud, do not echo it back to cloud
+    if (isRemoteSyncRef.current) {
+      isRemoteSyncRef.current = false;
+      return;
+    }
+
+    // If app is still booting/checking cloud, do not overwrite cloud with stale initial cache
+    if (isInitialBootRef.current) {
+      return;
+    }
+
+    saveHotelBundleToCloud(activeHotelId, currentBundle, true);
 
     // Also update legacy keys if Big House Inn
     if (activeHotelId === 'hotel-bighouse') {
@@ -908,6 +1002,7 @@ export default function App() {
   // Inbound OTA booking simulation
   const handleIngestOtaBooking = (newBooking: Booking, channelName: string) => {
     setBookings(prev => [newBooking, ...prev]);
+    syncSingleBookingToCloud(activeHotelId, newBooking);
 
     // Mark room as occupied if checkin is today
     if (newBooking.checkInDate === getTodayDateStr()) {
@@ -947,6 +1042,11 @@ export default function App() {
         }
       }
       return updated;
+    });
+
+    // Push each booking directly to Cloud Firestore for instant multi-device live reflection
+    payloads.forEach(item => {
+      syncSingleBookingToCloud(activeHotelId, item);
     });
 
     // Mark rooms as dirty/occupied if check-in is today
@@ -997,6 +1097,7 @@ export default function App() {
         if (selectedBooking && selectedBooking.id === bookingId) {
           setSelectedBooking(updated);
         }
+        syncSingleBookingToCloud(activeHotelId, updated);
         return updated;
       }
       return b;
@@ -1045,6 +1146,7 @@ export default function App() {
       if (selectedBooking && selectedBooking.id === bookingId) {
         setSelectedBooking(updated);
       }
+      syncSingleBookingToCloud(activeHotelId, updated);
       return updated;
     }));
 
@@ -1079,7 +1181,7 @@ export default function App() {
           date: new Date().toLocaleString()
         });
       }
-      return {
+      const updated: Booking = {
         ...b,
         status: finalStatus,
         guest: {
@@ -1088,6 +1190,8 @@ export default function App() {
         },
         payments: updatedPayments
       };
+      syncSingleBookingToCloud(activeHotelId, updated);
+      return updated;
     }));
 
     if (selectedBooking && selectedBooking.id === bookingId) {
@@ -1137,6 +1241,7 @@ export default function App() {
         if (selectedBooking && selectedBooking.id === bookingId) {
           setSelectedBooking(updated);
         }
+        syncSingleBookingToCloud(activeHotelId, updated);
         return updated;
       }
       return b;
@@ -1540,6 +1645,17 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'gemini_assistant' && (
+            <div className="flex-1 overflow-y-auto">
+              <GeminiChatView
+                hotelProfile={hotelProfile}
+                hotels={hotels}
+                activeHotelId={activeHotelId}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+              />
+            </div>
+          )}
+
           {activeTab === 'settings' && (
             <SettingsView
               hotelProfile={hotelProfile}
@@ -1768,6 +1884,11 @@ export default function App() {
           </button>
         </div>
       )}
+      {/* Floating Quick Gemini AI Concierge Widget */}
+      <GeminiFloatingWidget
+        hotelProfile={hotelProfile}
+        onOpenFullChat={() => setActiveTab('gemini_assistant')}
+      />
     </div>
   );
 }
