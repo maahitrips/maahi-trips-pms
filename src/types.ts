@@ -191,6 +191,17 @@ export interface ChannelSyncLog {
   payloadSummary?: string;
 }
 
+export interface LastMinuteRateAutomationConfig {
+  isEnabled: boolean;             // Default: true (Rule active)
+  evaluationTimeHour: number;     // Morning cutoff hour, default 7 (7:00 AM)
+  evaluationTimeMinute: number;   // Cutoff minute, default 0
+  targetOccupancyPercent: number; // Threshold, default 60%
+  discountPercent: number;        // Percentage to reduce from base rate, default 15%
+  applyToChannels: boolean;       // Automatically sync to OTAs (MMT, Agoda, Booking.com, Airbnb)
+  applyToDirectWalkIn: boolean;   // Apply to Front Desk walk-in reservations
+  simulatedTimePassed7am?: boolean; // Manual testing simulation flag
+}
+
 export interface DynamicPricingConfig {
   isEnabled: boolean;
   tier1ThresholdPercent: number; // e.g. 50% sold out
@@ -198,6 +209,7 @@ export interface DynamicPricingConfig {
   tier2ThresholdPercent: number; // e.g. 80% sold out
   tier2SurgePercent: number;     // e.g. +20% rate increase
   applyToAllChannels: boolean;
+  lastMinuteAutomation?: LastMinuteRateAutomationConfig;
 }
 
 export interface HotelProfile {
@@ -258,6 +270,7 @@ export interface HotelDataBundle {
   roomMappings: RoomTypeMapping[];
   syncLogs: ChannelSyncLog[];
   profile: HotelProfile;
+  dynamicPricing?: DynamicPricingConfig;
 }
 
 export interface DeletionRequest {

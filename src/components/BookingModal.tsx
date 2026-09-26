@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Room, 
   Booking, 
@@ -36,7 +36,8 @@ import {
   Building,
   Tag,
   Percent,
-  BadgePercent
+  BadgePercent,
+  Zap
 } from 'lucide-react';
 
 interface BookingModalProps {
@@ -49,6 +50,8 @@ interface BookingModalProps {
   initialCheckOutDate?: string;
   onSaveBooking: (booking: Booking | Booking[]) => void;
   existingBooking?: Booking | null;
+  isLastMinuteFlashActive?: boolean;
+  lastMinuteDiscountPercent?: number;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -60,7 +63,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   initialDate,
   initialCheckOutDate,
   onSaveBooking,
-  existingBooking
+  existingBooking,
+  isLastMinuteFlashActive = false,
+  lastMinuteDiscountPercent = 15
 }) => {
   // Active step tab: 'stay' | 'guest_id' | 'billing'
   const [activeTab, setActiveTab] = useState<'stay' | 'guest_id' | 'billing'>('stay');
@@ -139,11 +144,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return firstFree ? [firstFree.id] : (rooms[0] ? [rooms[0].id] : []);
   });
 
+  // Check if today's 7 AM Flash Rate is applicable to this new booking
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+  const isFlashApplicable = isLastMinuteFlashActive && checkInDate === todayStr && !existingBooking;
+
   // Custom rate per room (roomId -> nightly rate)
   const [roomRates, setRoomRates] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
+    const effectiveInDate = existingBooking?.checkInDate || initialDate || getTodayDateStr();
+    const applyInitialFlash = isLastMinuteFlashActive && effectiveInDate === getTodayDateStr() && !existingBooking;
+
     rooms.forEach(r => {
-      map[r.id] = r.baseRate;
+      if (applyInitialFlash) {
+        map[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
+      } else {
+        map[r.id] = r.baseRate;
+      }
     });
     if (existingBooking?.roomId && existingBooking?.roomRatePerNight) {
       map[existingBooking.roomId] = existingBooking.roomRatePerNight;
@@ -157,6 +173,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     }
     return map;
   });
+
+  // When checkInDate changes to today and flash is active, auto-apply flash discount to non-existing bookings
+  useEffect(() => {
+    if (!existingBooking && isLastMinuteFlashActive && checkInDate === todayStr) {
+      setRoomRates(prev => {
+        const next = { ...prev };
+        rooms.forEach(r => {
+          next[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
+        });
+        return next;
+      });
+    }
+  }, [checkInDate, isLastMinuteFlashActive, todayStr]);
 
   // Primary room helper for backward-compatibility
   const roomId = selectedRoomIds[0] || '';
@@ -1384,22 +1413,40 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       {selectedRoomIds.length <= 1 ? 'Room Tariff / Night (₹) *' : 'Total Combined Tariff (₹)'}
                     </label>
                     {selectedRoomIds.length <= 1 ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-slate-500 font-bold text-sm">₹</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={roomId && roomRates[roomId] !== undefined ? roomRates[roomId] : (selectedRoom?.baseRate || 3000)}
-                          onChange={(e) => {
-                            const val = Math.max(0, Number(e.target.value));
-                            if (roomId) {
-                              handleUpdateSpecificRoomRate(roomId, val);
-                            }
-                          }}
-                          className="w-full text-sm font-bold font-mono pl-7 pr-3 py-2 bg-white border border-teal-500 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 shadow-2xs"
-                          placeholder="e.g. 2500"
-                        />
-                      </div>
+                      <>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-slate-500 font-bold text-sm">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={roomId && roomRates[roomId] !== undefined ? roomRates[roomId] : (selectedRoom?.baseRate || 3000)}
+                            onChange={(e) => {
+                              const val = Math.max(0, Number(e.target.value));
+                              if (roomId) {
+                                handleUpdateSpecificRoomRate(roomId, val);
+                              }
+                            }}
+                            className="w-full text-sm font-bold font-mono pl-7 pr-3 py-2 bg-white border border-teal-500 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 shadow-2xs"
+                            placeholder="e.g. 2500"
+                          />
+                        </div>
+
+                        {/* ⚡ 7 AM Last-Minute Flash Indicator */}
+                        {isFlashApplicable && selectedRoom && (
+                          <div className="mt-1.5 flex items-center justify-between text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
+                            <div className="flex items-center gap-1">
+                              <Zap size={12} className="fill-rose-600 text-rose-600 shrink-0" />
+                              <span>⚡ 7 AM Flash: -15% Applied</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-slate-400 line-through">₹{selectedRoom.baseRate}</span>
+                              <span className="text-rose-800 font-extrabold bg-white px-1.5 py-0.5 rounded border border-rose-200">
+                                ₹{roomId && roomRates[roomId]}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="w-full text-sm font-bold bg-teal-50 border border-teal-300 rounded-lg p-2 text-teal-950 flex items-center justify-between">
                         <span>₹{totalRoomRatePerNight.toLocaleString()}/N</span>

@@ -31,8 +31,12 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Search,
-  X
+  X,
+  Zap,
+  Clock,
+  SlidersHorizontal
 } from 'lucide-react';
+import { LastMinuteRuleStatus } from '../utils/pricingHelper';
 
 interface DeskCalendarProps {
   rooms: Room[];
@@ -46,6 +50,11 @@ interface DeskCalendarProps {
   onEditRoom?: (room: Room) => void;
   onRequestDeleteRoom?: (room: Room) => void;
   currentUser?: UserAccount | null;
+  isLastMinuteFlashActive?: boolean;
+  onOpenChannelManager?: () => void;
+  lastMinuteStatus?: LastMinuteRuleStatus;
+  onOpenLastMinuteModal?: () => void;
+  onToggleSimulate7am?: () => void;
 }
 
 export const DeskCalendar: React.FC<DeskCalendarProps> = ({
@@ -60,6 +69,11 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   onEditRoom,
   onRequestDeleteRoom,
   currentUser,
+  isLastMinuteFlashActive = false,
+  onOpenChannelManager,
+  lastMinuteStatus,
+  onOpenLastMinuteModal,
+  onToggleSimulate7am
 }) => {
   const isSuperAdmin = isSuperAdminUser(currentUser);
   const todayStr = useMemo(() => getTodayDateStr(), []);
@@ -417,6 +431,76 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
         </div>
       </div>
 
+      {/* ⚡ Morning 7:00 AM Last-Minute Booking Automation Banner */}
+      {lastMinuteStatus && (
+        <div className={`mx-3 sm:mx-4 mt-2 p-3 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 transition-all shrink-0 ${
+          lastMinuteStatus.isTriggered
+            ? 'bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 border-rose-300 text-rose-950 shadow-2xs'
+            : lastMinuteStatus.isPast7Am
+            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-950'
+            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+              lastMinuteStatus.isTriggered ? 'bg-rose-600 text-white animate-pulse' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+            }`}>
+              <Clock size={16} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs sm:text-sm">
+                  {lastMinuteStatus.isTriggered
+                    ? `⚡ 7:00 AM Last-Minute Flash Sale Active: Base Rates -${lastMinuteStatus.discountPercent}% Reduced`
+                    : lastMinuteStatus.isPast7Am
+                    ? `🎯 60% Booking Target Met (${lastMinuteStatus.currentOccupancyPercent}% Occupancy)`
+                    : `⏳ Pending 7:00 AM Last-Minute Cutoff (${lastMinuteStatus.currentOccupancyPercent}% Booked)`}
+                </span>
+                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                  lastMinuteStatus.isTriggered 
+                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                    : lastMinuteStatus.isPast7Am 
+                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                }`}>
+                  Today: {lastMinuteStatus.currentOccupancyPercent}% Occupied ({lastMinuteStatus.occupiedRoomsCount}/{lastMinuteStatus.totalRoomsCount} Rooms)
+                </span>
+              </div>
+              <p className="text-[11px] opacity-85 mt-0.5">
+                {lastMinuteStatus.isTriggered
+                  ? `Same-date occupancy is under 60% after 7:00 AM cutoff. 15% discount is automatically applied to today's walk-in bookings and OTA channels.`
+                  : lastMinuteStatus.isPast7Am
+                  ? `Today's booking reached or exceeded 60% target. Normal standard base rates remain in effect.`
+                  : `Automated rule runs every morning at 7:00 AM. If today's booking is under 60%, rates will automatically reduce by 15%.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            {onToggleSimulate7am && (
+              <button
+                type="button"
+                onClick={onToggleSimulate7am}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border bg-white hover:bg-slate-50 text-slate-700 shadow-2xs flex items-center gap-1 cursor-pointer"
+                title="Toggle 7:00 AM Cutoff Simulation to test 15% discount immediately"
+              >
+                <Zap size={12} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
+                <span>{lastMinuteStatus.isPast7Am ? 'Simulation (ON)' : 'Test 7 AM'}</span>
+              </button>
+            )}
+            {onOpenLastMinuteModal && (
+              <button
+                type="button"
+                onClick={onOpenLastMinuteModal}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-800 hover:bg-teal-900 text-white shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                <SlidersHorizontal size={12} />
+                <span>Rule Settings</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* VIEW MODE 1: TODAY'S OPERATIONS AGENDA (Mobile-Optimized) */}
       {viewMode === 'agenda' ? (
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 bg-slate-50">
@@ -761,8 +845,20 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                             </div>
                           </div>
                           <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
-                            <span className="truncate max-w-[70px] sm:max-w-[95px]" title={room.type}>{room.type}</span>
-                            <span className="font-semibold text-slate-700 font-mono text-[10px] sm:text-xs">₹{room.baseRate}</span>
+                            <span className="truncate max-w-[65px] sm:max-w-[90px]" title={room.type}>{room.type}</span>
+                            {lastMinuteStatus?.isTriggered ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-slate-400 line-through">₹{room.baseRate}</span>
+                                <span className="font-extrabold text-rose-700 font-mono text-[10px] sm:text-xs">
+                                  ₹{Math.round(room.baseRate * (1 - (lastMinuteStatus.discountPercent || 15) / 100))}
+                                </span>
+                                <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">
+                                  ⚡-15%
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="font-semibold text-slate-700 font-mono text-[10px] sm:text-xs">₹{room.baseRate}</span>
+                            )}
                           </div>
                         </div>
 

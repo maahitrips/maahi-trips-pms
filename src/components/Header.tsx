@@ -24,6 +24,7 @@ import {
   Cloud
 } from 'lucide-react';
 import { UserAccount, Hotel, HotelProfile } from '../types';
+import { LastMinuteRuleStatus } from '../utils/pricingHelper';
 import { 
   canUserAddProperty, 
   getAccessibleHotels, 
@@ -55,6 +56,8 @@ interface HeaderProps {
   onExportBackup?: () => void;
   isCloudConnected?: boolean;
   onOpenCloudSync?: () => void;
+  lastMinuteStatus?: LastMinuteRuleStatus;
+  onOpenLastMinuteModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -78,7 +81,9 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onExportBackup,
   isCloudConnected = true,
-  onOpenCloudSync
+  onOpenCloudSync,
+  lastMinuteStatus,
+  onOpenLastMinuteModal
 }) => {
   const [isHotelMenuOpen, setIsHotelMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -368,6 +373,41 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
           <span className="sm:hidden">{isCloudConnected ? "Cloud" : "Local"}</span>
         </div>
+
+        {/* ⚡ 7:00 AM Last-Minute Flash Rate Pill */}
+        {lastMinuteStatus && (
+          <div
+            onClick={onOpenLastMinuteModal}
+            className={`flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border shrink-0 ${
+              lastMinuteStatus.isTriggered
+                ? 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100 shadow-2xs'
+                : lastMinuteStatus.isPast7Am
+                ? 'hidden lg:flex bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                : 'hidden xl:flex bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+            }`}
+            title={`7:00 AM Last-Minute Automation: ${lastMinuteStatus.statusLabel}`}
+          >
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                lastMinuteStatus.isTriggered ? 'bg-rose-400' : lastMinuteStatus.isPast7Am ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                lastMinuteStatus.isTriggered ? 'bg-rose-600' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600' : 'bg-amber-600'
+              }`}></span>
+            </span>
+            <Zap size={13} className={`${lastMinuteStatus.isTriggered ? 'text-rose-600 fill-rose-500' : 'text-slate-500'} shrink-0`} />
+            <span className="hidden sm:inline">
+              {lastMinuteStatus.isTriggered 
+                ? `⚡ 7 AM Flash: -${lastMinuteStatus.discountPercent}%` 
+                : lastMinuteStatus.isPast7Am 
+                ? `🎯 Target Met (${lastMinuteStatus.currentOccupancyPercent}%)` 
+                : `⏱️ 7 AM Cutoff Ready`}
+            </span>
+            <span className="sm:hidden">
+              {lastMinuteStatus.isTriggered ? `⚡ -${lastMinuteStatus.discountPercent}%` : `7 AM`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Right side: Search, Simulate OTA, User Login / Account Switcher */}

@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { ChannelLoginModal } from './ChannelLoginModal';
 import { DynamicPricingRulesModal } from './DynamicPricingRulesModal';
+import { evaluateLastMinuteAutomation, defaultLastMinuteConfig } from '../utils/pricingHelper';
 import { 
   Globe2, 
   RefreshCw, 
@@ -159,6 +160,30 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
       surgeLevel = 'tier1';
     }
   }
+
+  // Last-minute modal tab preference
+  const [modalInitialTab, setModalInitialTab] = useState<'last_minute' | 'surge'>('last_minute');
+
+  // Last-Minute Flash Rate Automation Evaluation (User Request: Morning 7:00 AM <60% occupancy -> 15% discount)
+  const lastMinuteConfig = dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig;
+  const lastMinuteStatus = evaluateLastMinuteAutomation(bookings, rooms, lastMinuteConfig);
+  const flashDiscountPercent = lastMinuteStatus.isTriggered ? lastMinuteStatus.discountPercent : 0;
+
+  const handleToggleSimulate7am = () => {
+    const updatedLM = {
+      ...lastMinuteConfig,
+      simulatedTimePassed7am: !lastMinuteConfig.simulatedTimePassed7am
+    };
+    const updatedDP: DynamicPricingConfig = {
+      ...dynamicPricing,
+      lastMinuteAutomation: updatedLM
+    };
+    if (onUpdateDynamicPricing) {
+      onUpdateDynamicPricing(updatedDP);
+    } else {
+      setInternalDynamicPricing(updatedDP);
+    }
+  };
 
   const handleToggleDynamicPricing = () => {
     const updated = {
@@ -344,6 +369,121 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
             <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
             <span>{isSyncing ? 'Synchronizing OTAs...' : 'Sync All Channels Now'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* ⚡ MORNING 7:00 AM LAST-MINUTE FLASH SALE AUTOMATION PANEL (Requested: 7 AM <60% occupancy -> 15% rate reduce) */}
+      <div className={`border rounded-2xl p-4 md:p-5 shadow-sm space-y-4 transition-all ${
+        lastMinuteStatus.isTriggered
+          ? 'bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-orange-500/10 border-rose-300'
+          : 'bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-teal-600/10 border-teal-200'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0 ${
+              lastMinuteStatus.isTriggered ? 'bg-rose-600 animate-pulse' : 'bg-teal-700'
+            }`}>
+              <Clock size={22} />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-sm md:text-base">
+                  Morning 7:00 AM Last-Minute Flash Rate Automation
+                </h3>
+                <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                  lastMinuteStatus.isTriggered
+                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                    : lastMinuteStatus.isPast7Am
+                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                    : 'bg-amber-100 text-amber-950 border-amber-300'
+                }`}>
+                  {lastMinuteStatus.isTriggered ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 inline-block animate-ping"></span>
+                      ⚡ -15% Flash Rate Active
+                    </>
+                  ) : lastMinuteStatus.isPast7Am ? (
+                    '🎯 Target Met (≥60% Occupancy)'
+                  ) : (
+                    '⏳ Pending 7:00 AM Evaluation'
+                  )}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Rule: <strong>Cutoff 7:00 AM Daily</strong> | If same-date occupancy is <strong>&lt; 60%</strong> → Base rates automatically reduce by <strong>15%</strong> for OTAs &amp; Front Desk
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleToggleSimulate7am}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                lastMinuteConfig.simulatedTimePassed7am
+                  ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-900 shadow-2xs'
+                  : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700 shadow-2xs'
+              }`}
+              title="Toggle simulated 7:00 AM cutoff to test the 15% rate reduction immediately"
+            >
+              <Zap size={13} className={lastMinuteConfig.simulatedTimePassed7am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
+              <span>{lastMinuteConfig.simulatedTimePassed7am ? 'Simulating Past 7 AM (ON)' : 'Test 7 AM Cutoff'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setModalInitialTab('last_minute');
+                setIsDynamicRulesModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <SlidersHorizontal size={13} />
+              <span>Configure 7 AM Rule</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Real-time Status Card & Occupancy Meter */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500 block">Today's Same-Date Occupancy</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-base font-extrabold ${lastMinuteStatus.currentOccupancyPercent < 60 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                  {lastMinuteStatus.currentOccupancyPercent}%
+                </span>
+                <span className="text-slate-500 font-medium">
+                  ({lastMinuteStatus.occupiedRoomsCount} of {lastMinuteStatus.totalRoomsCount} rooms booked)
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500 block">Occupancy Threshold Check</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-base font-extrabold text-slate-800">
+                  Target: 60%
+                </span>
+                <span className={`text-[11px] font-bold ${lastMinuteStatus.currentOccupancyPercent < 60 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {lastMinuteStatus.currentOccupancyPercent < 60 ? '❌ Under 60% (Discount Eligible)' : '✅ Above 60% Target'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500 block">Current Rate Action</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-base font-extrabold ${lastMinuteStatus.isTriggered ? 'text-rose-700' : 'text-slate-700'}`}>
+                  {lastMinuteStatus.isTriggered ? '-15% Base Rate Reduced' : 'Standard Base Rate'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 leading-relaxed">
+            ℹ️ {lastMinuteStatus.explanation}
+          </p>
         </div>
       </div>
 
@@ -583,7 +723,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {channels.map((ch) => {
             const Icon = getChannelIcon(ch.logo);
-            const effectiveMarkup = ch.rateMarkupPercent + (dynamicPricing.isEnabled ? activeSurgePercent : 0);
+            const effectiveMarkup = ch.rateMarkupPercent + (dynamicPricing.isEnabled ? activeSurgePercent : 0) - flashDiscountPercent;
 
             return (
               <div
@@ -783,7 +923,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {roomMappings.map((map) => {
-                  const effectiveModifier = map.rateModifier + (dynamicPricing.isEnabled ? activeSurgePercent : 0);
+                  const effectiveModifier = map.rateModifier + (dynamicPricing.isEnabled ? activeSurgePercent : 0) - flashDiscountPercent;
 
                   return (
                     <tr key={map.id} className="hover:bg-slate-50/80 transition-colors">
@@ -1274,12 +1414,13 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
         />
       )}
 
-      {/* Dynamic Pricing Rules Modal */}
+      {/* Dynamic Pricing & Last-Minute Rules Modal */}
       <DynamicPricingRulesModal
         isOpen={isDynamicRulesModalOpen}
         onClose={() => setIsDynamicRulesModalOpen(false)}
         config={dynamicPricing}
         onSave={handleSaveDynamicPricingConfig}
+        initialTab={modalInitialTab}
       />
 
     </div>

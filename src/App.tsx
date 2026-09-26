@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Room, 
   Booking, 
@@ -14,6 +14,7 @@ import {
   HotelDataBundle,
   DeletionRequest,
   DynamicPricingConfig,
+  LastMinuteRateAutomationConfig,
   PaymentMode
 } from './types';
 import { 
@@ -53,6 +54,12 @@ import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
 import { GeminiChatView } from './components/GeminiChatView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
+import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
+import { 
+  defaultLastMinuteConfig, 
+  evaluateLastMinuteAutomation, 
+  LastMinuteRuleStatus 
+} from './utils/pricingHelper';
 import { CheckCircle2, Zap, X } from 'lucide-react';
 import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
 import { getTodayDateStr } from './utils/dateHelper';
@@ -122,7 +129,21 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      return migrateOldDates(parsed);
+      const migrated = migrateOldDates(parsed);
+      if (!migrated.dynamicPricing) {
+        migrated.dynamicPricing = {
+          isEnabled: true,
+          tier1ThresholdPercent: 50,
+          tier1SurgePercent: 10,
+          tier2ThresholdPercent: 80,
+          tier2SurgePercent: 20,
+          applyToAllChannels: true,
+          lastMinuteAutomation: defaultLastMinuteConfig
+        };
+      } else if (!migrated.dynamicPricing.lastMinuteAutomation) {
+        migrated.dynamicPricing.lastMinuteAutomation = defaultLastMinuteConfig;
+      }
+      return migrated;
     } catch (e) {
       console.error('Error parsing hotel bundle', e);
     }
@@ -145,7 +166,16 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
         bookings: legacyBookings ? JSON.parse(legacyBookings) : initialBookings,
         channels: legacyChannels ? JSON.parse(legacyChannels) : initialOTAChannels,
         roomMappings: legacyMappings ? JSON.parse(legacyMappings) : initialRoomMappings,
-        syncLogs: legacyLogs ? JSON.parse(legacyLogs) : initialSyncLogs
+        syncLogs: legacyLogs ? JSON.parse(legacyLogs) : initialSyncLogs,
+        dynamicPricing: {
+          isEnabled: true,
+          tier1ThresholdPercent: 50,
+          tier1SurgePercent: 10,
+          tier2ThresholdPercent: 80,
+          tier2SurgePercent: 20,
+          applyToAllChannels: true,
+          lastMinuteAutomation: defaultLastMinuteConfig
+        }
       };
       return migrateOldDates(bundle);
     }
@@ -153,12 +183,34 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
 
   // Fallback to initial mock bundles
   if (initialHotelBundles[hotelId]) {
-    return initialHotelBundles[hotelId];
+    const b = initialHotelBundles[hotelId];
+    if (!b.dynamicPricing) {
+      b.dynamicPricing = {
+        isEnabled: true,
+        tier1ThresholdPercent: 50,
+        tier1SurgePercent: 10,
+        tier2ThresholdPercent: 80,
+        tier2SurgePercent: 20,
+        applyToAllChannels: true,
+        lastMinuteAutomation: defaultLastMinuteConfig
+      };
+    }
+    return b;
   }
 
   const foundHotel = initialHotels.find(h => h.id === hotelId);
   if (foundHotel) {
-    return createDefaultHotelBundle(foundHotel, 8);
+    const b = createDefaultHotelBundle(foundHotel, 8);
+    b.dynamicPricing = {
+      isEnabled: true,
+      tier1ThresholdPercent: 50,
+      tier1SurgePercent: 10,
+      tier2ThresholdPercent: 80,
+      tier2SurgePercent: 20,
+      applyToAllChannels: true,
+      lastMinuteAutomation: defaultLastMinuteConfig
+    };
+    return b;
   }
 
   return {
@@ -168,7 +220,16 @@ const loadHotelBundle = (hotelId: string): HotelDataBundle => {
     bookings: initialBookings,
     channels: initialOTAChannels,
     roomMappings: initialRoomMappings,
-    syncLogs: initialSyncLogs
+    syncLogs: initialSyncLogs,
+    dynamicPricing: {
+      isEnabled: true,
+      tier1ThresholdPercent: 50,
+      tier1SurgePercent: 10,
+      tier2ThresholdPercent: 80,
+      tier2SurgePercent: 20,
+      applyToAllChannels: true,
+      lastMinuteAutomation: defaultLastMinuteConfig
+    }
   };
 };
 
@@ -276,6 +337,26 @@ export default function App() {
   const [roomMappings, setRoomMappings] = useState<RoomTypeMapping[]>(() => loadHotelBundle(activeHotelId).roomMappings);
   const [syncLogs, setSyncLogs] = useState<ChannelSyncLog[]>(() => loadHotelBundle(activeHotelId).syncLogs);
   const [hotelProfile, setHotelProfile] = useState<HotelProfile>(() => loadHotelBundle(activeHotelId).profile);
+
+  // Dynamic Yield Pricing & 7:00 AM Last-Minute Automation State (isolated per hotel)
+  const [dynamicPricing, setDynamicPricing] = useState<DynamicPricingConfig>(() => {
+    const loaded = loadHotelBundle(activeHotelId);
+    if (loaded && loaded.dynamicPricing) {
+      return {
+        ...loaded.dynamicPricing,
+        lastMinuteAutomation: loaded.dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig
+      };
+    }
+    return {
+      isEnabled: true,
+      tier1ThresholdPercent: 50,
+      tier1SurgePercent: 10,
+      tier2ThresholdPercent: 80,
+      tier2SurgePercent: 20,
+      applyToAllChannels: true,
+      lastMinuteAutomation: defaultLastMinuteConfig
+    };
+  });
 
   // Multi-Hotel & Authentication Modals
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
@@ -437,6 +518,12 @@ export default function App() {
         if (cloudBundle.channels) setChannels(cloudBundle.channels);
         if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
         if (cloudBundle.syncLogs) setSyncLogs(cloudBundle.syncLogs);
+        if (cloudBundle.dynamicPricing) {
+          setDynamicPricing({
+            ...cloudBundle.dynamicPricing,
+            lastMinuteAutomation: cloudBundle.dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig
+          });
+        }
       }
     });
 
@@ -501,7 +588,8 @@ export default function App() {
       bookings,
       channels,
       roomMappings,
-      syncLogs
+      syncLogs,
+      dynamicPricing
     };
 
     // Always update local cache
@@ -560,7 +648,7 @@ export default function App() {
       }
       return prev;
     });
-  }, [activeHotelId, hotelProfile, rooms, bookings, channels, roomMappings, syncLogs]);
+  }, [activeHotelId, hotelProfile, rooms, bookings, channels, roomMappings, syncLogs, dynamicPricing]);
 
   // Switch between hotel properties
   const handleSelectHotel = (newHotelId: string) => {
@@ -574,7 +662,8 @@ export default function App() {
       bookings,
       channels,
       roomMappings,
-      syncLogs
+      syncLogs,
+      dynamicPricing
     };
     localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify(currentBundle));
 
@@ -587,6 +676,22 @@ export default function App() {
     setChannels(nextBundle.channels);
     setRoomMappings(nextBundle.roomMappings);
     setSyncLogs(nextBundle.syncLogs);
+    if (nextBundle.dynamicPricing) {
+      setDynamicPricing({
+        ...nextBundle.dynamicPricing,
+        lastMinuteAutomation: nextBundle.dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig
+      });
+    } else {
+      setDynamicPricing({
+        isEnabled: true,
+        tier1ThresholdPercent: 50,
+        tier1SurgePercent: 10,
+        tier2ThresholdPercent: 80,
+        tier2SurgePercent: 20,
+        applyToAllChannels: true,
+        lastMinuteAutomation: defaultLastMinuteConfig
+      });
+    }
 
     const targetHotel = hotels.find(h => h.id === newHotelId);
     showToast(`Switched to ${targetHotel?.name || 'Hotel'}`, `${nextBundle.rooms.length} Rooms • ${nextBundle.bookings.length} Bookings loaded`);
@@ -1422,14 +1527,42 @@ export default function App() {
     showToast('Inbound Webhook Verified', `Test handshake received from ${channel.name} webhook engine`);
   };
 
-  const [dynamicPricing, setDynamicPricing] = useState<DynamicPricingConfig>({
-    isEnabled: false,
-    tier1ThresholdPercent: 50,
-    tier1SurgePercent: 10,
-    tier2ThresholdPercent: 80,
-    tier2SurgePercent: 20,
-    applyToAllChannels: true
-  });
+  const [isDynamicRulesModalOpen, setIsDynamicRulesModalOpen] = useState<boolean>(false);
+  const [dynamicRulesInitialTab, setDynamicRulesInitialTab] = useState<'last_minute' | 'surge'>('last_minute');
+
+  // Automatic ticker so when clock passes 7:00 AM, the rule auto-evaluates live without page refresh
+  const [currentTimeTick, setCurrentTimeTick] = useState<number>(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTimeTick(Date.now());
+    }, 30000); // 30 sec auto-refresh
+    return () => clearInterval(timer);
+  }, []);
+
+  // Real-time evaluation of Morning 7:00 AM Last-Minute Rule
+  const lastMinuteStatus = useMemo(() => {
+    const lmConfig = dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig;
+    return evaluateLastMinuteAutomation(bookings, rooms, lmConfig);
+  }, [bookings, rooms, dynamicPricing.lastMinuteAutomation, currentTimeTick]);
+
+  const handleToggleSimulate7am = () => {
+    const lmConfig = dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig;
+    const updatedLM: LastMinuteRateAutomationConfig = {
+      ...lmConfig,
+      simulatedTimePassed7am: !lmConfig.simulatedTimePassed7am
+    };
+    const updatedDP: DynamicPricingConfig = {
+      ...dynamicPricing,
+      lastMinuteAutomation: updatedLM
+    };
+    handleUpdateDynamicPricing(updatedDP);
+    showToast(
+      updatedLM.simulatedTimePassed7am ? '⚡ 7 AM Cutoff Simulation ON' : '7 AM Live Clock Restored',
+      updatedLM.simulatedTimePassed7am 
+        ? 'Morning 7 AM rule active: -15% rate reduction applied if occupancy < 60%'
+        : 'System is evaluating real-time 7:00 AM clock'
+    );
+  };
 
   const handleUpdateDynamicPricing = (newConfig: DynamicPricingConfig) => {
     setDynamicPricing(newConfig);
@@ -1443,6 +1576,9 @@ export default function App() {
       else if (occPercent >= newConfig.tier1ThresholdPercent) surge = newConfig.tier1SurgePercent;
     }
 
+    const lmConfig = newConfig.lastMinuteAutomation || defaultLastMinuteConfig;
+    const lmEval = evaluateLastMinuteAutomation(bookings, rooms, lmConfig);
+
     const newLog: ChannelSyncLog = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -1450,17 +1586,19 @@ export default function App() {
       channelName: 'Yield Engine',
       eventType: 'rate_update',
       status: 'success',
-      message: newConfig.isEnabled
-        ? `Dynamic Yield Pricing Active: Occupancy is ${occPercent}% (${occupiedCount}/${rooms.length} rooms). Surge of +${surge}% applied to all OTA channels.`
-        : `Dynamic Yield Pricing Disabled: Standard base markup restored on all channels.`
+      message: lmEval.isTriggered
+        ? `⚡ 7 AM Flash Rate Active: Occupancy ${lmEval.currentOccupancyPercent}% (<60%). Base rates automatically reduced by ${lmEval.discountPercent}% on all OTAs & Front Desk.`
+        : newConfig.isEnabled
+        ? `Dynamic Yield Pricing Active: Occupancy is ${occPercent}%. Surge of +${surge}% applied to all OTA channels.`
+        : `Dynamic Rates Updated: Standard base rates restored across channels.`
     };
     setSyncLogs(prev => [newLog, ...prev]);
 
     showToast(
-      newConfig.isEnabled ? 'Dynamic Pricing Active' : 'Dynamic Pricing Disabled',
-      newConfig.isEnabled 
-        ? `50% Sold → +10% Rate | 80% Sold → +20% Rate on All OTAs (Occupancy: ${occPercent}%)` 
-        : 'Standard base rates restored across all OTA channels'
+      lmEval.isTriggered ? '⚡ 7 AM Flash Discount Active (-15%)' : 'Dynamic Rates Configured',
+      lmEval.isTriggered
+        ? `Same-date occupancy is ${lmEval.currentOccupancyPercent}% (<60%). 15% discount active on all bookings.`
+        : `7 AM Cutoff Rule: ${lmConfig.isEnabled ? 'Active' : 'Disabled'} | Target: ${lmConfig.targetOccupancyPercent}% | Discount: ${lmConfig.discountPercent}%`
     );
   };
 
@@ -1532,6 +1670,11 @@ export default function App() {
             setSettingsInitialSubTab('backup');
             setActiveTab('settings');
           }}
+          lastMinuteStatus={lastMinuteStatus}
+          onOpenLastMinuteModal={() => {
+            setDynamicRulesInitialTab('last_minute');
+            setIsDynamicRulesModalOpen(true);
+          }}
         />
 
         {/* View Router */}
@@ -1557,6 +1700,13 @@ export default function App() {
               }}
               onRequestDeleteRoom={handleRequestDeleteRoom}
               currentUser={currentUser}
+              isLastMinuteFlashActive={lastMinuteStatus.isTriggered}
+              lastMinuteStatus={lastMinuteStatus}
+              onOpenLastMinuteModal={() => {
+                setDynamicRulesInitialTab('last_minute');
+                setIsDynamicRulesModalOpen(true);
+              }}
+              onToggleSimulate7am={handleToggleSimulate7am}
             />
           )}
 
@@ -1687,6 +1837,10 @@ export default function App() {
               onRejectDeleteRequest={handleRejectDeleteRequest}
               onShowToast={showToast}
               isCloudConnected={isCloudConnected}
+              dynamicPricing={dynamicPricing}
+              onUpdateDynamicPricing={handleUpdateDynamicPricing}
+              lastMinuteStatus={lastMinuteStatus}
+              onToggleSimulate7am={handleToggleSimulate7am}
             />
           )}
         </main>
@@ -1760,6 +1914,19 @@ export default function App() {
           initialDate={preSelectedDate}
           onSaveBooking={handleSaveBooking}
           existingBooking={editingBooking}
+          isLastMinuteFlashActive={lastMinuteStatus.isTriggered}
+          lastMinuteDiscountPercent={lastMinuteStatus.discountPercent}
+        />
+      )}
+
+      {/* ⚡ Dynamic Pricing & 7 AM Last-Minute Automation Modal */}
+      {isDynamicRulesModalOpen && (
+        <DynamicPricingRulesModal
+          isOpen={isDynamicRulesModalOpen}
+          onClose={() => setIsDynamicRulesModalOpen(false)}
+          config={dynamicPricing}
+          onSave={handleUpdateDynamicPricing}
+          initialTab={dynamicRulesInitialTab}
         />
       )}
 

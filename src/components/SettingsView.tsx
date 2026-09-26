@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { HotelProfile, Hotel, UserAccount, Room, DeletionRequest } from '../types';
+import { 
+  HotelProfile, 
+  Hotel, 
+  UserAccount, 
+  Room, 
+  DeletionRequest, 
+  DynamicPricingConfig,
+  LastMinuteRateAutomationConfig 
+} from '../types';
 import { 
   Building2, 
   Save, 
@@ -35,8 +43,12 @@ import {
   Smartphone,
   Laptop,
   Sparkles,
-  X
+  X,
+  Zap,
+  SlidersHorizontal,
+  TrendingUp
 } from 'lucide-react';
+import { defaultLastMinuteConfig, LastMinuteRuleStatus } from '../utils/pricingHelper';
 import { 
   canUserAddProperty, 
   getAccessibleHotels, 
@@ -55,7 +67,7 @@ interface SettingsViewProps {
   activeHotelId: string;
   onSelectHotel: (hotelId: string) => void;
   onOpenAddHotel: () => void;
-  initialSubTab?: 'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect';
+  initialSubTab?: 'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect' | 'pricing';
   currentUser: UserAccount | null;
   users: UserAccount[];
   onOpenLogin: () => void;
@@ -74,6 +86,11 @@ interface SettingsViewProps {
   onRejectDeleteRequest?: (reqId: string) => void;
   onShowToast?: (message: string, sub?: string) => void;
   isCloudConnected?: boolean;
+  // Dynamic Pricing & 7 AM Last-Minute Automation
+  dynamicPricing?: DynamicPricingConfig;
+  onUpdateDynamicPricing?: (newConfig: DynamicPricingConfig) => void;
+  lastMinuteStatus?: LastMinuteRuleStatus;
+  onToggleSimulate7am?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -99,9 +116,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onApproveDeleteRequest,
   onRejectDeleteRequest,
   onShowToast,
-  isCloudConnected = true
+  isCloudConnected = true,
+  dynamicPricing,
+  onUpdateDynamicPricing,
+  lastMinuteStatus,
+  onToggleSimulate7am
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect'>(initialSubTab || 'profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect' | 'pricing'>(initialSubTab || 'profile');
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -119,6 +140,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saved, setSaved] = useState<boolean>(false);
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  // ⚡ 7:00 AM Last-Minute Automation & Dynamic Pricing State
+  const currentLM = dynamicPricing?.lastMinuteAutomation || defaultLastMinuteConfig;
+  const [pricingLmEnabled, setPricingLmEnabled] = useState(currentLM.isEnabled);
+  const [pricingLmHour, setPricingLmHour] = useState(currentLM.evaluationTimeHour ?? 7);
+  const [pricingLmMinute, setPricingLmMinute] = useState(currentLM.evaluationTimeMinute ?? 0);
+  const [pricingLmTarget, setPricingLmTarget] = useState(currentLM.targetOccupancyPercent ?? 60);
+  const [pricingLmDiscount, setPricingLmDiscount] = useState(currentLM.discountPercent ?? 15);
+  const [pricingLmApplyChannels, setPricingLmApplyChannels] = useState(currentLM.applyToChannels ?? true);
+  const [pricingLmApplyWalkIn, setPricingLmApplyWalkIn] = useState(currentLM.applyToDirectWalkIn ?? true);
+
+  // Keep local pricing form in sync when prop updates
+  useEffect(() => {
+    if (dynamicPricing?.lastMinuteAutomation) {
+      setPricingLmEnabled(dynamicPricing.lastMinuteAutomation.isEnabled);
+      setPricingLmHour(dynamicPricing.lastMinuteAutomation.evaluationTimeHour ?? 7);
+      setPricingLmMinute(dynamicPricing.lastMinuteAutomation.evaluationTimeMinute ?? 0);
+      setPricingLmTarget(dynamicPricing.lastMinuteAutomation.targetOccupancyPercent ?? 60);
+      setPricingLmDiscount(dynamicPricing.lastMinuteAutomation.discountPercent ?? 15);
+      setPricingLmApplyChannels(dynamicPricing.lastMinuteAutomation.applyToChannels ?? true);
+      setPricingLmApplyWalkIn(dynamicPricing.lastMinuteAutomation.applyToDirectWalkIn ?? true);
+    }
+  }, [dynamicPricing]);
+
+  const handleSavePricingConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onUpdateDynamicPricing) return;
+
+    const updatedLM: LastMinuteRateAutomationConfig = {
+      isEnabled: pricingLmEnabled,
+      evaluationTimeHour: Number(pricingLmHour),
+      evaluationTimeMinute: Number(pricingLmMinute),
+      targetOccupancyPercent: Number(pricingLmTarget),
+      discountPercent: Number(pricingLmDiscount),
+      applyToChannels: pricingLmApplyChannels,
+      applyToDirectWalkIn: pricingLmApplyWalkIn,
+      simulatedTimePassed7am: !!currentLM.simulatedTimePassed7am
+    };
+
+    const updatedConfig: DynamicPricingConfig = {
+      isEnabled: dynamicPricing?.isEnabled ?? true,
+      tier1ThresholdPercent: dynamicPricing?.tier1ThresholdPercent ?? 50,
+      tier1SurgePercent: dynamicPricing?.tier1SurgePercent ?? 10,
+      tier2ThresholdPercent: dynamicPricing?.tier2ThresholdPercent ?? 80,
+      tier2SurgePercent: dynamicPricing?.tier2SurgePercent ?? 20,
+      applyToAllChannels: dynamicPricing?.applyToAllChannels ?? true,
+      lastMinuteAutomation: updatedLM
+    };
+
+    onUpdateDynamicPricing(updatedConfig);
+    if (onShowToast) {
+      onShowToast(
+        '⚡ 7 AM Last-Minute Rule Saved',
+        `Discount: -${pricingLmDiscount}% when occupancy < ${pricingLmTarget}% at 7:00 AM daily`
+      );
+    }
+  };
 
   const handleTriggerCloudSyncNotice = () => {
     setShowCloudSyncModal(true);
@@ -363,6 +441,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <Globe size={15} />
           <span>Website &amp; Subdomain Setup</span>
+        </button>
+
+        <button
+          id="btn-subtab-pricing"
+          onClick={() => setActiveSubTab('pricing')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'pricing'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Clock size={15} className={lastMinuteStatus?.isTriggered ? "text-rose-500 animate-pulse" : ""} />
+          <span>⚡ 7 AM Last-Minute &amp; Rates</span>
+          {lastMinuteStatus?.isTriggered && (
+            <span className="bg-rose-500 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full">
+              -15% Active
+            </span>
+          )}
         </button>
       </div>
 
@@ -1458,6 +1554,327 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Full Master Access
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Tab 8: ⚡ 7:00 AM Last-Minute Booking Automation & Room Rates */}
+      {activeSubTab === 'pricing' && (
+        <div className="space-y-5 max-w-4xl text-xs">
+          
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-teal-900 via-emerald-950 to-slate-900 text-white p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center font-bold text-xl border border-white/20 shrink-0">
+                <Clock size={24} className="text-teal-300" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-white">Morning 7:00 AM Last-Minute Flash Rate Automation</h3>
+                  <span className="bg-teal-400 text-teal-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                    Automatic
+                  </span>
+                </div>
+                <p className="text-xs text-teal-100 mt-0.5">
+                  Same-date occupancy cutoff evaluation &amp; dynamic base rate discount for <strong>{profile.name}</strong>
+                </p>
+              </div>
+            </div>
+
+            {onToggleSimulate7am && (
+              <button
+                type="button"
+                onClick={onToggleSimulate7am}
+                className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-center"
+                title="Toggle simulated 7:00 AM cutoff to test the 15% rate reduction immediately"
+              >
+                <Zap size={14} className={currentLM.simulatedTimePassed7am ? 'text-amber-400 fill-amber-400' : 'text-slate-300'} />
+                <span>{currentLM.simulatedTimePassed7am ? 'Simulation: Past 7 AM (ON)' : 'Test 7 AM Cutoff'}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Hindi & English Rule Logic Card */}
+          <div className="p-4 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 rounded-2xl space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
+              <Sparkles size={16} className="text-amber-700 shrink-0" />
+              <span>लास्ट-मिनट बुकिंग नियम (7:00 AM Flash Rule Logic):</span>
+            </div>
+            <p className="text-xs text-amber-900 leading-relaxed font-medium">
+              👉 <strong>नियम:</strong> अगर सुबह <strong>7:00 AM</strong> तक आज की सेम-डेट (Same Date) बुकिंग <strong>60% से कम</strong> होगी, तो कमरों के बेस रेट से <strong>15% रेट ऑटोमैटिक कम (डिस्काउंट)</strong> हो जाएगा।
+            </p>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              👉 <strong>वापसी (Auto-Resume):</strong> जैसे ही दिन के दौरान नई बुकिंग्स आने से आज की ऑक्यूपेंसी <strong>60% या ज्यादा</strong> पहुंचेगी, सिस्टम बिना किसी मैनुअल सेटिंग के तुरंत <strong>नॉर्मल बेस रेट (Standard Base Rate)</strong> वापस लागू कर देगा।
+            </p>
+          </div>
+
+          {/* Live System Status Card */}
+          {lastMinuteStatus && (
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <span className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    lastMinuteStatus.isTriggered ? 'bg-rose-600 animate-ping' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600' : 'bg-amber-500'
+                  }`}></span>
+                  Live Automation Status Today
+                </span>
+                <span className={`text-[11px] font-extrabold uppercase px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                  lastMinuteStatus.isTriggered 
+                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                    : lastMinuteStatus.isPast7Am 
+                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                    : 'bg-amber-100 text-amber-950 border-amber-300'
+                }`}>
+                  {lastMinuteStatus.isTriggered ? (
+                    <>
+                      <Zap size={12} className="fill-rose-600 text-rose-600" />
+                      ⚡ -15% Flash Rate Active
+                    </>
+                  ) : lastMinuteStatus.isPast7Am ? (
+                    '🎯 Target Met (≥60% Occupancy)'
+                  ) : (
+                    '⏳ Pending 7:00 AM Evaluation'
+                  )}
+                </span>
+              </div>
+
+              {/* 3 Metric Tiles */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] font-semibold text-slate-500 block">Today's Same-Date Occupancy</span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className={`text-xl font-black ${lastMinuteStatus.currentOccupancyPercent < 60 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {lastMinuteStatus.currentOccupancyPercent}%
+                    </span>
+                    <span className="text-slate-500 text-xs font-semibold">
+                      ({lastMinuteStatus.occupiedRoomsCount} / {lastMinuteStatus.totalRoomsCount} rooms booked)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${lastMinuteStatus.currentOccupancyPercent < 60 ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${Math.min(100, lastMinuteStatus.currentOccupancyPercent)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] font-semibold text-slate-500 block">Target Threshold Check</span>
+                  <div className="flex items-baseline gap-1.5 mt-1">
+                    <span className="text-xl font-black text-slate-900">
+                      Target: {lastMinuteStatus.targetOccupancyPercent}%
+                    </span>
+                  </div>
+                  <span className={`text-[11px] font-bold block mt-1 ${lastMinuteStatus.currentOccupancyPercent < 60 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {lastMinuteStatus.currentOccupancyPercent < 60 ? '❌ Under 60% (15% Discount Eligible)' : '✅ Above 60% (Standard Rates)'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] font-semibold text-slate-500 block">Active Rate Adjustment</span>
+                  <div className="flex items-baseline gap-1.5 mt-1">
+                    <span className={`text-xl font-black ${lastMinuteStatus.isTriggered ? 'text-rose-700' : 'text-slate-800'}`}>
+                      {lastMinuteStatus.isTriggered ? `-${lastMinuteStatus.discountPercent}% Flash Rate` : 'Standard Base Rate'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-1">
+                    Cutoff: {lastMinuteStatus.formattedCutoffTime} daily
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed">
+                ℹ️ {lastMinuteStatus.explanation}
+              </div>
+            </div>
+          )}
+
+          {/* Configuration Form */}
+          <form onSubmit={handleSavePricingConfig} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900">Rule Parameters &amp; Automation Settings</h4>
+                <p className="text-[11px] text-slate-500">Configure cutoff time, occupancy target, and rate discount percentage</p>
+              </div>
+
+              {/* Master Switch */}
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={pricingLmEnabled}
+                  onChange={(e) => setPricingLmEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700"></div>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Cutoff Hour */}
+              <div className="space-y-1.5">
+                <label className="block font-semibold text-slate-700 text-xs">
+                  Evaluation Morning Cutoff
+                </label>
+                <select
+                  value={pricingLmHour}
+                  onChange={(e) => setPricingLmHour(Number(e.target.value))}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-teal-700 focus:outline-none"
+                >
+                  <option value={5}>05:00 AM</option>
+                  <option value={6}>06:00 AM</option>
+                  <option value={7}>07:00 AM (Default - User Request)</option>
+                  <option value={8}>08:00 AM</option>
+                  <option value={9}>09:00 AM</option>
+                  <option value={10}>10:00 AM</option>
+                </select>
+                <p className="text-[10px] text-slate-500">Daily time when occupancy check runs</p>
+              </div>
+
+              {/* Target Occupancy % */}
+              <div className="space-y-1.5">
+                <label className="block font-semibold text-slate-700 text-xs">
+                  Target Occupancy Threshold
+                </label>
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-teal-700">
+                  <input
+                    type="number"
+                    min="10"
+                    max="90"
+                    required
+                    value={pricingLmTarget}
+                    onChange={(e) => setPricingLmTarget(Number(e.target.value))}
+                    className="w-full text-xs font-bold text-slate-900 bg-transparent focus:outline-none"
+                  />
+                  <span className="text-xs font-bold text-slate-500">%</span>
+                </div>
+                <p className="text-[10px] text-slate-500">Discount activates if below this % (Default 60%)</p>
+              </div>
+
+              {/* Discount % */}
+              <div className="space-y-1.5">
+                <label className="block font-semibold text-slate-700 text-xs">
+                  Base Rate Reduction
+                </label>
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-rose-600">
+                  <input
+                    type="number"
+                    min="5"
+                    max="50"
+                    required
+                    value={pricingLmDiscount}
+                    onChange={(e) => setPricingLmDiscount(Number(e.target.value))}
+                    className="w-full text-xs font-bold text-rose-700 bg-transparent focus:outline-none"
+                  />
+                  <span className="text-xs font-bold text-rose-700">% OFF</span>
+                </div>
+                <p className="text-[10px] text-slate-500">Subtracted from room base rate (Default 15%)</p>
+              </div>
+            </div>
+
+            {/* Channels where rule applies */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex items-center gap-2.5 text-slate-800 font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pricingLmApplyChannels}
+                  onChange={(e) => setPricingLmApplyChannels(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-700 focus:ring-teal-700 cursor-pointer"
+                />
+                <span>Sync -15% Flash Rate to OTAs (MMT, Agoda, Booking.com, Airbnb)</span>
+              </label>
+
+              <label className="flex items-center gap-2.5 text-slate-800 font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pricingLmApplyWalkIn}
+                  onChange={(e) => setPricingLmApplyWalkIn(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-700 focus:ring-teal-700 cursor-pointer"
+                />
+                <span>Apply -15% automatically to Front Desk Walk-In reservations</span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+              >
+                <Save size={15} />
+                <span>Save 7 AM Flash Rule Settings</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Room Rates Impact Table */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900">Room Base Rate &amp; 7 AM Flash Reduction Preview</h4>
+                <p className="text-[11px] text-slate-500">Live rate calculation for all rooms in {profile.name}</p>
+              </div>
+              <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-lg">
+                {rooms.length} Rooms Configured
+              </span>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="p-3">Room</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3 text-right">Standard Base Rate</th>
+                    <th className="p-3 text-right text-rose-700">7 AM Flash Rate (-{pricingLmDiscount}%)</th>
+                    <th className="p-3 text-right">OTA Extranet Rate (+15%)</th>
+                    <th className="p-3 text-center">Status Today</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rooms.map(room => {
+                    const discountAmt = Math.round(room.baseRate * (pricingLmDiscount / 100));
+                    const flashRate = room.baseRate - discountAmt;
+                    const otaRate = Math.round(flashRate * 1.15);
+
+                    return (
+                      <tr key={room.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3 font-bold text-slate-900">
+                          {room.number}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {room.type}
+                        </td>
+                        <td className="p-3 text-right font-mono font-semibold text-slate-800">
+                          ₹{room.baseRate.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-rose-700 bg-rose-50/40">
+                          ₹{flashRate.toLocaleString()} <span className="text-[10px] text-rose-500 font-normal">(-₹{discountAmt})</span>
+                        </td>
+                        <td className="p-3 text-right font-mono font-semibold text-teal-800">
+                          ₹{otaRate.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-center">
+                          {lastMinuteStatus?.isTriggered ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
+                              <Zap size={10} className="fill-rose-600 text-rose-600" />
+                              ⚡ -15% Active
+                            </span>
+                          ) : lastMinuteStatus?.isPast7Am ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Standard Base
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                              Pending 7 AM
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 
