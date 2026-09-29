@@ -21,7 +21,8 @@ import {
   Trash2,
   Settings,
   Menu,
-  Cloud
+  Cloud,
+  Smartphone
 } from 'lucide-react';
 import { UserAccount, Hotel, HotelProfile } from '../types';
 import { LastMinuteRuleStatus } from '../utils/pricingHelper';
@@ -58,6 +59,7 @@ interface HeaderProps {
   onOpenCloudSync?: () => void;
   lastMinuteStatus?: LastMinuteRuleStatus;
   onOpenLastMinuteModal?: () => void;
+  onOpenInstallModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -83,7 +85,8 @@ export const Header: React.FC<HeaderProps> = ({
   isCloudConnected = true,
   onOpenCloudSync,
   lastMinuteStatus,
-  onOpenLastMinuteModal
+  onOpenLastMinuteModal,
+  onOpenInstallModal
 }) => {
   const [isHotelMenuOpen, setIsHotelMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -407,6 +410,20 @@ export const Header: React.FC<HeaderProps> = ({
               {lastMinuteStatus.isTriggered ? `⚡ -${lastMinuteStatus.discountPercent}%` : `7 AM`}
             </span>
           </div>
+        )}
+
+        {/* Mobile App Install Pill */}
+        {onOpenInstallModal && (
+          <button
+            type="button"
+            onClick={onOpenInstallModal}
+            className="flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors border shrink-0 bg-teal-50 hover:bg-teal-100 text-teal-900 border-teal-300/80 cursor-pointer shadow-2xs"
+            title="Download & Install Mobile App on Android, iOS or Play Store"
+          >
+            <Smartphone size={13} className="text-teal-700" />
+            <span className="hidden sm:inline">Install App</span>
+            <span className="sm:hidden">App</span>
+          </button>
         )}
       </div>
 

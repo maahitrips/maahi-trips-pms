@@ -2,17 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Maahi Trips - Hotel PMS</title>
     <meta name="description" content="Maahi Trips - Comprehensive Multi-Property Hotel Management System with front desk tape chart, guest ID KYC document capture, and two-way OTA channel management integration." />
-    <meta property="og:title" content="Maahi Trips" />
+    <meta property="og:title" content="Maahi Trips - Hotel PMS" />
     <meta property="og:description" content="Maahi Trips - Comprehensive Multi-Property Hotel Management System with front desk tape chart, guest ID KYC document capture, and two-way OTA channel management integration." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- PWA Web App Manifest & Mobile App Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#115e59" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hotel PMS" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.log('ServiceWorker registration optional error:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
 

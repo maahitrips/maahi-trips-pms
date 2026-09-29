@@ -720,7 +720,44 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
 
       {/* TAB 1: CONNECTED CHANNELS CARDS */}
       {activeTab === 'channels' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
+          {/* OTA Different Property Name Guidance Banner */}
+          <div className="bg-gradient-to-r from-teal-50/90 via-sky-50/80 to-emerald-50/90 border border-teal-200/90 rounded-xl p-4 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-teal-800 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                <Building2 size={18} />
+              </div>
+              <div className="flex-1 text-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <span>💡 Agar OTA (MakeMyTrip, Booking.com, Agoda) par Property dusre naam se live hai tab kaam karega?</span>
+                  </h4>
+                  <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300 text-[11px]">
+                    ✓ 100% Fully Supported &amp; Synced
+                  </span>
+                </div>
+                <p className="text-slate-600 mt-1 leading-relaxed">
+                  <strong>Haan, bilkul 100% kaam karega!</strong> Channel Manager aur OTAs hotel ke display name se nahi, balki <strong>Unique Property Extranet ID</strong> (jaise MMT Hotel ID, Booking.com ID) aur <strong>Room Type Mappings</strong> se sync karte hain. Chahe aapka hotel MakeMyTrip, Agoda, ya Booking.com par kisi marketing title ya doosre naam se listed ho, live rates aur booking synchronization bina kisi dikkat ke realtime kaam karega.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2.5 pt-2.5 border-t border-teal-200/60 text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-700 bg-white/80 px-2.5 py-1.5 rounded-lg border border-teal-100 shadow-2xs">
+                    <CheckCircle2 size={13} className="text-teal-700 shrink-0" />
+                    <span><strong>1. Hotel ID:</strong> Extranet Property Code se API handshake</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-700 bg-white/80 px-2.5 py-1.5 rounded-lg border border-teal-100 shadow-2xs">
+                    <CheckCircle2 size={13} className="text-teal-700 shrink-0" />
+                    <span><strong>2. Room Mapping:</strong> PMS Rooms ↔ OTA Room Codes</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-700 bg-white/80 px-2.5 py-1.5 rounded-lg border border-teal-100 shadow-2xs">
+                    <CheckCircle2 size={13} className="text-teal-700 shrink-0" />
+                    <span><strong>3. Realtime Push:</strong> 300ms 2-way rates &amp; booking sync</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {channels.map((ch) => {
             const Icon = getChannelIcon(ch.logo);
             const effectiveMarkup = ch.rateMarkupPercent + (dynamicPricing.isEnabled ? activeSurgePercent : 0) - flashDiscountPercent;
@@ -773,6 +810,15 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
                         {ch.hotelCode || `${ch.id.toUpperCase()}-001`}
                       </span>
                     </div>
+
+                    {ch.otaPropertyName && (
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold text-slate-500">OTA Title:</span>
+                        <span className="font-medium text-teal-900 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 truncate max-w-[150px]" title={ch.otaPropertyName}>
+                          {ch.otaPropertyName}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-slate-600">
                       <span className="font-semibold text-slate-500">Extranet User:</span>
@@ -877,6 +923,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
@@ -1296,7 +1343,14 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
                             <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
                               <Icon size={14} />
                             </div>
-                            <span>{ch.name}</span>
+                            <div>
+                              <span>{ch.name}</span>
+                              {ch.otaPropertyName && (
+                                <span className="block text-[10px] text-teal-800 font-normal truncate max-w-[170px]" title={ch.otaPropertyName}>
+                                  Listing: {ch.otaPropertyName}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
 

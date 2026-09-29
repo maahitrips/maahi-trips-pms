@@ -16,7 +16,8 @@ import {
   Sparkles,
   Users,
   Mail,
-  X
+  X,
+  Smartphone
 } from 'lucide-react';
 
 export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'gemini_assistant' | 'settings';
@@ -33,6 +34,7 @@ interface SidebarProps {
   onOpenLogin?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  onOpenInstallModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,7 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAddHotel,
   onOpenLogin,
   isMobileOpen = false,
-  onCloseMobile
+  onCloseMobile,
+  onOpenInstallModal
 }) => {
   const navItems = [
     {
@@ -210,6 +213,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Install Mobile App Prompt in Sidebar */}
+      {(!collapsed || isMobileView) && onOpenInstallModal && (
+        <div className="px-3 pb-2 pt-1 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenInstallModal}
+            className="w-full p-2.5 bg-gradient-to-r from-teal-900/90 to-slate-800 border border-teal-700/60 hover:border-teal-400 rounded-xl text-left flex items-center gap-2.5 transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="w-8 h-8 rounded-lg bg-teal-600 group-hover:bg-teal-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+              <Smartphone size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white truncate">Install Mobile App</span>
+                <span className="text-[9px] bg-teal-400/20 text-teal-300 font-bold px-1.5 py-0.2 rounded">PWA</span>
+              </div>
+              <p className="text-[10px] text-teal-200/70 truncate">Android &amp; iOS 10s</p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="p-3 border-t border-slate-800 text-[11px] text-slate-500 text-center shrink-0">

@@ -18,7 +18,11 @@ import {
   Building, 
   ExternalLink,
   Sparkles,
-  Zap
+  Zap,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  BookOpen
 } from 'lucide-react';
 
 interface ChannelLoginModalProps {
@@ -29,6 +33,32 @@ interface ChannelLoginModalProps {
   onSaveChannelConfig: (updatedChannel: OTAChannelConfig) => void;
   onToggleConnect: (channelId: BookingChannel) => void;
 }
+
+const getOfficialPortalUrl = (channelId: BookingChannel): string => {
+  switch (channelId) {
+    case 'makemytrip':
+    case 'goibibo':
+      return 'https://ingommt.makemytrip.com';
+    case 'booking_com':
+      return 'https://admin.booking.com';
+    case 'agoda':
+      return 'https://ycs.agoda.com';
+    case 'airbnb':
+      return 'https://www.airbnb.com/hosting';
+    case 'expedia':
+      return 'https://expediapartnercentral.com';
+    case 'cleartrip':
+      return 'https://extranet.cleartrip.com';
+    case 'easemytrip':
+      return 'https://hotels.easemytrip.com';
+    case 'oyo':
+      return 'https://partner.oyorooms.com';
+    case 'yatra':
+      return 'https://extranet.yatra.com';
+    default:
+      return 'https://ingommt.makemytrip.com';
+  }
+};
 
 export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
   isOpen,
@@ -41,6 +71,7 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
   if (!isOpen || !channel) return null;
 
   const [hotelCode, setHotelCode] = useState(channel.hotelCode || '');
+  const [otaPropertyName, setOtaPropertyName] = useState(channel.otaPropertyName || '');
   const [extranetUsername, setExtranetUsername] = useState(channel.extranetUsername || '');
   const [extranetPassword, setExtranetPassword] = useState(channel.extranetPassword || '••••••••');
   const [apiKey, setApiKey] = useState(channel.apiKey || '');
@@ -54,10 +85,12 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showGuide, setShowGuide] = useState(channel.id === 'booking_com');
 
   useEffect(() => {
     if (channel) {
       setHotelCode(channel.hotelCode || `${channel.id.substring(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`);
+      setOtaPropertyName(channel.otaPropertyName || '');
       setExtranetUsername(channel.extranetUsername || `partner.${channel.id}@maahitrips.in`);
       setExtranetPassword(channel.extranetPassword || 'PmsPartner#2026');
       setApiKey(channel.apiKey || `${channel.id}_live_key_${Math.random().toString(36).substring(2, 12)}`);
@@ -66,6 +99,7 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
       setAutoSync(channel.autoSync ?? true);
       setRateMarkup(channel.rateMarkupPercent || 15);
       setTestResult(null);
+      setShowGuide(channel.id === 'booking_com');
     }
   }, [channel]);
 
@@ -107,6 +141,7 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
     const updated: OTAChannelConfig = {
       ...channel,
       hotelCode: hotelCode.trim(),
+      otaPropertyName: otaPropertyName.trim() || undefined,
       extranetUsername: extranetUsername.trim(),
       extranetPassword: extranetPassword.trim(),
       apiKey: apiKey.trim(),
@@ -127,6 +162,7 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
     const updated: OTAChannelConfig = {
       ...channel,
       hotelCode: hotelCode.trim(),
+      otaPropertyName: otaPropertyName.trim() || undefined,
       extranetUsername: extranetUsername.trim(),
       apiKey: apiKey.trim(),
       isConnected: false,
@@ -193,14 +229,98 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
             </div>
           )}
 
+          {/* Connection Walkthrough Guide for Booking.com & Other Channels */}
+          <div className="bg-gradient-to-r from-blue-50/90 to-sky-50/90 border border-blue-200/90 rounded-xl overflow-hidden shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setShowGuide(!showGuide)}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-blue-100/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                  {channel.id === 'booking_com' ? 'B.' : <BookOpen size={16} />}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                    <span>{channel.name} Kaise Connect Karein? (5-Step Official Guide)</span>
+                    <span className="text-[10px] bg-blue-200 text-blue-900 px-1.5 py-0.2 rounded font-bold">
+                      Step-by-Step
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-blue-700 mt-0.5">
+                    {channel.id === 'booking_com' 
+                      ? 'Booking.com Extranet (admin.booking.com) se PMS 2-Way Sync link karne ka aasan tarika'
+                      : `${channel.name} Extranet se PMS 2-Way Sync link karne ka tarika`}
+                  </p>
+                </div>
+              </div>
+              <div className="text-blue-700 p-1">
+                {showGuide ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </div>
+            </button>
+
+            {showGuide && (
+              <div className="px-4 pb-4 pt-1.5 border-t border-blue-200/70 text-xs text-slate-700 space-y-3 bg-white/75">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
+                  <div>
+                    <strong className="text-slate-900">Booking.com Extranet Open Karein:</strong>{' '}
+                    <span>Browser me <a href="https://admin.booking.com" target="_blank" rel="noopener noreferrer" className="text-blue-700 font-bold underline inline-flex items-center gap-0.5">admin.booking.com <ExternalLink size={10} /></a> kholein aur apne partner credentials se login karein.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
+                  <div>
+                    <strong className="text-slate-900">Channel Manager (Connectivity Provider) Chunein:</strong>{' '}
+                    <span>Booking.com Extranet me top-right corner par apne <strong>Account / Hotel Name</strong> par click karein aur menu me <strong>"Channel Manager"</strong> (Connectivity Provider) par click karein.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
+                  <div>
+                    <strong className="text-slate-900">Connect Provider Select Karein:</strong>{' '}
+                    <span><strong>"Connect your Channel Manager"</strong> par click karein. Search me <strong>"MaahiTrips / Custom Channel Manager"</strong> choose karein aur <strong>Two-Way XML Connection</strong> (Rates, Availability &amp; Bookings) tick karke confirm karein.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
+                  <div>
+                    <strong className="text-slate-900">Hotel ID &amp; API Key Copy Karein:</strong>{' '}
+                    <span>Booking.com Extranet ke top-left me jo <strong>7-digit Hotel ID</strong> (jaise: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-[11px] text-blue-900 font-bold">1084920</code>) likha hai, usko neeche <strong>"Hotel / Property Extranet ID"</strong> me paste karein.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">5</span>
+                  <div>
+                    <strong className="text-slate-900">Test Connection &amp; Save Karein:</strong>{' '}
+                    <span>Neeche <strong>"Test Connection / Ping"</strong> dabayein. Handshake OK aane par <strong>"Save Credentials &amp; Connect"</strong> dabayein. Iske baad <strong>"Room Category Mappings"</strong> tab me jaakar apne PMS rooms ko Booking.com ke room types se link kar dein!</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Section 1: Extranet Credentials */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Building size={14} className="text-teal-700" />
                 1. OTA Extranet Account Details
               </span>
-              <span className="text-[11px] text-slate-500">Provided by {channel.name}</span>
+              <a
+                href={getOfficialPortalUrl(channel.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 px-2 py-1 rounded-md transition-colors"
+                title={`Open official ${channel.name} partner extranet in new tab`}
+              >
+                <ExternalLink size={11} className="text-teal-700" />
+                <span>Open {channel.name} Extranet Portal</span>
+              </a>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -232,6 +352,31 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">Login email for OTA partner dashboard</span>
+              </div>
+
+              {/* OTA Property Listing Title / Different Name */}
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    OTA Property Listing Name <span className="text-[11px] font-normal text-slate-500">(Optional — Agar OTA par alag naam hai)</span>
+                  </label>
+                  <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
+                    ✓ Different Name Supported
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={otaPropertyName}
+                  onChange={(e) => setOtaPropertyName(e.target.value)}
+                  placeholder={`e.g. ${hotelName} - Boutique Stays & Suites`}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <div className="mt-1.5 p-2 bg-amber-50/70 border border-amber-200 rounded-lg flex items-start gap-2 text-[11px] text-amber-950">
+                  <Info size={14} className="text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Agar OTA par dusre naam se live hai tab bhi 100% kaam karega:</strong> Channel Manager naam se nahi, balki aapke <strong>Property ID ({hotelCode || 'MMT-XXXX'})</strong> aur <strong>Room Type Mapping</strong> se sync karta hai. Yahan bas wahi naam likhein jo OTA par dikhta hai taaki pehchanne me asani ho.
+                  </div>
+                </div>
               </div>
 
               <div className="sm:col-span-2">

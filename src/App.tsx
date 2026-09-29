@@ -55,6 +55,7 @@ import { GmailView } from './components/GmailView';
 import { GeminiChatView } from './components/GeminiChatView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import { 
   defaultLastMinuteConfig, 
   evaluateLastMinuteAutomation, 
@@ -408,6 +409,38 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastNotification, setToastNotification] = useState<{ message: string; sub?: string } | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+
+  // Mobile App Install (PWA) state
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallAppPrompt = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      try {
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice && choice.outcome === 'accepted') {
+          showToast('App Installed!', 'Maahi Trips Hotel PMS icon added to your mobile home screen.');
+        }
+      } catch (err) {
+        console.error('Install prompt error:', err);
+      }
+      setDeferredInstallPrompt(null);
+      setIsInstallModalOpen(false);
+    }
+  };
 
   // Sync state tracking refs to avoid echo ping-pong loops and startup overwrites
   const isRemoteSyncRef = useRef<boolean>(false);
@@ -1632,6 +1665,7 @@ export default function App() {
         onOpenLogin={() => setIsLoginModalOpen(true)}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
       />
 
       {/* Main Workspace Area */}
@@ -1675,6 +1709,7 @@ export default function App() {
             setDynamicRulesInitialTab('last_minute');
             setIsDynamicRulesModalOpen(true);
           }}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
 
         {/* View Router */}
@@ -2051,6 +2086,14 @@ export default function App() {
           </button>
         </div>
       )}
+      {/* Mobile App Install & Play Store Guide Modal */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredInstallPrompt}
+        onInstallPrompt={handleInstallAppPrompt}
+      />
+
       {/* Floating Quick Gemini AI Concierge Widget */}
       <GeminiFloatingWidget
         hotelProfile={hotelProfile}

@@ -161,6 +161,7 @@ export interface OTAChannelConfig {
   activeReservationsCount: number;
   apiEndpoint: string;
   hotelCode?: string;
+  otaPropertyName?: string; // Property listing title on the OTA if different from PMS
   apiKey?: string;
   apiSecret?: string;
   extranetUsername?: string;
