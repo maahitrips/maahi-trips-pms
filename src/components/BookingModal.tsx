@@ -37,8 +37,16 @@ import {
   Tag,
   Percent,
   BadgePercent,
-  Zap
+  Zap,
+  FileText,
+  Plus,
+  Files,
+  Paperclip
 } from 'lucide-react';
+
+export interface BookingDocItem extends IdDocument {
+  id: string;
+}
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -155,7 +163,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     const applyInitialFlash = isLastMinuteFlashActive && effectiveInDate === getTodayDateStr() && !existingBooking;
 
     rooms.forEach(r => {
-      if (applyInitialFlash) {
+      if (r.customRates && r.customRates[effectiveInDate] !== undefined && r.customRates[effectiveInDate] > 0) {
+        map[r.id] = r.customRates[effectiveInDate];
+      } else if (applyInitialFlash) {
         map[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
       } else {
         map[r.id] = r.baseRate;
@@ -174,18 +184,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return map;
   });
 
-  // When checkInDate changes to today and flash is active, auto-apply flash discount to non-existing bookings
+  // When checkInDate or rooms change, auto-apply custom daily rates (or flash discount) to non-existing bookings
   useEffect(() => {
-    if (!existingBooking && isLastMinuteFlashActive && checkInDate === todayStr) {
+    if (!existingBooking) {
       setRoomRates(prev => {
         const next = { ...prev };
         rooms.forEach(r => {
-          next[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
+          if (r.customRates && r.customRates[checkInDate] !== undefined && r.customRates[checkInDate] > 0) {
+            next[r.id] = r.customRates[checkInDate];
+          } else if (isLastMinuteFlashActive && checkInDate === todayStr) {
+            next[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
+          } else {
+            next[r.id] = r.baseRate;
+          }
         });
         return next;
       });
     }
-  }, [checkInDate, isLastMinuteFlashActive, todayStr]);
+  }, [checkInDate, isLastMinuteFlashActive, todayStr, rooms, existingBooking]);
 
   // Primary room helper for backward-compatibility
   const roomId = selectedRoomIds[0] || '';
@@ -317,29 +333,59 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [vehicleNumber, setVehicleNumber] = useState<string>(existingBooking?.guest?.vehicleNumber || '');
   const [emergencyContact, setEmergencyContact] = useState<string>(existingBooking?.guest?.emergencyContact || '');
 
-  // ID Proof Details (Hotel Workflow: ID is submitted during check-in)
+  // ID Proof Details (Hotel Workflow: ID is submitted during check-in or upfront)
   const [idSubmissionPolicy, setIdSubmissionPolicy] = useState<'at_checkin' | 'submit_now'>(
     existingBooking?.guest?.idDocument?.isVerified ? 'submit_now' : 'at_checkin'
   );
-  const [idType, setIdType] = useState<IdType>(existingBooking?.guest?.idDocument?.idType || 'aadhaar');
-  const [idNumber, setIdNumber] = useState<string>(
-    existingBooking?.guest?.idDocument?.idNumber && existingBooking?.guest?.idDocument?.idNumber !== 'Pending at Check-in'
-      ? existingBooking.guest.idDocument.idNumber 
-      : ''
-  );
-  const [frontImageUrl, setFrontImageUrl] = useState<string>(existingBooking?.guest?.idDocument?.frontImageUrl || '');
-  const [backImageUrl, setBackImageUrl] = useState<string>(existingBooking?.guest?.idDocument?.backImageUrl || '');
-  const [expiryDate, setExpiryDate] = useState<string>(existingBooking?.guest?.idDocument?.expiryDate || '');
-  const [isVerified, setIsVerified] = useState<boolean>(existingBooking?.guest?.idDocument?.isVerified ?? false);
-  const [idNotes, setIdNotes] = useState<string>(
-    existingBooking?.guest?.idDocument?.notes || 'Customer ID to be submitted upon arrival at check-in'
-  );
 
-  // Camera capture state
+  // Multiple ID Documents state (Supports 1 or multiple documents per booking)
+  const [documents, setDocuments] = useState<BookingDocItem[]>(() => {
+    if (existingBooking?.documents && existingBooking.documents.length > 0) {
+      return existingBooking.documents.map((d, idx) => ({
+        ...d,
+        id: d.id || `doc-${Date.now()}-${idx}`,
+        documentTitle: d.documentTitle || (idx === 0 ? 'Primary Guest ID' : `Document #${idx + 1}`),
+        guestName: d.guestName || (idx === 0 ? (existingBooking.guest?.fullName || 'Primary Guest') : `Co-Guest ${idx}`)
+      }));
+    }
+    if (existingBooking?.guest?.idDocuments && existingBooking.guest.idDocuments.length > 0) {
+      return existingBooking.guest.idDocuments.map((d, idx) => ({
+        ...d,
+        id: d.id || `doc-${Date.now()}-${idx}`,
+        documentTitle: d.documentTitle || (idx === 0 ? 'Primary Guest ID' : `Document #${idx + 1}`),
+        guestName: d.guestName || (idx === 0 ? (existingBooking.guest?.fullName || 'Primary Guest') : `Co-Guest ${idx}`)
+      }));
+    }
+    if (existingBooking?.guest?.idDocument) {
+      const d = existingBooking.guest.idDocument;
+      return [{
+        ...d,
+        id: d.id || 'doc-1',
+        documentTitle: d.documentTitle || 'Primary Guest ID (Aadhaar / Passport)',
+        guestName: d.guestName || existingBooking.guest?.fullName || 'Primary Guest'
+      }];
+    }
+    return [{
+      id: 'doc-1',
+      idType: 'aadhaar',
+      idNumber: '',
+      frontImageUrl: '',
+      backImageUrl: '',
+      expiryDate: '',
+      isVerified: false,
+      uploadedAt: '',
+      notes: 'Customer ID to be submitted upon arrival at check-in',
+      documentTitle: 'Primary Guest ID (Aadhaar / Passport)',
+      guestName: 'Primary Guest'
+    }];
+  });
+
+  const [capturingDocIndex, setCapturingDocIndex] = useState<number>(0);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [capturingSide, setCapturingSide] = useState<'front' | 'back'>('front');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [previewDocImage, setPreviewDocImage] = useState<{ url: string; title: string } | null>(null);
 
   // Discount Option & Concession
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>(
@@ -399,15 +445,28 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     handleSelectAndBlockRoom(newRoomId);
   };
 
+  // Document manipulation helpers
+  const updateDocField = (idx: number, field: keyof BookingDocItem, val: any) => {
+    setDocuments(prev => {
+      const copy = [...prev];
+      if (copy[idx]) {
+        copy[idx] = { ...copy[idx], [field]: val };
+      }
+      return copy;
+    });
+  };
+
   // Quick fill sample Aadhaar
   const fillSampleAadhaar = () => {
     setIdSubmissionPolicy('submit_now');
-    setIdType('aadhaar');
-    setIdNumber('5482 9104 3821');
-    setFrontImageUrl(sampleAadhaarFront);
-    setBackImageUrl(sampleAadhaarBack);
-    setIsVerified(true);
-    setIdNotes('Biometric QR Code verified via UIDAI Portal');
+    updateDocField(0, 'idType', 'aadhaar');
+    updateDocField(0, 'idNumber', '5482 9104 3821');
+    updateDocField(0, 'frontImageUrl', sampleAadhaarFront);
+    updateDocField(0, 'backImageUrl', sampleAadhaarBack);
+    updateDocField(0, 'isVerified', true);
+    updateDocField(0, 'notes', 'Biometric QR Code verified via UIDAI Portal');
+    updateDocField(0, 'documentTitle', 'Primary Guest Aadhaar Card');
+    updateDocField(0, 'guestName', fullName || 'Nizamuddin Saifi');
     if (!fullName) setFullName('Nizamuddin Saifi');
     if (!city) setCity('New Delhi');
     if (!phone) setPhone('+91 98112 44332');
@@ -416,13 +475,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Quick fill sample Passport
   const fillSamplePassport = () => {
     setIdSubmissionPolicy('submit_now');
-    setIdType('passport');
-    setIdNumber('Z9182304');
-    setFrontImageUrl(samplePassportFront);
-    setBackImageUrl('');
-    setExpiryDate('2031-09-18');
-    setIsVerified(true);
-    setIdNotes('Indian Passport verified by Receptionist');
+    updateDocField(0, 'idType', 'passport');
+    updateDocField(0, 'idNumber', 'Z9182304');
+    updateDocField(0, 'frontImageUrl', samplePassportFront);
+    updateDocField(0, 'backImageUrl', '');
+    updateDocField(0, 'expiryDate', '2031-09-18');
+    updateDocField(0, 'isVerified', true);
+    updateDocField(0, 'notes', 'Indian Passport verified by Receptionist');
+    updateDocField(0, 'documentTitle', 'Primary Guest Passport');
+    updateDocField(0, 'guestName', fullName || 'Tanu Shukla');
     if (!fullName) setFullName('Tanu Shukla');
     if (!city) setCity('Lucknow');
     if (!phone) setPhone('+91 94500 12890');
@@ -431,10 +492,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Quick fill sample Voter ID
   const fillSampleVoter = () => {
     setIdSubmissionPolicy('submit_now');
-    setIdType('voter_id');
-    setIdNumber('WBF2910482');
-    setIsVerified(true);
-    setIdNotes('Election Commission of India Voter ID card verified');
+    updateDocField(0, 'idType', 'voter_id');
+    updateDocField(0, 'idNumber', 'WBF2910482');
+    updateDocField(0, 'isVerified', true);
+    updateDocField(0, 'notes', 'Election Commission of India Voter ID card verified');
+    updateDocField(0, 'documentTitle', 'Primary Guest Voter ID');
     if (!fullName) setFullName('Rajeev Sengupta');
     if (!city) setCity('Kolkata');
     if (!phone) setPhone('+91 98301 22910');
@@ -443,43 +505,145 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Quick fill sample Driving License
   const fillSampleDL = () => {
     setIdSubmissionPolicy('submit_now');
-    setIdType('driving_license');
-    setIdNumber('DL-042019008129');
-    setExpiryDate('2038-08-15');
-    setIsVerified(true);
-    setIdNotes('State Transport Authority Driving License verified');
+    updateDocField(0, 'idType', 'driving_license');
+    updateDocField(0, 'idNumber', 'DL-042019008129');
+    updateDocField(0, 'expiryDate', '2038-08-15');
+    updateDocField(0, 'isVerified', true);
+    updateDocField(0, 'notes', 'State Transport Authority Driving License verified');
+    updateDocField(0, 'documentTitle', 'Primary Guest Driving License');
     if (!fullName) setFullName('Amitabh Verma');
     if (!city) setCity('New Delhi');
     if (!phone) setPhone('+91 98100 44219');
   };
 
+  // Add a sample Co-Guest ID Document
+  const addSampleCoGuestDoc = () => {
+    const nextIdx = documents.length + 1;
+    setDocuments(prev => [
+      ...prev,
+      {
+        id: `doc-${Date.now()}-${nextIdx}`,
+        idType: 'driving_license',
+        idNumber: `DL-04202400${Math.floor(1000 + Math.random() * 9000)}`,
+        frontImageUrl: samplePassportFront,
+        backImageUrl: '',
+        expiryDate: '2036-11-20',
+        isVerified: true,
+        uploadedAt: new Date().toLocaleString(),
+        notes: 'Co-guest verification document',
+        documentTitle: `Co-Guest #${nextIdx - 1} Driving License`,
+        guestName: `Co-Guest ${nextIdx - 1}`
+      }
+    ]);
+  };
+
   // Quick set Pending at Check-in
   const fillPendingCheckIn = () => {
     setIdSubmissionPolicy('at_checkin');
-    setIdNumber('');
-    setIsVerified(false);
-    setIdNotes('Customer ID to be submitted upon arrival at front desk check-in');
+    updateDocField(0, 'idNumber', '');
+    updateDocField(0, 'frontImageUrl', '');
+    updateDocField(0, 'backImageUrl', '');
+    updateDocField(0, 'isVerified', false);
+    updateDocField(0, 'notes', 'Customer ID to be submitted upon arrival at front desk check-in');
   };
 
-  // File Upload Handlers (Front / Back ID)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+  const handleAddAnotherDoc = () => {
+    const nextIdx = documents.length + 1;
+    setDocuments(prev => [
+      ...prev,
+      {
+        id: `doc-${Date.now()}-${nextIdx}`,
+        idType: 'aadhaar',
+        idNumber: '',
+        frontImageUrl: '',
+        backImageUrl: '',
+        expiryDate: '',
+        isVerified: idSubmissionPolicy === 'submit_now',
+        uploadedAt: new Date().toLocaleString(),
+        notes: '',
+        documentTitle: `Co-Guest ${nextIdx - 1} ID`,
+        guestName: `Co-Guest ${nextIdx - 1}`
+      }
+    ]);
+  };
+
+  const handleRemoveDoc = (idxToRemove: number) => {
+    if (documents.length <= 1) {
+      setDocuments([{
+        id: 'doc-1',
+        idType: 'aadhaar',
+        idNumber: '',
+        frontImageUrl: '',
+        backImageUrl: '',
+        expiryDate: '',
+        isVerified: false,
+        uploadedAt: '',
+        notes: 'Customer ID to be submitted upon arrival at check-in',
+        documentTitle: 'Primary Guest ID',
+        guestName: 'Primary Guest'
+      }]);
+      return;
+    }
+    setDocuments(prev => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
+  // Batch Multi-File Upload
+  const handleBatchFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach((file, fIndex) => {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const dataUrl = uploadEvent.target?.result as string;
+        setDocuments(prev => {
+          if (prev.length === 1 && !prev[0].frontImageUrl && fIndex === 0) {
+            const updated = [...prev];
+            updated[0] = {
+              ...updated[0],
+              frontImageUrl: dataUrl,
+              documentTitle: prev[0].documentTitle || file.name.replace(/\.[^/.]+$/, "")
+            };
+            return updated;
+          }
+          return [
+            ...prev,
+            {
+              id: `doc-${Date.now()}-${fIndex}`,
+              idType: 'aadhaar',
+              idNumber: '',
+              frontImageUrl: dataUrl,
+              backImageUrl: '',
+              expiryDate: '',
+              isVerified: true,
+              uploadedAt: new Date().toLocaleString(),
+              notes: 'Batch uploaded from file selection',
+              documentTitle: file.name.replace(/\.[^/.]+$/, "") || `Document #${prev.length + 1}`,
+              guestName: `Co-Guest / Doc #${prev.length + 1}`
+            }
+          ];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Single File Upload for a specific document
+  const handleDocFileUpload = (e: React.ChangeEvent<HTMLInputElement>, docIndex: number, side: 'front' | 'back') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const dataUrl = uploadEvent.target?.result as string;
-      if (side === 'front') {
-        setFrontImageUrl(dataUrl);
-      } else {
-        setBackImageUrl(dataUrl);
-      }
+      updateDocField(docIndex, side === 'front' ? 'frontImageUrl' : 'backImageUrl', dataUrl);
     };
     reader.readAsDataURL(file);
   };
 
   // Camera Handlers
-  const startCamera = async (side: 'front' | 'back') => {
+  const startCamera = async (docIndex: number, side: 'front' | 'back') => {
+    setCapturingDocIndex(docIndex);
     setCapturingSide(side);
     setIsCameraActive(true);
     try {
@@ -506,11 +670,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (ctx) {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       const photoDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      if (capturingSide === 'front') {
-        setFrontImageUrl(photoDataUrl);
-      } else {
-        setBackImageUrl(photoDataUrl);
-      }
+      updateDocField(
+        capturingDocIndex,
+        capturingSide === 'front' ? 'frontImageUrl' : 'backImageUrl',
+        photoDataUrl
+      );
     }
     stopCamera();
   };
@@ -521,6 +685,26 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       setCameraStream(null);
     }
     setIsCameraActive(false);
+  };
+
+  const fillSampleDocAadhaar = (docIdx: number) => {
+    updateDocField(docIdx, 'idType', 'aadhaar');
+    updateDocField(docIdx, 'idNumber', docIdx === 0 ? '5482 9104 3821' : `5482 9104 ${Math.floor(1000 + Math.random() * 9000)}`);
+    updateDocField(docIdx, 'frontImageUrl', sampleAadhaarFront);
+    updateDocField(docIdx, 'backImageUrl', sampleAadhaarBack);
+    updateDocField(docIdx, 'isVerified', true);
+    updateDocField(docIdx, 'notes', 'Original UIDAI Aadhaar QR scanned and verified');
+    setIdSubmissionPolicy('submit_now');
+  };
+
+  const fillSampleDocPassport = (docIdx: number) => {
+    updateDocField(docIdx, 'idType', 'passport');
+    updateDocField(docIdx, 'idNumber', docIdx === 0 ? 'Z9182304' : `Z${Math.floor(1000000 + Math.random() * 9000000)}`);
+    updateDocField(docIdx, 'expiryDate', '2031-09-18');
+    updateDocField(docIdx, 'frontImageUrl', samplePassportFront);
+    updateDocField(docIdx, 'isVerified', true);
+    updateDocField(docIdx, 'notes', 'Original Indian Passport physical copy verified');
+    setIdSubmissionPolicy('submit_now');
   };
 
   // Final Form Submission
@@ -560,26 +744,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       return;
     }
 
-    const isAtCheckin = idSubmissionPolicy === 'at_checkin' && !idNumber.trim();
+    const primaryDoc = documents[0];
+    const isAtCheckin = idSubmissionPolicy === 'at_checkin' && !primaryDoc?.idNumber?.trim();
 
-    if (!idNumber.trim() && idSubmissionPolicy === 'submit_now') {
+    if (!primaryDoc?.idNumber?.trim() && idSubmissionPolicy === 'submit_now') {
       setActiveTab('guest_id');
       alert('Please enter customer ID number (Aadhaar / Passport / DL) or select "Submit ID at Check-In".');
       return;
     }
 
-    const idDoc: IdDocument = {
-      idType,
-      idNumber: isAtCheckin ? 'Pending at Check-in' : idNumber.trim(),
-      frontImageUrl: frontImageUrl || undefined,
-      backImageUrl: backImageUrl || undefined,
-      expiryDate: expiryDate || undefined,
-      isVerified: isAtCheckin ? false : isVerified,
-      uploadedAt: isAtCheckin ? 'Due at Check-in' : new Date().toLocaleString(),
-      notes: isAtCheckin 
-        ? (idNotes || 'Customer ID to be submitted upon arrival at front desk check-in')
-        : idNotes
-    };
+    // Prepare all documents
+    const preparedDocuments: IdDocument[] = documents.map((doc, idx) => ({
+      ...doc,
+      idNumber: isAtCheckin && idx === 0 && !doc.idNumber.trim() ? 'Pending at Check-in' : (doc.idNumber.trim() || (idx === 0 ? 'Pending at Check-in' : '')),
+      isVerified: isAtCheckin && idx === 0 ? false : (doc.isVerified || Boolean(doc.idNumber.trim() || doc.frontImageUrl)),
+      uploadedAt: doc.uploadedAt || (isAtCheckin && idx === 0 ? 'Due at Check-in' : new Date().toLocaleString()),
+      notes: isAtCheckin && idx === 0 && !doc.notes ? 'Customer ID to be submitted upon arrival at front desk check-in' : doc.notes
+    }));
 
     const guest: Guest = {
       id: existingBooking?.guest.id || `gst-${Date.now()}`,
@@ -594,7 +775,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       purposeOfVisit,
       vehicleNumber,
       emergencyContact,
-      idDocument: idDoc,
+      idDocument: preparedDocuments[0],
+      idDocuments: preparedDocuments,
       previousStaysCount: existingBooking?.guest.previousStaysCount || 0,
       totalSpent: (existingBooking?.guest.totalSpent || 0) + totalAmount
     };
@@ -624,6 +806,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         groupId: existingBooking?.groupId || undefined,
         groupTotalRooms: 1,
         guest,
+        documents: preparedDocuments,
         checkInDate,
         checkOutDate,
         nights,
@@ -674,6 +857,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           groupId,
           groupTotalRooms: selectedRoomIds.length,
           guest,
+          documents: preparedDocuments,
           checkInDate,
           checkOutDate,
           nights,
@@ -768,7 +952,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           >
             <ShieldCheck size={14} className="text-emerald-700" />
             <span>2. Guest KYC &amp; Customer ID</span>
-            {idNumber && (
+            {documents.some(d => d.idNumber || d.frontImageUrl) && (
               <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block ml-0.5"></span>
             )}
           </button>
@@ -1705,7 +1889,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     type="button"
                     onClick={() => {
                       setIdSubmissionPolicy('at_checkin');
-                      setIsVerified(false);
+                      setDocuments(prev => prev.map(d => ({ ...d, isVerified: false })));
                     }}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       idSubmissionPolicy === 'at_checkin'
@@ -1732,7 +1916,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     type="button"
                     onClick={() => {
                       setIdSubmissionPolicy('submit_now');
-                      setIsVerified(true);
+                      setDocuments(prev => prev.map(d => ({ ...d, isVerified: true })));
                     }}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       idSubmissionPolicy === 'submit_now'
@@ -1766,94 +1950,109 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 )}
               </div>
 
-              {/* ID Document KYC Section */}
-              <div className="border-2 border-teal-600/50 bg-teal-50/20 rounded-xl p-4 space-y-4">
-                <div className="flex items-center justify-between border-b border-teal-200/60 pb-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck size={18} className="text-teal-700" />
+              {/* ID Document KYC Section - Multi-Document Upload */}
+              <div className="border-2 border-teal-600/50 bg-teal-50/20 rounded-xl p-4 sm:p-5 space-y-4">
+                {/* Header with Title and Action Buttons */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal-200/70 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <ShieldCheck size={18} />
+                    </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        Customer ID &amp; KYC Details {idSubmissionPolicy === 'at_checkin' ? '(Optional for Advance Booking)' : '(Mandatory Now)'}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900">
+                          Guest KYC &amp; Multiple ID Proofs
+                        </h4>
+                        <span className="px-2 py-0.5 bg-teal-100 text-teal-800 font-bold text-xs rounded-full border border-teal-300">
+                          {documents.length} Document{documents.length > 1 ? 's' : ''} Attached
+                        </span>
+                      </div>
                       <p className="text-[11px] text-slate-500">
-                        {idSubmissionPolicy === 'at_checkin' 
-                          ? 'Can be filled now if known, or left blank to submit at check-in' 
-                          : 'Upload ID proof or take photo for Hotel Form C / Police verification'}
+                        Upload ID proofs for primary guest and co-guests (Aadhaar, Passport, DL, Family IDs) for Police Form C
                       </p>
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isVerified}
-                      onChange={(e) => setIsVerified(e.target.checked)}
-                      className="rounded text-teal-600 focus:ring-teal-500"
-                    />
-                    <span>Mark ID Verified</span>
-                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Multi-File Batch Upload Button */}
+                    <label className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors">
+                      <Upload size={14} />
+                      <span>Batch Upload Multiple Files</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf"
+                        onChange={handleBatchFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Add Another Document Button */}
+                    <button
+                      type="button"
+                      onClick={handleAddAnotherDoc}
+                      className="px-3 py-1.5 bg-white hover:bg-teal-50 text-teal-800 border border-teal-300 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>+ Add Co-Guest ID</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* ID Type & Number Inputs */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Select ID Document Type
-                    </label>
-                    <select
-                      value={idType}
-                      onChange={(e) => setIdType(e.target.value as IdType)}
-                      className="w-full text-sm font-semibold bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                {/* Quick Auto-Fill Sample Buttons */}
+                <div className="flex items-center justify-between gap-2 flex-wrap bg-white/80 p-2.5 rounded-lg border border-teal-100 text-xs">
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                    <Sparkles size={13} className="text-amber-500" />
+                    Quick Sample ID:
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={fillSampleAadhaar}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-semibold rounded text-[11px] border border-slate-200"
                     >
-                      <option value="aadhaar">Aadhaar Card (UIDAI)</option>
-                      <option value="passport">Passport</option>
-                      <option value="driving_license">Driving License</option>
-                      <option value="voter_id">Voter ID (Election Card)</option>
-                      <option value="pan_card">PAN Card</option>
-                      <option value="national_id">Other Government ID</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      ID Document Number {idSubmissionPolicy === 'submit_now' ? '*' : '(Optional)'}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={idType === 'aadhaar' ? '5482 9104 3821' : idType === 'passport' ? 'Z9182304' : 'ID Number'}
-                      value={idNumber}
-                      onChange={(e) => setIdNumber(e.target.value)}
-                      className="w-full text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 focus:ring-2 focus:ring-teal-500"
-                      required={idSubmissionPolicy === 'submit_now'}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      ID Expiry Date (if applicable)
-                    </label>
-                    <input
-                      type="date"
-                      value={expiryDate}
-                      onChange={(e) => setExpiryDate(e.target.value)}
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2.5 text-slate-700"
-                    />
+                      Sample Aadhaar (Doc #1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={fillSamplePassport}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-semibold rounded text-[11px] border border-slate-200"
+                    >
+                      Sample Passport (Doc #1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addSampleCoGuestDoc}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold rounded text-[11px] border border-teal-200 flex items-center gap-1"
+                    >
+                      <Plus size={11} /> + Sample Co-Guest ID
+                    </button>
+                    {idSubmissionPolicy === 'submit_now' && (
+                      <button
+                        type="button"
+                        onClick={fillPendingCheckIn}
+                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] border border-amber-200"
+                      >
+                        Set Due at Check-in
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Camera Live Modal Stream if opened */}
                 {isCameraActive && (
-                  <div className="p-4 bg-slate-900 rounded-xl text-white space-y-3">
+                  <div className="p-4 bg-slate-900 rounded-xl text-white space-y-3 border border-slate-700 shadow-lg">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-teal-400">
-                        Camera Capture: Snap {capturingSide.toUpperCase()} of ID Card
+                      <span className="text-xs font-bold text-teal-400 flex items-center gap-1.5">
+                        <Camera size={15} />
+                        Camera Capture: Snap {capturingSide.toUpperCase()} of Document #{capturingDocIndex + 1} ({documents[capturingDocIndex]?.documentTitle || 'Guest ID'})
                       </span>
                       <button
                         type="button"
                         onClick={stopCamera}
-                        className="text-xs text-slate-400 hover:text-white"
+                        className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800"
                       >
-                        Cancel
+                        Cancel Camera
                       </button>
                     </div>
                     <div className="relative aspect-video max-h-56 bg-black rounded-lg overflow-hidden flex items-center justify-center">
@@ -1869,141 +2068,330 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       <button
                         type="button"
                         onClick={capturePhoto}
-                        className="px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-2"
+                        className="px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-2 cursor-pointer"
                       >
                         <Camera size={16} />
-                        Capture ID Document
+                        Capture {capturingSide.toUpperCase()} Photo
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* Front & Back Document Upload / Previews */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  {/* Front Side */}
-                  <div className="border border-slate-200 bg-white rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">
-                        ID Proof Front Side *
-                      </span>
-                      {frontImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setFrontImageUrl('')}
-                          className="text-slate-400 hover:text-rose-600 text-xs"
-                          title="Remove image"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-
-                    {frontImageUrl ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 group aspect-4/3 max-h-44 flex items-center justify-center">
-                        <img
-                          src={frontImageUrl}
-                          alt="ID Front"
-                          className="w-full h-full object-contain"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startCamera('front')}
-                            className="p-1.5 bg-white text-slate-800 rounded text-xs font-bold"
-                          >
-                            Retake
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center space-y-2 hover:border-teal-500 transition-colors">
-                        <Upload size={24} className="mx-auto text-slate-400" />
-                        <div className="text-xs text-slate-500">
-                          Upload front photo of {idType}
-                        </div>
-                        <div className="flex items-center justify-center gap-2 pt-1">
-                          <label className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
-                            Browse File
+                {/* Multiple Documents List */}
+                <div className="space-y-4">
+                  {documents.map((doc, docIdx) => {
+                    const isPrimary = docIdx === 0;
+                    return (
+                      <div
+                        key={doc.id || `doc-${docIdx}`}
+                        className="bg-white border-2 border-teal-200/90 rounded-xl p-4 shadow-2xs space-y-3.5 transition-all"
+                      >
+                        {/* Document Top Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-md uppercase tracking-wider ${
+                              isPrimary ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}>
+                              {isPrimary ? 'Document #1 (Primary)' : `Document #${docIdx + 1} (Co-Guest)`}
+                            </span>
+                            
+                            {/* Document Title / Tag */}
                             <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              onChange={(e) => handleFileUpload(e, 'front')}
-                              className="hidden"
+                              type="text"
+                              value={doc.documentTitle || ''}
+                              onChange={(e) => updateDocField(docIdx, 'documentTitle', e.target.value)}
+                              placeholder={isPrimary ? 'Primary Guest Aadhaar / Passport' : `Co-Guest ${docIdx} ID`}
+                              className="text-xs font-bold text-slate-900 border border-slate-300 rounded px-2.5 py-1 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-teal-500 min-w-[200px]"
                             />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => startCamera('front')}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300"
-                          >
-                            <Camera size={14} /> Camera
-                          </button>
+
+                            {/* Preset Tag Chips */}
+                            <div className="hidden md:flex items-center gap-1 text-[10px]">
+                              {['Primary Aadhaar', 'Spouse ID', 'Co-Guest DL', 'Passport', 'Child ID'].map(tag => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onClick={() => updateDocField(docIdx, 'documentTitle', tag)}
+                                  className="px-1.5 py-0.5 bg-slate-50 hover:bg-slate-200 text-slate-600 rounded border border-slate-200"
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Verification toggle */}
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(doc.isVerified)}
+                                onChange={(e) => updateDocField(docIdx, 'isVerified', e.target.checked)}
+                                className="rounded text-teal-600 focus:ring-teal-500"
+                              />
+                              <span>Verified</span>
+                            </label>
+
+                            {/* Remove Document button */}
+                            {documents.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDoc(docIdx)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Remove this document"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Document Details Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {/* Person / Guest Name */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Document Holder Name
+                            </label>
+                            <input
+                              type="text"
+                              value={doc.guestName || (isPrimary ? fullName : '')}
+                              onChange={(e) => updateDocField(docIdx, 'guestName', e.target.value)}
+                              placeholder={isPrimary ? (fullName || 'Primary Guest') : `Co-Guest ${docIdx} Name`}
+                              className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                            />
+                          </div>
+
+                          {/* ID Type */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              ID Document Type
+                            </label>
+                            <select
+                              value={doc.idType}
+                              onChange={(e) => updateDocField(docIdx, 'idType', e.target.value as IdType)}
+                              className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                            >
+                              <option value="aadhaar">Aadhaar Card (UIDAI)</option>
+                              <option value="passport">Passport</option>
+                              <option value="driving_license">Driving License</option>
+                              <option value="voter_id">Voter ID (Election Card)</option>
+                              <option value="pan_card">PAN Card</option>
+                              <option value="national_id">Other Government ID</option>
+                            </select>
+                          </div>
+
+                          {/* ID Number */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              ID Number {isPrimary && idSubmissionPolicy === 'submit_now' ? '*' : '(Optional)'}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={
+                                doc.idType === 'aadhaar' ? '5482 9104 3821' : 
+                                doc.idType === 'passport' ? 'Z9182304' : 
+                                doc.idType === 'driving_license' ? 'DL-042019008129' : 'ID Number'
+                              }
+                              value={doc.idNumber}
+                              onChange={(e) => updateDocField(docIdx, 'idNumber', e.target.value)}
+                              className="w-full text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                              required={isPrimary && idSubmissionPolicy === 'submit_now'}
+                            />
+                          </div>
+
+                          {/* Expiry Date */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Expiry Date (if applicable)
+                            </label>
+                            <input
+                              type="date"
+                              value={doc.expiryDate || ''}
+                              onChange={(e) => updateDocField(docIdx, 'expiryDate', e.target.value)}
+                              className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2 text-slate-700"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Front & Back Side Uploads for this document */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {/* Front Side */}
+                          <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span>Front Side Image</span>
+                                {doc.frontImageUrl && (
+                                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">Attached</span>
+                                )}
+                              </span>
+                              {doc.frontImageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateDocField(docIdx, 'frontImageUrl', '')}
+                                  className="text-slate-400 hover:text-rose-600 text-xs flex items-center gap-0.5"
+                                  title="Remove image"
+                                >
+                                  <Trash2 size={13} /> Remove
+                                </button>
+                              )}
+                            </div>
+
+                            {doc.frontImageUrl ? (
+                              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-white group aspect-4/3 max-h-36 flex items-center justify-center">
+                                <img
+                                  src={doc.frontImageUrl}
+                                  alt="Doc Front"
+                                  className="w-full h-full object-contain"
+                                />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewDocImage({ url: doc.frontImageUrl!, title: `${doc.documentTitle || 'Document'} - Front` })}
+                                    className="p-1.5 bg-white text-slate-900 rounded text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <Eye size={12} /> View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => startCamera(docIdx, 'front')}
+                                    className="p-1.5 bg-teal-600 text-white rounded text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <Camera size={12} /> Retake
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center space-y-1.5 hover:border-teal-500 bg-white transition-colors">
+                                <Upload size={20} className="mx-auto text-slate-400" />
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  Upload Front Side of {doc.idType.toUpperCase()}
+                                </div>
+                                <div className="flex items-center justify-center gap-2 pt-1">
+                                  <label className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
+                                    Browse
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => handleDocFileUpload(e, docIdx, 'front')}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => startCamera(docIdx, 'front')}
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300 cursor-pointer"
+                                  >
+                                    <Camera size={13} /> Camera
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Back Side */}
+                          <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span>Back Side Image (Optional)</span>
+                                {doc.backImageUrl && (
+                                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">Attached</span>
+                                )}
+                              </span>
+                              {doc.backImageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateDocField(docIdx, 'backImageUrl', '')}
+                                  className="text-slate-400 hover:text-rose-600 text-xs flex items-center gap-0.5"
+                                  title="Remove image"
+                                >
+                                  <Trash2 size={13} /> Remove
+                                </button>
+                              )}
+                            </div>
+
+                            {doc.backImageUrl ? (
+                              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-white group aspect-4/3 max-h-36 flex items-center justify-center">
+                                <img
+                                  src={doc.backImageUrl}
+                                  alt="Doc Back"
+                                  className="w-full h-full object-contain"
+                                />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewDocImage({ url: doc.backImageUrl!, title: `${doc.documentTitle || 'Document'} - Back` })}
+                                    className="p-1.5 bg-white text-slate-900 rounded text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <Eye size={12} /> View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => startCamera(docIdx, 'back')}
+                                    className="p-1.5 bg-teal-600 text-white rounded text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <Camera size={12} /> Retake
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center space-y-1.5 hover:border-teal-500 bg-white transition-colors">
+                                <Upload size={20} className="mx-auto text-slate-400" />
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  Upload Back Side (Address / QR)
+                                </div>
+                                <div className="flex items-center justify-center gap-2 pt-1">
+                                  <label className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
+                                    Browse
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => handleDocFileUpload(e, docIdx, 'back')}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => startCamera(docIdx, 'back')}
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300 cursor-pointer"
+                                  >
+                                    <Camera size={13} /> Camera
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Document Notes */}
+                        <div>
+                          <input
+                            type="text"
+                            value={doc.notes || ''}
+                            onChange={(e) => updateDocField(docIdx, 'notes', e.target.value)}
+                            placeholder="Verification remarks / notes (e.g. Original physical ID verified at counter, UIDAI QR scanned)"
+                            className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:ring-1 focus:ring-teal-500"
+                          />
                         </div>
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
+
+                {/* Bottom Add Another Document Button */}
+                <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-teal-50/50 p-3 rounded-xl border border-teal-200/80">
+                  <div className="text-xs text-teal-900 font-medium flex items-center gap-1.5">
+                    <ShieldCheck size={16} className="text-teal-700" />
+                    <span>Total {documents.length} KYC document{documents.length > 1 ? 's' : ''} prepared for this booking.</span>
                   </div>
-
-                  {/* Back Side */}
-                  <div className="border border-slate-200 bg-white rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">
-                        ID Proof Back Side (Optional)
-                      </span>
-                      {backImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setBackImageUrl('')}
-                          className="text-slate-400 hover:text-rose-600 text-xs"
-                          title="Remove image"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-
-                    {backImageUrl ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 group aspect-4/3 max-h-44 flex items-center justify-center">
-                        <img
-                          src={backImageUrl}
-                          alt="ID Back"
-                          className="w-full h-full object-contain"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startCamera('back')}
-                            className="p-1.5 bg-white text-slate-800 rounded text-xs font-bold"
-                          >
-                            Retake
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center space-y-2 hover:border-teal-500 transition-colors">
-                        <Upload size={24} className="mx-auto text-slate-400" />
-                        <div className="text-xs text-slate-500">
-                          Upload back side (address/QR)
-                        </div>
-                        <div className="flex items-center justify-center gap-2 pt-1">
-                          <label className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
-                            Browse File
-                            <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              onChange={(e) => handleFileUpload(e, 'back')}
-                              className="hidden"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => startCamera('back')}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300"
-                          >
-                            <Camera size={14} /> Camera
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddAnotherDoc}
+                      className="px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>+ Add Another ID Document</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2413,6 +2801,40 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
           </div>
         </form>
+
+        {/* Document Lightbox Preview Modal */}
+        {previewDocImage && (
+          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="relative max-w-3xl w-full max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+              <div className="p-3 bg-slate-800 text-white flex items-center justify-between border-b border-slate-700">
+                <span className="text-xs font-bold truncate">{previewDocImage.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocImage(null)}
+                  className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/50">
+                <img
+                  src={previewDocImage.url}
+                  alt={previewDocImage.title}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-lg"
+                />
+              </div>
+              <div className="p-2.5 bg-slate-800 text-center">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocImage(null)}
+                  className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

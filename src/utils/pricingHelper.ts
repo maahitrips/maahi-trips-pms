@@ -142,3 +142,33 @@ export function calculateEffectiveRoomRate(
     originalBaseRate: baseRate
   };
 }
+
+/**
+ * Returns the effective rate for a specific room on a given calendar date.
+ * Priority:
+ * 1. Specific custom daily rate configured for this room on dateStr (e.g. room.customRates?.[dateStr])
+ * 2. If same-day and 7 AM Last-Minute Flash Sale is triggered, apply flash discount
+ * 3. Standard room baseRate
+ */
+export function getRoomDailyRate(
+  room: Room,
+  dateStr: string,
+  lastMinuteStatus?: LastMinuteRuleStatus
+): number {
+  if (room.customRates && room.customRates[dateStr] !== undefined && room.customRates[dateStr] > 0) {
+    return room.customRates[dateStr];
+  }
+  const today = getTodayDateStr();
+  if (dateStr === today && lastMinuteStatus?.isTriggered) {
+    const discount = lastMinuteStatus.discountPercent || 15;
+    return Math.round(room.baseRate * (1 - discount / 100));
+  }
+  return room.baseRate;
+}
+
+/**
+ * Checks whether a room has a custom daily override rate for this specific date
+ */
+export function isDateCustomRate(room: Room, dateStr: string): boolean {
+  return Boolean(room.customRates && room.customRates[dateStr] !== undefined && room.customRates[dateStr] > 0);
+}

@@ -76,7 +76,11 @@ import {
   subscribeToUsers, 
   saveDeletionRequestsToCloud, 
   subscribeToDeletionRequests,
-  testFirebaseConnection 
+  testFirebaseConnection,
+  isQuotaLimitReached,
+  onQuotaExceededChange,
+  getDatabaseUpgradeUrl,
+  retryCloudConnection
 } from './services/firebase';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
@@ -409,6 +413,13 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastNotification, setToastNotification] = useState<{ message: string; sub?: string } | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState<boolean>(() => isQuotaLimitReached());
+  const [isQuotaBannerDismissed, setIsQuotaBannerDismissed] = useState<boolean>(false);
+  const [isRetryingCloud, setIsRetryingCloud] = useState<boolean>(false);
+
+  useEffect(() => {
+    return onQuotaExceededChange(setIsQuotaExceeded);
+  }, []);
 
   // Mobile App Install (PWA) state
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
@@ -445,6 +456,13 @@ export default function App() {
   // Sync state tracking refs to avoid echo ping-pong loops and startup overwrites
   const isRemoteSyncRef = useRef<boolean>(false);
   const isInitialBootRef = useRef<boolean>(true);
+  const cloudSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevHotelsJsonRef = useRef<string>('');
+  const prevUsersJsonRef = useRef<string>('');
+  const prevDeletionReqsJsonRef = useRef<string>('');
+  const hotelsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const usersSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const delReqsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize and verify Firestore Cloud Connection, and fetch latest cloud state FIRST
   useEffect(() => {
@@ -586,18 +604,48 @@ export default function App() {
 
   // Persist multi-hotel metadata & active user
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(hotels));
-    saveHotelsToCloud(hotels);
+    const json = JSON.stringify(hotels);
+    localStorage.setItem(STORAGE_KEY_HOTELS, json);
+    if (!isQuotaLimitReached() && !isInitialBootRef.current && prevHotelsJsonRef.current && prevHotelsJsonRef.current !== json) {
+      if (hotelsSyncTimerRef.current) clearTimeout(hotelsSyncTimerRef.current);
+      hotelsSyncTimerRef.current = setTimeout(() => {
+        saveHotelsToCloud(hotels);
+      }, 2000);
+    }
+    prevHotelsJsonRef.current = json;
+    return () => {
+      if (hotelsSyncTimerRef.current) clearTimeout(hotelsSyncTimerRef.current);
+    };
   }, [hotels]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-    saveUsersToCloud(users);
+    const json = JSON.stringify(users);
+    localStorage.setItem(STORAGE_KEY_USERS, json);
+    if (!isQuotaLimitReached() && !isInitialBootRef.current && prevUsersJsonRef.current && prevUsersJsonRef.current !== json) {
+      if (usersSyncTimerRef.current) clearTimeout(usersSyncTimerRef.current);
+      usersSyncTimerRef.current = setTimeout(() => {
+        saveUsersToCloud(users);
+      }, 2000);
+    }
+    prevUsersJsonRef.current = json;
+    return () => {
+      if (usersSyncTimerRef.current) clearTimeout(usersSyncTimerRef.current);
+    };
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_DELETION_REQUESTS, JSON.stringify(deletionRequests));
-    saveDeletionRequestsToCloud(deletionRequests);
+    const json = JSON.stringify(deletionRequests);
+    localStorage.setItem(STORAGE_KEY_DELETION_REQUESTS, json);
+    if (!isQuotaLimitReached() && !isInitialBootRef.current && prevDeletionReqsJsonRef.current && prevDeletionReqsJsonRef.current !== json) {
+      if (delReqsSyncTimerRef.current) clearTimeout(delReqsSyncTimerRef.current);
+      delReqsSyncTimerRef.current = setTimeout(() => {
+        saveDeletionRequestsToCloud(deletionRequests);
+      }, 2000);
+    }
+    prevDeletionReqsJsonRef.current = json;
+    return () => {
+      if (delReqsSyncTimerRef.current) clearTimeout(delReqsSyncTimerRef.current);
+    };
   }, [deletionRequests]);
 
   useEffect(() => {
@@ -625,7 +673,7 @@ export default function App() {
       dynamicPricing
     };
 
-    // Always update local cache
+    // Always update local cache immediately
     localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify(currentBundle));
 
     // If change was received from cloud, do not echo it back to cloud
@@ -639,8 +687,6 @@ export default function App() {
       return;
     }
 
-    saveHotelBundleToCloud(activeHotelId, currentBundle, true);
-
     // Also update legacy keys if Big House Inn
     if (activeHotelId === 'hotel-bighouse') {
       localStorage.setItem('tripmakerz_pms_rooms_v1', JSON.stringify(rooms));
@@ -648,7 +694,37 @@ export default function App() {
       localStorage.setItem('tripmakerz_pms_profile_v1', JSON.stringify(hotelProfile));
     }
 
-    // Automatically sync active hotel's address, city, and details into the hotels list
+    // If quota is already exceeded, do not attempt cloud write
+    if (isQuotaLimitReached()) {
+      return;
+    }
+
+    // Debounce cloud write to save free tier write units
+    if (cloudSyncTimerRef.current) {
+      clearTimeout(cloudSyncTimerRef.current);
+    }
+    cloudSyncTimerRef.current = setTimeout(() => {
+      saveHotelBundleToCloud(activeHotelId, currentBundle, false);
+    }, 2000);
+
+    return () => {
+      if (cloudSyncTimerRef.current) {
+        clearTimeout(cloudSyncTimerRef.current);
+      }
+    };
+  }, [
+    activeHotelId,
+    hotelProfile,
+    rooms,
+    bookings,
+    channels,
+    roomMappings,
+    syncLogs,
+    dynamicPricing
+  ]);
+
+  // Automatically sync active hotel's address, city, and details into the hotels list
+  useEffect(() => {
     setHotels(prev => {
       const match = prev.find(h => h.id === activeHotelId);
       if (
@@ -681,7 +757,7 @@ export default function App() {
       }
       return prev;
     });
-  }, [activeHotelId, hotelProfile, rooms, bookings, channels, roomMappings, syncLogs, dynamicPricing]);
+  }, [activeHotelId, hotelProfile]);
 
   // Switch between hotel properties
   const handleSelectHotel = (newHotelId: string) => {
@@ -844,6 +920,38 @@ export default function App() {
     });
 
     showToast(`Room ${updatedRoom.number} Updated!`, `Category: ${updatedRoom.type} • ₹${updatedRoom.baseRate}/night`);
+  };
+
+  // Update Daily Rates for Selected Rooms and Dates in Active Hotel
+  const handleUpdateDailyRate = (
+    targetRoomIds: string[],
+    dateStrings: string[],
+    newRate: number | null
+  ) => {
+    setRooms(prev => {
+      return prev.map(r => {
+        if (!targetRoomIds.includes(r.id)) return r;
+        const nextCustomRates = { ...(r.customRates || {}) };
+        for (const dateStr of dateStrings) {
+          if (newRate === null || newRate <= 0) {
+            delete nextCustomRates[dateStr];
+          } else {
+            nextCustomRates[dateStr] = Math.round(newRate);
+          }
+        }
+        return {
+          ...r,
+          customRates: nextCustomRates
+        };
+      });
+    });
+
+    const isReset = newRate === null || newRate <= 0;
+    const rateDesc = isReset ? 'Reset to Base Rates' : `₹${newRate?.toLocaleString()}/Night`;
+    showToast(
+      'Calendar Daily Rate Saved!',
+      `${targetRoomIds.length} Room(s) updated for ${dateStrings.length} date(s) (${rateDesc})`
+    );
   };
 
   // Update Hotel Profile & Address (Immediate Multi-Store Sync & Persistence)
@@ -1295,18 +1403,20 @@ export default function App() {
     showToast(`Room Shifted to Room ${newRoomNumber}!`, `Guest moved from Room ${previousRoomNum} to ${targetRoom.name} (${targetRoom.type})`);
   };
 
-  // Check-In ID Submission & Verification Handler (Requested: "customar ke check in ke bad id submit hoti h")
+  // Check-In ID Submission & Verification Handler (Supports single or multiple guest documents)
   const handleConfirmCheckInWithId = (
     bookingId: string,
     idDoc: IdDocument,
     markCheckedIn: boolean | Booking['status'],
-    paymentRecord?: { amount: number; mode: PaymentMode; reference?: string } | { amount: number; paymentMode: any }
+    paymentRecord?: { amount: number; mode: PaymentMode; reference?: string } | { amount: number; paymentMode: any },
+    allDocs?: IdDocument[]
   ) => {
     const finalStatus: Booking['status'] = typeof markCheckedIn === 'boolean'
       ? (markCheckedIn ? 'checked_in' : 'confirmed')
       : markCheckedIn;
     const pAmount = paymentRecord?.amount || 0;
     const pMode = (paymentRecord as any)?.mode || (paymentRecord as any)?.paymentMode || 'cash';
+    const docList = allDocs && allDocs.length > 0 ? allDocs : [idDoc];
 
     setBookings(prev => prev.map(b => {
       if (b.id !== bookingId) return b;
@@ -1322,9 +1432,11 @@ export default function App() {
       const updated: Booking = {
         ...b,
         status: finalStatus,
+        documents: docList,
         guest: {
           ...b.guest,
-          idDocument: idDoc
+          idDocument: docList[0] || idDoc,
+          idDocuments: docList
         },
         payments: updatedPayments
       };
@@ -1347,9 +1459,11 @@ export default function App() {
         return {
           ...prev,
           status: finalStatus,
+          documents: docList,
           guest: {
             ...prev.guest,
-            idDocument: idDoc
+            idDocument: docList[0] || idDoc,
+            idDocuments: docList
           },
           payments: updatedPayments
         };
@@ -1358,7 +1472,7 @@ export default function App() {
 
     showToast(
       finalStatus === 'checked_in' ? 'Check-In Complete & Customer ID Verified' : 'Customer ID Proof Saved & Verified',
-      `${idDoc.idType.toUpperCase()} (${idDoc.idNumber}) recorded for hotel KYC compliance`
+      `${docList.length} KYC Document(s) recorded for hotel compliance`
     );
   };
 
@@ -1712,6 +1826,55 @@ export default function App() {
           onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
 
+        {/* Quota Exceeded / Local Persistence Alert Banner */}
+        {isQuotaExceeded && !isQuotaBannerDismissed && (
+          <div className="bg-amber-500/10 border-b border-amber-300 px-3 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-amber-950 shrink-0 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider shrink-0">
+                Local Storage Mode
+              </span>
+              <p className="font-medium text-amber-900 leading-snug truncate">
+                Firestore free daily write quota reached. Changes are <strong>safely saved locally</strong> on your browser and will automatically reset at midnight.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <a
+                href={getDatabaseUpgradeUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-lg text-[11px] transition-colors shadow-2xs"
+              >
+                Upgrade Limits (Console)
+              </a>
+              <button
+                type="button"
+                disabled={isRetryingCloud}
+                onClick={async () => {
+                  setIsRetryingCloud(true);
+                  const ok = await retryCloudConnection();
+                  setIsRetryingCloud(false);
+                  if (ok) {
+                    showToast('Cloud Reconnected!', 'Firestore synchronization restored successfully.');
+                  } else {
+                    showToast('Quota Still Limited', 'Free tier writes will reset at 12:00 AM PST. Local storage is active.');
+                  }
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 font-bold rounded-lg text-[11px] transition-colors cursor-pointer"
+              >
+                {isRetryingCloud ? 'Testing...' : 'Retry Connection'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsQuotaBannerDismissed(true)}
+                className="p-1 text-amber-800 hover:text-amber-950 rounded transition-colors"
+                title="Dismiss notice"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* View Router */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative pb-16 md:pb-0">
           {activeTab === 'desk' && (
@@ -1742,6 +1905,7 @@ export default function App() {
                 setIsDynamicRulesModalOpen(true);
               }}
               onToggleSimulate7am={handleToggleSimulate7am}
+              onUpdateDailyRate={handleUpdateDailyRate}
             />
           )}
 

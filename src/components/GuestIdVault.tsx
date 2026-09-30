@@ -3,7 +3,8 @@ import {
   Booking, 
   Guest, 
   IdType, 
-  IdDocument 
+  IdDocument,
+  getAllBookingDocuments
 } from '../types';
 import { 
   ShieldCheck, 
@@ -42,29 +43,53 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
   const [showFormCModal, setShowFormCModal] = useState<boolean>(false);
 
-  // Extract unique guests from bookings
-  const guests = bookings.map(b => ({
-    ...b.guest,
-    bookingRef: b.bookingCode,
-    roomNumber: b.roomId,
-    checkInDate: b.checkInDate,
-    checkOutDate: b.checkOutDate,
-    bookingObj: b
-  }));
+  // Extract unique bookings and all documents
+  const guests = bookings.map(b => {
+    const allDocs = getAllBookingDocuments(b);
+    return {
+      ...b.guest,
+      bookingRef: b.bookingCode,
+      roomNumber: b.roomId,
+      checkInDate: b.checkInDate,
+      checkOutDate: b.checkOutDate,
+      bookingObj: b,
+      allDocs
+    };
+  });
+
+  const [activeDocIndices, setActiveDocIndices] = useState<Record<string, number>>({});
 
   const filteredGuests = guests.filter(g => {
     const q = searchQuery.toLowerCase();
+    const anyDocMatches = g.allDocs.some(d => 
+      (d.idNumber && d.idNumber.toLowerCase().includes(q)) ||
+      (d.documentTitle && d.documentTitle.toLowerCase().includes(q)) ||
+      (d.guestName && d.guestName.toLowerCase().includes(q))
+    );
+
     const matchesQuery = 
       g.fullName.toLowerCase().includes(q) ||
       g.phone.toLowerCase().includes(q) ||
       g.idDocument.idNumber.toLowerCase().includes(q) ||
+      anyDocMatches ||
       (g.city && g.city.toLowerCase().includes(q));
 
     if (!matchesQuery) return false;
 
-    if (typeFilter !== 'all' && g.idDocument.idType !== typeFilter) return false;
-    if (verifiedFilter === 'verified' && !g.idDocument.isVerified) return false;
-    if (verifiedFilter === 'unverified' && g.idDocument.isVerified) return false;
+    if (typeFilter !== 'all') {
+      const hasMatchingType = g.allDocs.some(d => d.idType === typeFilter);
+      if (!hasMatchingType) return false;
+    }
+
+    if (verifiedFilter === 'verified') {
+      const hasVerified = g.allDocs.some(d => d.isVerified);
+      if (!hasVerified) return false;
+    }
+
+    if (verifiedFilter === 'unverified') {
+      const hasUnverified = g.allDocs.some(d => !d.isVerified);
+      if (!hasUnverified) return false;
+    }
 
     return true;
   });
@@ -154,12 +179,15 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
       {/* Guest ID Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredGuests.map((g) => {
-          const hasFront = Boolean(g.idDocument.frontImageUrl);
-          const hasBack = Boolean(g.idDocument.backImageUrl);
+          const cardKey = `${g.id}-${g.bookingRef}`;
+          const currentDocIdx = activeDocIndices[cardKey] || 0;
+          const currentDoc = g.allDocs[currentDocIdx] || g.allDocs[0] || g.idDocument;
+          const hasFront = Boolean(currentDoc.frontImageUrl);
+          const hasBack = Boolean(currentDoc.backImageUrl);
 
           return (
             <div
-              key={`${g.id}-${g.bookingRef}`}
+              key={cardKey}
               className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs hover:shadow-md transition-shadow flex flex-col justify-between"
             >
               {/* Card Top: Guest Info & Verification Badge */}
@@ -179,13 +207,50 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                     </div>
                   </div>
 
-                  {g.idDocument.isVerified ? (
-                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
-                      <CheckCircle2 size={11} /> Verified
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
-                      <AlertTriangle size={11} /> Pending
+                  <div className="flex flex-col items-end gap-1">
+                    {currentDoc.isVerified ? (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
+                        <CheckCircle2 size={11} /> Verified
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
+                        <AlertTriangle size={11} /> Pending
+                      </span>
+                    )}
+                    {g.allDocs.length > 1 && (
+                      <span className="text-[10px] font-semibold bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded border border-teal-200">
+                        {g.allDocs.length} Docs
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Multiple Documents Tab Switcher (if > 1) */}
+                {g.allDocs.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100">
+                    {g.allDocs.map((doc, dIdx) => (
+                      <button
+                        key={doc.id || dIdx}
+                        type="button"
+                        onClick={() => setActiveDocIndices(prev => ({ ...prev, [cardKey]: dIdx }))}
+                        className={`px-2 py-1 text-[11px] font-bold rounded-md whitespace-nowrap transition-colors cursor-pointer ${
+                          currentDocIdx === dIdx
+                            ? 'bg-teal-800 text-white shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {dIdx === 0 ? 'Doc 1 (Primary)' : `Doc ${dIdx + 1} (${doc.guestName || 'Co-Guest'})`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Active Document Details */}
+                <div className="text-[11px] text-slate-500 font-medium">
+                  {currentDoc.documentTitle || (currentDocIdx === 0 ? 'Primary Guest ID' : `Co-Guest #${currentDocIdx} ID`)}
+                  {currentDoc.guestName && currentDoc.guestName !== g.fullName && (
+                    <span className="text-slate-700 font-semibold ml-1">
+                      • Holder: {currentDoc.guestName}
                     </span>
                   )}
                 </div>
@@ -194,15 +259,15 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                 <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                   <div>
                     <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      {g.idDocument.idType.replace('_', ' ')}
+                      {currentDoc.idType.replace('_', ' ')}
                     </div>
                     <div className="text-xs font-mono font-bold text-slate-900 tracking-wide mt-0.5">
-                      {g.idDocument.idNumber}
+                      {currentDoc.idNumber || 'Pending Check-In'}
                     </div>
                   </div>
 
                   <span className="text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500 font-mono">
-                    {g.idDocument.expiryDate ? `Exp: ${g.idDocument.expiryDate}` : 'Permanent'}
+                    {currentDoc.expiryDate ? `Exp: ${currentDoc.expiryDate}` : 'Permanent'}
                   </span>
                 </div>
 
@@ -223,18 +288,18 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                 {/* Attached Document Visual Preview */}
                 <div className="pt-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-                    ID Document Scans / Attachments:
+                    Attached ID Scans ({currentDoc.idType.toUpperCase()}):
                   </span>
 
                   <div className="grid grid-cols-2 gap-2">
                     {hasFront ? (
                       <div
-                        onClick={() => setLightboxImage({ url: g.idDocument.frontImageUrl!, title: `${g.fullName} - ${g.idDocument.idType.toUpperCase()} Front` })}
+                        onClick={() => setLightboxImage({ url: currentDoc.frontImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Front` })}
                         className="aspect-4/3 bg-slate-100 rounded border border-slate-200 overflow-hidden cursor-zoom-in group relative"
                         title="Click to zoom Front ID"
                       >
                         <img
-                          src={g.idDocument.frontImageUrl}
+                          src={currentDoc.frontImageUrl}
                           alt="Front"
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                         />
@@ -250,12 +315,12 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
 
                     {hasBack ? (
                       <div
-                        onClick={() => setLightboxImage({ url: g.idDocument.backImageUrl!, title: `${g.fullName} - ${g.idDocument.idType.toUpperCase()} Back` })}
+                        onClick={() => setLightboxImage({ url: currentDoc.backImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Back` })}
                         className="aspect-4/3 bg-slate-100 rounded border border-slate-200 overflow-hidden cursor-zoom-in group relative"
                         title="Click to zoom Back ID"
                       >
                         <img
-                          src={g.idDocument.backImageUrl}
+                          src={currentDoc.backImageUrl}
                           alt="Back"
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                         />
@@ -279,7 +344,7 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                 </span>
 
                 <div className="flex items-center gap-2">
-                  {!g.idDocument.isVerified && onOpenCheckInIdModal && (
+                  {!currentDoc.isVerified && onOpenCheckInIdModal && (
                     <button
                       onClick={() => onOpenCheckInIdModal(g.bookingObj)}
                       className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-xs transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
@@ -368,20 +433,35 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {guests.map((g, idx) => (
-                    <tr key={idx} className="border-b border-slate-200">
-                      <td className="p-2 border border-slate-300 text-center">{idx + 1}</td>
-                      <td className="p-2 border border-slate-300 font-bold">{g.fullName}</td>
-                      <td className="p-2 border border-slate-300">{g.nationality}</td>
-                      <td className="p-2 border border-slate-300 uppercase font-semibold">{g.idDocument.idType}</td>
-                      <td className="p-2 border border-slate-300 font-mono">{g.idDocument.idNumber}</td>
-                      <td className="p-2 border border-slate-300">{g.phone}</td>
-                      <td className="p-2 border border-slate-300">{g.checkInDate}</td>
-                      <td className="p-2 border border-slate-300 text-emerald-700 font-bold">
-                        {g.idDocument.isVerified ? 'VERIFIED' : 'PENDING'}
-                      </td>
-                    </tr>
-                  ))}
+                  {guests.flatMap((g, gIdx) => 
+                    g.allDocs.map((doc, dIdx) => {
+                      const rowNum = `${gIdx + 1}.${dIdx + 1}`;
+                      const displayName = doc.guestName || g.fullName;
+                      const roleTag = dIdx === 0 ? ' (Primary)' : ' (Co-Guest)';
+
+                      return (
+                        <tr key={`${g.id}-${doc.id || dIdx}`} className="border-b border-slate-200">
+                          <td className="p-2 border border-slate-300 text-center text-slate-500 font-mono">{rowNum}</td>
+                          <td className="p-2 border border-slate-300 font-bold">
+                            {displayName}
+                            <span className="text-[10px] text-slate-500 font-normal">{roleTag}</span>
+                          </td>
+                          <td className="p-2 border border-slate-300">{g.nationality}</td>
+                          <td className="p-2 border border-slate-300 uppercase font-semibold">{doc.idType.replace('_', ' ')}</td>
+                          <td className="p-2 border border-slate-300 font-mono">{doc.idNumber || 'Pending Check-In'}</td>
+                          <td className="p-2 border border-slate-300">{g.phone}</td>
+                          <td className="p-2 border border-slate-300">{g.checkInDate}</td>
+                          <td className="p-2 border border-slate-300">
+                            {doc.isVerified ? (
+                              <span className="text-emerald-700 font-bold">VERIFIED</span>
+                            ) : (
+                              <span className="text-amber-700 font-bold">PENDING</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

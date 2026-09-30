@@ -34,9 +34,17 @@ import {
   X,
   Zap,
   Clock,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Tag,
+  Coins,
+  TrendingUp,
+  Percent
 } from 'lucide-react';
-import { LastMinuteRuleStatus } from '../utils/pricingHelper';
+import { 
+  LastMinuteRuleStatus, 
+  getRoomDailyRate, 
+  isDateCustomRate 
+} from '../utils/pricingHelper';
 
 interface DeskCalendarProps {
   rooms: Room[];
@@ -55,6 +63,7 @@ interface DeskCalendarProps {
   lastMinuteStatus?: LastMinuteRuleStatus;
   onOpenLastMinuteModal?: () => void;
   onToggleSimulate7am?: () => void;
+  onUpdateDailyRate?: (targetRoomIds: string[], dateStrings: string[], newRate: number | null) => void;
 }
 
 export const DeskCalendar: React.FC<DeskCalendarProps> = ({
@@ -73,7 +82,8 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   onOpenChannelManager,
   lastMinuteStatus,
   onOpenLastMinuteModal,
-  onToggleSimulate7am
+  onToggleSimulate7am,
+  onUpdateDailyRate
 }) => {
   const isSuperAdmin = isSuperAdminUser(currentUser);
   const todayStr = useMemo(() => getTodayDateStr(), []);
@@ -84,6 +94,168 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   const [viewMode, setViewMode] = useState<'tape' | 'agenda'>('tape');
   const [agendaTab, setAgendaTab] = useState<'all' | 'arrivals' | 'in_house' | 'departures'>('all');
   const [agendaSearch, setAgendaSearch] = useState<string>('');
+
+  // Daily Rates Visibility & Editing State
+  const [showDailyRatesRow, setShowDailyRatesRow] = useState<boolean>(true);
+
+  // Quick Daily Rate Editor Modal State
+  const [quickRateModal, setQuickRateModal] = useState<{
+    isOpen: boolean;
+    roomId: string | null;
+    dateStr: string;
+    currentRate: number;
+    baseRate: number;
+    newRate: string;
+    applyTo: 'single' | 'category' | 'all';
+  }>({
+    isOpen: false,
+    roomId: null,
+    dateStr: '',
+    currentRate: 0,
+    baseRate: 0,
+    newRate: '',
+    applyTo: 'single'
+  });
+
+  // Bulk Daily Rate / Weekend Surge Manager Modal State
+  const [isBulkRateModalOpen, setIsBulkRateModalOpen] = useState<boolean>(false);
+  const [bulkRateState, setBulkRateState] = useState<{
+    startDate: string;
+    endDate: string;
+    filterDays: 'all' | 'weekends' | 'weekdays';
+    targetCategory: string;
+    adjustMode: 'set' | 'increase_amt' | 'decrease_amt' | 'increase_pct' | 'reset';
+    rateValue: string;
+  }>({
+    startDate: todayStr,
+    endDate: addDaysToStr(todayStr, 14),
+    filterDays: 'all',
+    targetCategory: 'all',
+    adjustMode: 'set',
+    rateValue: '2500'
+  });
+
+  // Unique Room Categories
+  const roomCategories = useMemo(() => {
+    return Array.from(new Set(rooms.map(r => r.type)));
+  }, [rooms]);
+
+  // Open Quick Rate Editor Handler
+  const handleOpenQuickRateEdit = (targetRoomId: string | null, targetDateStr: string) => {
+    let rm = targetRoomId ? rooms.find(r => r.id === targetRoomId) : null;
+    if (!rm && rooms.length > 0) {
+      rm = rooms[0];
+    }
+    const currentR = rm ? getRoomDailyRate(rm, targetDateStr, lastMinuteStatus) : 2000;
+    const baseR = rm ? rm.baseRate : 2000;
+
+    setQuickRateModal({
+      isOpen: true,
+      roomId: targetRoomId,
+      dateStr: targetDateStr,
+      currentRate: currentR,
+      baseRate: baseR,
+      newRate: currentR.toString(),
+      applyTo: targetRoomId ? 'single' : 'all'
+    });
+  };
+
+  // Save Quick Daily Rate Handler
+  const handleSaveQuickRate = () => {
+    if (!onUpdateDailyRate) return;
+    const numericRate = parseFloat(quickRateModal.newRate);
+    if (isNaN(numericRate) || numericRate < 0) return;
+
+    let targetIds: string[] = [];
+    const targetRm = quickRateModal.roomId ? rooms.find(r => r.id === quickRateModal.roomId) : null;
+
+    if (quickRateModal.applyTo === 'single' && targetRm) {
+      targetIds = [targetRm.id];
+    } else if (quickRateModal.applyTo === 'category' && targetRm) {
+      targetIds = rooms.filter(r => r.type === targetRm.type).map(r => r.id);
+    } else {
+      targetIds = rooms.map(r => r.id);
+    }
+
+    onUpdateDailyRate(targetIds, [quickRateModal.dateStr], numericRate);
+    setQuickRateModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Reset Quick Daily Rate to Base Rate Handler
+  const handleResetQuickRate = () => {
+    if (!onUpdateDailyRate) return;
+    let targetIds: string[] = [];
+    const targetRm = quickRateModal.roomId ? rooms.find(r => r.id === quickRateModal.roomId) : null;
+
+    if (quickRateModal.applyTo === 'single' && targetRm) {
+      targetIds = [targetRm.id];
+    } else if (quickRateModal.applyTo === 'category' && targetRm) {
+      targetIds = rooms.filter(r => r.type === targetRm.type).map(r => r.id);
+    } else {
+      targetIds = rooms.map(r => r.id);
+    }
+
+    onUpdateDailyRate(targetIds, [quickRateModal.dateStr], null);
+    setQuickRateModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Apply Bulk Rates Handler
+  const handleApplyBulkRates = () => {
+    if (!onUpdateDailyRate) return;
+
+    const dateList: string[] = [];
+    let curr = bulkRateState.startDate;
+    const maxDays = 90;
+    let count = 0;
+
+    while (curr <= bulkRateState.endDate && count < maxDays) {
+      const [y, m, dNum] = curr.split('-').map(Number);
+      const dObj = new Date(y, m - 1, dNum);
+      const dayOfWeek = dObj.getDay();
+      const isWknd = dayOfWeek === 0 || dayOfWeek === 6 || dayOfWeek === 5;
+
+      if (bulkRateState.filterDays === 'weekends' && isWknd) {
+        dateList.push(curr);
+      } else if (bulkRateState.filterDays === 'weekdays' && !isWknd) {
+        dateList.push(curr);
+      } else if (bulkRateState.filterDays === 'all') {
+        dateList.push(curr);
+      }
+      curr = addDaysToStr(curr, 1);
+      count++;
+    }
+
+    if (dateList.length === 0) return;
+
+    const targetRooms = bulkRateState.targetCategory === 'all'
+      ? rooms
+      : rooms.filter(r => r.type === bulkRateState.targetCategory);
+
+    const targetIds = targetRooms.map(r => r.id);
+    if (targetIds.length === 0) return;
+
+    const val = parseFloat(bulkRateState.rateValue) || 0;
+
+    if (bulkRateState.adjustMode === 'reset') {
+      onUpdateDailyRate(targetIds, dateList, null);
+    } else if (bulkRateState.adjustMode === 'set') {
+      onUpdateDailyRate(targetIds, dateList, Math.max(100, Math.round(val)));
+    } else {
+      targetRooms.forEach(rm => {
+        let newCalculatedRate = rm.baseRate;
+        if (bulkRateState.adjustMode === 'increase_amt') {
+          newCalculatedRate = rm.baseRate + val;
+        } else if (bulkRateState.adjustMode === 'decrease_amt') {
+          newCalculatedRate = Math.max(100, rm.baseRate - val);
+        } else if (bulkRateState.adjustMode === 'increase_pct') {
+          newCalculatedRate = Math.round(rm.baseRate * (1 + val / 100));
+        }
+        onUpdateDailyRate([rm.id], dateList, Math.max(100, newCalculatedRate));
+      });
+    }
+
+    setIsBulkRateModalOpen(false);
+  };
 
   // Keep calendar in sync if parent updates startDateStr
   useEffect(() => {
@@ -291,6 +463,19 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               </button>
             </div>
 
+            {/* Har Din Ka Rate Edit button */}
+            <button
+              id="btn-desk-daily-rates"
+              type="button"
+              onClick={() => setIsBulkRateModalOpen(true)}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+              title="Har din ka rate edit karein (Set rates by date, weekend surges, holiday rates)"
+            >
+              <Tag size={14} className="text-amber-700" />
+              <span className="hidden sm:inline">Har Din Ka Rate Edit</span>
+              <span className="sm:hidden">Rate Edit</span>
+            </button>
+
             {onOpenAddRoom && (
               <button
                 id="btn-desk-add-room"
@@ -426,6 +611,22 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               }`}
             >
               F3
+            </button>
+
+            {/* Toggle Daily Rates Row */}
+            <span className="text-slate-300 ml-1">|</span>
+            <button
+              type="button"
+              onClick={() => setShowDailyRatesRow(prev => !prev)}
+              className={`px-2 py-0.5 rounded-md font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1 ${
+                showDailyRatesRow
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+              title="Show / Hide Daily Rates Row on Calendar"
+            >
+              <Coins size={12} className={showDailyRatesRow ? 'text-amber-800' : 'text-slate-400'} />
+              <span>{showDailyRatesRow ? 'Rates: ON' : 'Rates: OFF'}</span>
             </button>
           </div>
         </div>
@@ -786,38 +987,107 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
 
           <div className="flex-1 overflow-auto bg-white select-none relative" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="inline-block min-w-full align-top">
-              {/* Header Row: Room & Dates */}
-              <div className="flex border-b border-slate-200 sticky top-0 bg-slate-50 z-20 shadow-xs">
-                {/* Top-Left Corner: Room Column Header */}
-                <div className="w-32 sm:w-44 md:w-56 shrink-0 p-2 sm:p-3 font-bold text-xs md:text-sm text-slate-700 uppercase tracking-wider bg-slate-100 border-r border-slate-200 sticky left-0 z-30 flex items-center justify-between">
-                  <span>Room</span>
-                  <span className="text-[10px] font-normal lowercase text-slate-500">
-                    {filteredRooms.length}
-                  </span>
+              {/* Sticky Header Container: Dates + Daily Rates Rows */}
+              <div className="sticky top-0 bg-slate-50 z-20 shadow-xs border-b border-slate-200">
+                {/* Row 1: Room & Dates */}
+                <div className="flex border-b border-slate-200">
+                  {/* Top-Left Corner: Room Column Header */}
+                  <div className="w-32 sm:w-44 md:w-56 shrink-0 p-2 sm:p-3 font-bold text-xs md:text-sm text-slate-700 uppercase tracking-wider bg-slate-100 border-r border-slate-200 sticky left-0 z-30 flex items-center justify-between">
+                    <span>Room</span>
+                    <span className="text-[10px] font-normal lowercase text-slate-500">
+                      {filteredRooms.length}
+                    </span>
+                  </div>
+
+                  {/* Date Columns */}
+                  <div className="flex flex-1">
+                    {dates.map((d) => (
+                      <div
+                        key={d.dateStr}
+                        className={`w-24 shrink-0 text-center py-2 px-1 border-r border-slate-200 transition-colors ${
+                          d.isToday 
+                            ? 'bg-teal-50/90 font-bold text-teal-900 ring-1 ring-inset ring-teal-400' 
+                            : d.isWeekend 
+                              ? 'bg-slate-100/60 text-slate-600' 
+                              : 'text-slate-700'
+                        }`}
+                      >
+                        <div className="text-[11px] font-semibold uppercase">
+                          {d.monthName} {d.dayNumber}
+                        </div>
+                        <div className={`text-[10px] ${d.isToday ? 'text-teal-700 font-bold' : 'text-slate-400 font-medium'}`}>
+                          {d.dayName} {d.isToday && '• Today'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Date Columns */}
-                <div className="flex flex-1">
-                  {dates.map((d) => (
-                    <div
-                      key={d.dateStr}
-                      className={`w-24 shrink-0 text-center py-2 px-1 border-r border-slate-200 transition-colors ${
-                        d.isToday 
-                          ? 'bg-teal-50/90 font-bold text-teal-900 ring-1 ring-inset ring-teal-400' 
-                          : d.isWeekend 
-                            ? 'bg-slate-100/60 text-slate-600' 
-                            : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="text-[11px] font-semibold uppercase">
-                        {d.monthName} {d.dayNumber}
+                {/* Row 2: Interactive Daily Rates Row */}
+                {showDailyRatesRow && (
+                  <div className="flex bg-teal-50/80">
+                    <div className="w-32 sm:w-44 md:w-56 shrink-0 px-2 sm:px-3 py-1.5 bg-teal-100/90 border-r border-teal-200 sticky left-0 z-30 flex items-center justify-between shadow-2xs">
+                      <div className="flex items-center gap-1.5">
+                        <Tag size={13} className="text-teal-800 shrink-0" />
+                        <div>
+                          <span className="font-bold text-[10px] sm:text-xs text-teal-950 uppercase tracking-wider block leading-tight">
+                            Daily Rates (₹)
+                          </span>
+                          <span className="text-[9px] text-teal-700 font-medium hidden sm:inline">
+                            Click date to edit
+                          </span>
+                        </div>
                       </div>
-                      <div className={`text-[10px] ${d.isToday ? 'text-teal-700 font-bold' : 'text-slate-400 font-medium'}`}>
-                        {d.dayName} {d.isToday && '• Today'}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkRateModalOpen(true)}
+                        className="px-1.5 py-0.5 text-[9px] font-bold text-teal-900 bg-white hover:bg-teal-50 border border-teal-300 rounded shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5"
+                        title="Bulk Rate & Surge Manager"
+                      >
+                        <Edit3 size={9} />
+                        <span className="hidden sm:inline">Manage</span>
+                      </button>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="flex flex-1">
+                      {dates.map((d) => {
+                        const rates = filteredRooms.map(r => getRoomDailyRate(r, d.dateStr, lastMinuteStatus));
+                        const minR = rates.length > 0 ? Math.min(...rates) : 0;
+                        const maxR = rates.length > 0 ? Math.max(...rates) : 0;
+                        const hasCustom = filteredRooms.some(r => isDateCustomRate(r, d.dateStr));
+
+                        return (
+                          <div
+                            key={`daily-rate-${d.dateStr}`}
+                            onClick={() => handleOpenQuickRateEdit(null, d.dateStr)}
+                            className={`w-24 shrink-0 text-center py-1 px-1 border-r border-teal-200/70 hover:bg-teal-200/70 cursor-pointer transition-colors group relative flex flex-col justify-center items-center ${
+                              hasCustom ? 'bg-amber-100/80 font-bold' : ''
+                            }`}
+                            title={`Click to edit daily rate for ${d.dayName}, ${d.dayNumber} ${d.monthName}`}
+                          >
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={`text-[11px] font-mono font-bold leading-tight ${
+                                hasCustom ? 'text-amber-950 font-black' : 'text-teal-950'
+                              }`}>
+                                ₹{minR === maxR ? minR.toLocaleString() : `${minR.toLocaleString()}+`}
+                              </span>
+                              <Edit3 size={9} className="text-teal-700 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all shrink-0" />
+                            </div>
+                            {hasCustom ? (
+                              <span className="text-[8px] font-black text-amber-900 bg-amber-200 px-1 rounded leading-none mt-0.5">
+                                Custom ⚡
+                              </span>
+                            ) : (
+                              <span className="text-[8px] text-teal-700/80 group-hover:text-teal-950 leading-none mt-0.5 font-medium">
+                                Edit Rate
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Room Rows & Booking Tape Grid */}
@@ -897,20 +1167,51 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
 
                       {/* Date Grid Cells */}
                       <div className="flex flex-1 relative h-16 md:h-18">
-                        {dates.map((d) => (
-                          <div
-                            key={d.dateStr}
-                            onClick={() => onCellClick(room.id, d.dateStr)}
-                            className={`w-24 shrink-0 border-r border-slate-100 hover:bg-teal-50/40 cursor-pointer transition-colors relative flex items-center justify-center ${
-                              d.isToday ? 'bg-teal-50/20' : d.isWeekend ? 'bg-slate-50/40' : ''
-                            }`}
-                            title={`Click to book ${room.name} on ${d.dateStr}`}
-                          >
-                            <span className="opacity-0 hover:opacity-100 text-teal-700 text-[10px] sm:text-xs font-semibold bg-white px-1.5 sm:px-2 py-0.5 rounded shadow-xs border border-teal-200 transition-opacity">
-                              + Book
-                            </span>
-                          </div>
-                        ))}
+                        {dates.map((d) => {
+                          const rRate = getRoomDailyRate(room, d.dateStr, lastMinuteStatus);
+                          const isCustom = isDateCustomRate(room, d.dateStr);
+
+                          return (
+                            <div
+                              key={d.dateStr}
+                              onClick={() => onCellClick(room.id, d.dateStr)}
+                              className={`w-24 shrink-0 border-r border-slate-100 hover:bg-teal-50/40 cursor-pointer transition-colors relative flex flex-col justify-between p-1 group/cell ${
+                                d.isToday ? 'bg-teal-50/20' : d.isWeekend ? 'bg-slate-50/40' : ''
+                              }`}
+                              title={`Click to book ${room.name} on ${d.dateStr} • Rate: ₹${rRate}/night`}
+                            >
+                              {/* Top cell header: Daily Rate & Direct Edit button */}
+                              <div className="flex items-center justify-between w-full z-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenQuickRateEdit(room.id, d.dateStr);
+                                  }}
+                                  className={`flex items-center gap-1 text-[9px] font-mono leading-none px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                                    isCustom 
+                                      ? 'bg-amber-100 text-amber-950 font-bold border border-amber-300 shadow-2xs hover:bg-amber-200' 
+                                      : 'text-slate-600 bg-white/70 hover:text-teal-900 hover:bg-teal-100 border border-slate-200/80 hover:border-teal-300 shadow-2xs'
+                                  }`}
+                                  title={`Har din ka rate edit karein: ${room.name} on ${d.dateStr} (Current: ₹${rRate})`}
+                                >
+                                  <span>₹{rRate}</span>
+                                  <Edit3 size={8} className="text-teal-700 opacity-60 hover:opacity-100 shrink-0" />
+                                </button>
+                              </div>
+
+                              <span className="opacity-0 group-hover/cell:opacity-100 text-teal-700 text-[10px] font-semibold bg-white/95 px-1.5 py-0.5 rounded shadow-xs border border-teal-200 transition-opacity self-center my-auto">
+                                + Book
+                              </span>
+
+                              {isCustom && (
+                                <div className="text-[8px] font-bold text-amber-800 text-right leading-none truncate">
+                                  Custom ⚡
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
 
                         {/* Booking Bars Overlay */}
                         {roomBookings.map((booking) => {
@@ -1051,6 +1352,488 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
           </span>
         </div>
       </div>
+
+      {/* MODAL 1: Quick Daily Rate Editor Modal */}
+      {quickRateModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => setQuickRateModal(prev => ({ ...prev, isOpen: false }))}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 bg-teal-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-700/80 flex items-center justify-center text-amber-300">
+                  <Tag size={17} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base leading-tight">
+                    Edit Daily Room Rate
+                  </h3>
+                  <p className="text-xs text-teal-200 mt-0.5">
+                    {formatDisplayDate(quickRateModal.dateStr)} ({quickRateModal.dateStr})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickRateModal(prev => ({ ...prev, isOpen: false }))}
+                className="p-1 rounded-lg text-teal-300 hover:text-white hover:bg-teal-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 text-xs">
+              {/* Target Room Context */}
+              {quickRateModal.roomId ? (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase">Selected Room:</span>
+                    <span className="font-bold text-slate-900 text-xs">
+                      {rooms.find(r => r.id === quickRateModal.roomId)?.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                    <span>Category: <strong className="text-slate-800">{rooms.find(r => r.id === quickRateModal.roomId)?.type}</strong></span>
+                    <span>Standard Base Rate: <strong className="font-mono text-slate-900">₹{quickRateModal.baseRate}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-xl flex items-center justify-between">
+                  <span className="font-bold text-teal-900">Date: {quickRateModal.dateStr}</span>
+                  <span className="text-teal-700 text-[11px]">Updating Calendar Rates</span>
+                </div>
+              )}
+
+              {/* Apply Scope Selector */}
+              {quickRateModal.roomId && (
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 text-xs block">Apply this rate to:</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQuickRateModal(prev => ({ ...prev, applyTo: 'single' }))}
+                      className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                        quickRateModal.applyTo === 'single'
+                          ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      This Room Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickRateModal(prev => ({ ...prev, applyTo: 'category' }))}
+                      className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                        quickRateModal.applyTo === 'category'
+                          ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      All {rooms.find(r => r.id === quickRateModal.roomId)?.type}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickRateModal(prev => ({ ...prev, applyTo: 'all' }))}
+                      className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                        quickRateModal.applyTo === 'all'
+                          ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      All Rooms
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rate Input Field */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-800 text-xs">
+                    New Rate for {quickRateModal.dateStr} (₹ / Night):
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    Current: <strong className="font-mono text-slate-900">₹{quickRateModal.currentRate}</strong>
+                  </span>
+                </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-slate-400 font-bold text-base">₹</span>
+                  <input
+                    type="number"
+                    min="100"
+                    step="50"
+                    value={quickRateModal.newRate}
+                    onChange={(e) => setQuickRateModal(prev => ({ ...prev, newRate: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border-2 border-slate-300 focus:border-teal-700 focus:bg-white rounded-xl text-lg font-bold font-mono text-slate-900 outline-hidden transition-all"
+                    placeholder="e.g. 2500"
+                    autoFocus
+                  />
+                  <span className="absolute right-3.5 text-xs text-slate-400 font-medium">/ night</span>
+                </div>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-500 block">Quick Rate Presets:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: '+₹200', val: (parseFloat(quickRateModal.newRate) || quickRateModal.baseRate) + 200 },
+                    { label: '+₹500', val: (parseFloat(quickRateModal.newRate) || quickRateModal.baseRate) + 500 },
+                    { label: '+10% Wknd', val: Math.round(quickRateModal.baseRate * 1.1) },
+                    { label: '+20% Peak', val: Math.round(quickRateModal.baseRate * 1.2) },
+                    { label: '-15% Flash', val: Math.round(quickRateModal.baseRate * 0.85) },
+                    { label: '₹1,500', val: 1500 },
+                    { label: '₹2,000', val: 2000 },
+                    { label: '₹2,500', val: 2500 },
+                    { label: '₹3,000', val: 3000 },
+                    { label: '₹3,500', val: 3500 }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setQuickRateModal(prev => ({ ...prev, newRate: p.val.toString() }))}
+                      className="px-2 py-1 bg-slate-100 hover:bg-teal-100 hover:text-teal-900 border border-slate-200 rounded-md font-mono font-bold text-[11px] text-slate-700 transition-colors cursor-pointer"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleResetQuickRate}
+                className="px-3 py-2 bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                title="Clear custom rate and revert back to standard room base rate"
+              >
+                ↺ Reset to Base Rate
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickRateModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickRate}
+                  className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>Save Rate</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Bulk Daily Rate & Weekend Surge Manager Modal */}
+      {isBulkRateModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={() => setIsBulkRateModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[95vh] animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-700/80 flex items-center justify-center text-amber-300 shadow-xs">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg leading-tight">
+                    Bulk Daily Rate &amp; Surge Manager
+                  </h3>
+                  <p className="text-xs text-teal-200 mt-0.5">
+                    Har din ka rate set karein (Weekends, Holidays, Custom Date Ranges)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkRateModalOpen(false)}
+                className="p-1.5 rounded-lg text-teal-300 hover:text-white hover:bg-teal-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs text-slate-800">
+              {/* 1. Date Range Selection */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <CalendarIcon size={14} className="text-teal-700" />
+                    1. Select Date Range:
+                  </label>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setBulkRateState(prev => ({
+                        ...prev,
+                        startDate: todayStr,
+                        endDate: addDaysToStr(todayStr, 7)
+                      }))}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-teal-50 text-teal-800 rounded font-semibold transition-colors cursor-pointer"
+                    >
+                      Next 7D
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkRateState(prev => ({
+                        ...prev,
+                        startDate: todayStr,
+                        endDate: addDaysToStr(todayStr, 14)
+                      }))}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-teal-50 text-teal-800 rounded font-semibold transition-colors cursor-pointer"
+                    >
+                      Next 14D
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkRateState(prev => ({
+                        ...prev,
+                        startDate: todayStr,
+                        endDate: addDaysToStr(todayStr, 30)
+                      }))}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-teal-50 text-teal-800 rounded font-semibold transition-colors cursor-pointer"
+                    >
+                      Next 30D
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-bold block mb-1">From Date:</span>
+                    <input
+                      type="date"
+                      value={bulkRateState.startDate}
+                      onChange={(e) => setBulkRateState(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 outline-hidden focus:border-teal-700"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-bold block mb-1">To Date (Inclusive):</span>
+                    <input
+                      type="date"
+                      value={bulkRateState.endDate}
+                      min={bulkRateState.startDate}
+                      onChange={(e) => setBulkRateState(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 outline-hidden focus:border-teal-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Days Filter */}
+              <div className="space-y-1.5 pt-1">
+                <label className="font-bold text-slate-900 uppercase tracking-wider text-[11px] block">
+                  2. Apply to Days of the Week:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, filterDays: 'all' }))}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer font-bold ${
+                      bulkRateState.filterDays === 'all'
+                        ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    All Days
+                    <span className="block text-[10px] font-normal opacity-80">Mon – Sun</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, filterDays: 'weekends' }))}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer font-bold ${
+                      bulkRateState.filterDays === 'weekends'
+                        ? 'bg-amber-800 text-white border-amber-800 shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    Weekends Only
+                    <span className="block text-[10px] font-normal opacity-80">Fri, Sat, Sun</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, filterDays: 'weekdays' }))}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer font-bold ${
+                      bulkRateState.filterDays === 'weekdays'
+                        ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    Weekdays Only
+                    <span className="block text-[10px] font-normal opacity-80">Mon – Thu</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Room Selection */}
+              <div className="space-y-1.5 pt-1">
+                <label className="font-bold text-slate-900 uppercase tracking-wider text-[11px] block">
+                  3. Select Rooms / Categories:
+                </label>
+                <select
+                  value={bulkRateState.targetCategory}
+                  onChange={(e) => setBulkRateState(prev => ({ ...prev, targetCategory: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 outline-hidden focus:border-teal-700"
+                >
+                  <option value="all">All Rooms ({rooms.length} rooms in Hotel)</option>
+                  {roomCategories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat} Rooms ({rooms.filter(r => r.type === cat).length} rooms)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 4. Pricing Action Mode */}
+              <div className="space-y-2 pt-1">
+                <label className="font-bold text-slate-900 uppercase tracking-wider text-[11px] block">
+                  4. Choose Rate Adjustment:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, adjustMode: 'set', rateValue: '2800' }))}
+                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                      bulkRateState.adjustMode === 'set'
+                        ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Fixed Rate (₹)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, adjustMode: 'increase_pct', rateValue: '20' }))}
+                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                      bulkRateState.adjustMode === 'increase_pct'
+                        ? 'bg-amber-800 text-white border-amber-800 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    + % Surge (e.g. 20%)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, adjustMode: 'increase_amt', rateValue: '500' }))}
+                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                      bulkRateState.adjustMode === 'increase_amt'
+                        ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    + Amount (e.g. +₹500)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, adjustMode: 'decrease_amt', rateValue: '300' }))}
+                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] ${
+                      bulkRateState.adjustMode === 'decrease_amt'
+                        ? 'bg-teal-800 text-white border-teal-800 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    - Discount (-₹300)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkRateState(prev => ({ ...prev, adjustMode: 'reset' }))}
+                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer font-bold text-[11px] col-span-2 sm:col-span-2 ${
+                      bulkRateState.adjustMode === 'reset'
+                        ? 'bg-rose-800 text-white border-rose-800 shadow-2xs'
+                        : 'bg-white border-slate-200 text-rose-700 hover:bg-rose-50'
+                    }`}
+                  >
+                    ↺ Reset to Standard Base Rates
+                  </button>
+                </div>
+
+                {bulkRateState.adjustMode !== 'reset' && (
+                  <div className="pt-1">
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
+                      {bulkRateState.adjustMode === 'set' && 'Enter Fixed Rate per Night:'}
+                      {bulkRateState.adjustMode === 'increase_pct' && 'Enter Surge Percentage (%):'}
+                      {bulkRateState.adjustMode === 'increase_amt' && 'Enter Addition Amount (₹):'}
+                      {bulkRateState.adjustMode === 'decrease_amt' && 'Enter Discount Amount (₹):'}
+                    </span>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3.5 text-slate-400 font-bold text-base">
+                        {bulkRateState.adjustMode === 'increase_pct' ? '%' : '₹'}
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={bulkRateState.rateValue}
+                        onChange={(e) => setBulkRateState(prev => ({ ...prev, rateValue: e.target.value }))}
+                        className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-base font-bold font-mono text-slate-900 outline-hidden focus:border-teal-700"
+                        placeholder="e.g. 2800"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Info Box */}
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl text-teal-900 text-[11px] space-y-1">
+                <span className="font-bold flex items-center gap-1">
+                  <CheckCircle2 size={13} className="text-teal-700" />
+                  Live Sync Guarantee:
+                </span>
+                <p className="text-teal-800">
+                  Yeh rates update hote hi calendar me reflect honge aur naye bookings banate waqt automatic apply honge.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBulkRateModalOpen(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBulkRates}
+                className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 size={15} />
+                <span>Apply Rates to Calendar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -56,6 +56,7 @@ export const isIdVerifiedCheck = (idDoc?: { isVerified?: boolean; idNumber?: str
 };
 
 export interface IdDocument {
+  id?: string;
   idType: IdType;
   idNumber: string;
   frontImageUrl?: string;
@@ -65,6 +66,8 @@ export interface IdDocument {
   uploadedAt: string;
   notes?: string;
   issuedBy?: string;
+  documentTitle?: string; // e.g. "Primary Guest Aadhaar", "Co-Guest DL", "Passport"
+  guestName?: string;     // e.g. "Primary Guest", "Co-Guest 1"
 }
 
 export interface Guest {
@@ -81,6 +84,7 @@ export interface Guest {
   vehicleNumber?: string;
   emergencyContact?: string;
   idDocument: IdDocument;
+  idDocuments?: IdDocument[]; // Array of multiple uploaded ID documents
   vipTag?: boolean;
   previousStaysCount: number;
   totalSpent: number;
@@ -96,6 +100,7 @@ export interface Room {
   maxOccupancy: number;
   status: RoomStatus;
   amenities: string[];
+  customRates?: Record<string, number>; // dateStr (YYYY-MM-DD) -> custom daily rate in ₹
 }
 
 export interface ExtraCharge {
@@ -143,7 +148,21 @@ export interface Booking {
   specialRequests?: string;
   createdAt: string;
   notes?: string;
+  documents?: IdDocument[]; // All documents (primary + co-guests) attached to booking
 }
+
+export const getAllBookingDocuments = (booking: Booking | null | undefined): IdDocument[] => {
+  if (!booking) return [];
+  const list: IdDocument[] = [];
+  if (booking.documents && booking.documents.length > 0) {
+    list.push(...booking.documents);
+  } else if (booking.guest?.idDocuments && booking.guest.idDocuments.length > 0) {
+    list.push(...booking.guest.idDocuments);
+  } else if (booking.guest?.idDocument) {
+    list.push(booking.guest.idDocument);
+  }
+  return list;
+};
 
 export interface OTAChannelConfig {
   id: BookingChannel;

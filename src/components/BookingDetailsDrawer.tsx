@@ -6,6 +6,7 @@ import {
   PaymentMode,
   formatIdTypeName,
   isIdVerifiedCheck,
+  getAllBookingDocuments,
   HotelProfile
 } from '../types';
 import { 
@@ -313,6 +314,7 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
 
   const isIdVerified = isIdVerifiedCheck(booking.guest.idDocument);
   const idTypeName = formatIdTypeName(booking.guest.idDocument.idType);
+  const allBookingDocs = useMemo(() => getAllBookingDocuments(booking), [booking]);
 
   return (
     <div 
@@ -760,6 +762,11 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
             >
               <FileText size={16} className={activeTab === 'documents' ? 'text-teal-700' : 'text-slate-500'} />
               <span>Documents</span>
+              {allBookingDocs.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-teal-100 text-teal-800 rounded-full border border-teal-300">
+                  {allBookingDocs.length}
+                </span>
+              )}
               {!isIdVerified && (
                 <span className="w-2 h-2 rounded-full bg-amber-500 ml-0.5" title="Customer ID Pending" />
               )}
@@ -1324,146 +1331,202 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
             </div>
           )}
 
-          {/* Tab 4: Documents (Crucial Customer ID KYC Section) */}
+          {/* Tab 4: Documents (Multiple Customer ID KYC Section) */}
           {activeTab === 'documents' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-2xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
-                    <ShieldCheck size={18} className="text-teal-700" />
-                    Customer ID &amp; KYC Verification Documents
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                      <ShieldCheck size={18} className="text-teal-700" />
+                      Customer ID &amp; KYC Verification Documents
+                    </h3>
+                    <span className="px-2 py-0.5 bg-teal-100 text-teal-800 font-bold text-xs rounded-full border border-teal-300">
+                      {allBookingDocs.length} Document{allBookingDocs.length > 1 ? 's' : ''} Attached
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Aadhaar, Passport, Voter ID, or Driving License proofs saved for guest check-in
+                    Aadhaar, Passport, Voter ID, or Driving License proofs saved for guest check-in &amp; Form C
                   </p>
                 </div>
 
                 {onOpenCheckInIdModal && (
                   <button
                     onClick={() => onOpenCheckInIdModal(booking)}
-                    className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-md text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                    className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 self-start sm:self-auto"
                   >
-                    <ShieldCheck size={14} />
-                    <span>{isIdVerified ? 'Update / Re-submit ID' : 'Submit ID Proof Now'}</span>
+                    <Plus size={14} />
+                    <span>Upload / Add Another Document</span>
                   </button>
                 )}
               </div>
 
-              {/* ID Summary Table */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="text-slate-500 block mb-0.5">Document Type</span>
-                  <span className="font-bold text-sm text-slate-900 uppercase">
-                    {idTypeName}
-                  </span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    ADHAR / VOTER / DL / PASSPORT
-                  </span>
-                </div>
+              {/* Loop through all documents */}
+              <div className="space-y-4">
+                {allBookingDocs.map((docItem, dIdx) => {
+                  const docVerified = isIdVerifiedCheck(docItem);
+                  const docTypeFormatted = formatIdTypeName(docItem.idType);
+                  const isPrimaryDoc = dIdx === 0;
 
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="text-slate-500 block mb-0.5">Document Number</span>
-                  <span className="font-bold text-sm text-slate-900 font-mono">
-                    {isIdVerified ? booking.guest.idDocument.idNumber : 'Pending at Check-in'}
-                  </span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    {isIdVerified ? 'Original Verified' : 'Submit at Check-in Time'}
-                  </span>
-                </div>
+                  return (
+                    <div 
+                      key={docItem.id || `drawer-doc-${dIdx}`}
+                      className="border border-slate-200 rounded-xl p-4 bg-slate-50/40 space-y-3.5"
+                    >
+                      {/* Document Card Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase tracking-wider ${
+                            isPrimaryDoc ? 'bg-teal-800 text-white' : 'bg-slate-200 text-slate-800'
+                          }`}>
+                            {isPrimaryDoc ? 'Doc #1 • Primary Guest' : `Doc #${dIdx + 1} • Co-Guest`}
+                          </span>
+                          <span className="font-bold text-xs text-slate-900">
+                            {docItem.documentTitle || (isPrimaryDoc ? 'Primary Guest ID' : `Co-Guest #${dIdx} ID`)}
+                          </span>
+                          {docItem.guestName && (
+                            <span className="text-xs text-slate-500">
+                              (Holder: <strong className="text-slate-700">{docItem.guestName}</strong>)
+                            </span>
+                          )}
+                        </div>
 
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="text-slate-500 block mb-0.5">ID Verification Status</span>
-                  {isIdVerified ? (
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                      <CheckCircle2 size={14} /> Verified for Form-C
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
-                      <AlertTriangle size={13} className="text-amber-700" /> PENDING - SUBMIT AT CHECK IN TIME
-                    </span>
-                  )}
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    {isIdVerified ? 'Ready for police registration' : 'KYC due upon guest arrival'}
-                  </span>
-                </div>
-              </div>
+                        <div>
+                          {docVerified ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-xs text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                              <CheckCircle2 size={12} /> Verified for Form C
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-bold text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                              <AlertTriangle size={12} /> Pending at Check-in
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-              {/* Photo Proof Previews */}
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-2">
-                  ID Proof Scans &amp; Photos
-                </span>
+                      {/* ID Summary Fields */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">ID Type</span>
+                          <span className="font-bold text-slate-900 uppercase">
+                            {docTypeFormatted}
+                          </span>
+                        </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Front Image */}
-                  <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-700">Front Document Scan</span>
-                      {booking.guest.idDocument.frontImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setLightboxImage(booking.guest.idDocument.frontImageUrl || null)}
-                          className="text-xs text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Eye size={13} /> View Full
-                        </button>
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">ID Number</span>
+                          <span className="font-bold font-mono text-slate-900">
+                            {docVerified ? docItem.idNumber : (docItem.idNumber || 'Pending at Check-in')}
+                          </span>
+                        </div>
+
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Expiry Date</span>
+                          <span className="font-semibold text-slate-700">
+                            {docItem.expiryDate ? docItem.expiryDate : 'Permanent'}
+                          </span>
+                        </div>
+
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Uploaded At</span>
+                          <span className="text-slate-600 text-[11px]">
+                            {docItem.uploadedAt || 'Stay Check-in'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Photo Proof Previews for this Document */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        {/* Front Image */}
+                        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                            <span>Front Document Scan</span>
+                            {docItem.frontImageUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setLightboxImage(docItem.frontImageUrl || null)}
+                                className="text-xs text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Eye size={13} /> View Full
+                              </button>
+                            )}
+                          </div>
+                          {docItem.frontImageUrl ? (
+                            <div 
+                              className="h-36 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-95 transition-opacity"
+                              onClick={() => setLightboxImage(docItem.frontImageUrl || null)}
+                            >
+                              <img
+                                src={docItem.frontImageUrl}
+                                alt="ID Front"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-36 bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center text-xs text-slate-400">
+                              <FileText size={20} className="mb-1 text-slate-300" />
+                              <span>No front scan attached</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Back Image */}
+                        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                            <span>Back Document Scan</span>
+                            {docItem.backImageUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setLightboxImage(docItem.backImageUrl || null)}
+                                className="text-xs text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Eye size={13} /> View Full
+                              </button>
+                            )}
+                          </div>
+                          {docItem.backImageUrl ? (
+                            <div 
+                              className="h-36 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-95 transition-opacity"
+                              onClick={() => setLightboxImage(docItem.backImageUrl || null)}
+                            >
+                              <img
+                                src={docItem.backImageUrl}
+                                alt="ID Back"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-36 bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center text-xs text-slate-400">
+                              <FileText size={20} className="mb-1 text-slate-300" />
+                              <span>No back scan attached</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Notes snippet */}
+                      {docItem.notes && (
+                        <div className="text-[11px] text-slate-600 bg-white p-2 rounded border border-slate-200">
+                          <strong>Remarks:</strong> {docItem.notes}
+                        </div>
                       )}
                     </div>
-                    {booking.guest.idDocument.frontImageUrl ? (
-                      <div 
-                        className="h-44 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-95 transition-opacity"
-                        onClick={() => setLightboxImage(booking.guest.idDocument.frontImageUrl || null)}
-                      >
-                        <img
-                          src={booking.guest.idDocument.frontImageUrl}
-                          alt="Customer ID Front"
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-44 bg-slate-100/80 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center text-xs text-slate-400">
-                        <FileText size={24} className="mb-1 text-slate-300" />
-                        <span>No front photo uploaded</span>
-                        <span className="text-[10px] text-slate-400 mt-1">Submitted upon arrival at check-in</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Back Image */}
-                  <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-700">Back Document Scan</span>
-                      {booking.guest.idDocument.backImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setLightboxImage(booking.guest.idDocument.backImageUrl || null)}
-                          className="text-xs text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Eye size={13} /> View Full
-                        </button>
-                      )}
-                    </div>
-                    {booking.guest.idDocument.backImageUrl ? (
-                      <div 
-                        className="h-44 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-95 transition-opacity"
-                        onClick={() => setLightboxImage(booking.guest.idDocument.backImageUrl || null)}
-                      >
-                        <img
-                          src={booking.guest.idDocument.backImageUrl}
-                          alt="Customer ID Back"
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-44 bg-slate-100/80 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center text-xs text-slate-400">
-                        <FileText size={24} className="mb-1 text-slate-300" />
-                        <span>No back photo uploaded</span>
-                        <span className="text-[10px] text-slate-400 mt-1">Optional address proof</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  );
+                })}
               </div>
+
+              {/* Bottom add document button */}
+              {onOpenCheckInIdModal && (
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={() => onOpenCheckInIdModal(booking)}
+                    className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Plus size={15} />
+                    <span>Attach More Documents to Booking #{booking.bookingCode}</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
