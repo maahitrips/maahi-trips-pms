@@ -95,9 +95,6 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   const [agendaTab, setAgendaTab] = useState<'all' | 'arrivals' | 'in_house' | 'departures'>('all');
   const [agendaSearch, setAgendaSearch] = useState<string>('');
 
-  // Daily Rates Visibility & Editing State
-  const [showDailyRatesRow, setShowDailyRatesRow] = useState<boolean>(true);
-
   // Quick Daily Rate Editor Modal State
   const [quickRateModal, setQuickRateModal] = useState<{
     isOpen: boolean;
@@ -463,17 +460,17 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               </button>
             </div>
 
-            {/* Har Din Ka Rate Edit button */}
+            {/* Bulk Rate & Surge Manager button */}
             <button
-              id="btn-desk-daily-rates"
+              id="btn-desk-bulk-rates"
               type="button"
               onClick={() => setIsBulkRateModalOpen(true)}
               className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-              title="Har din ka rate edit karein (Set rates by date, weekend surges, holiday rates)"
+              title="Bulk Rate & Surge Manager (Weekends, Holidays, Custom Date Ranges)"
             >
-              <Tag size={14} className="text-amber-700" />
-              <span className="hidden sm:inline">Har Din Ka Rate Edit</span>
-              <span className="sm:hidden">Rate Edit</span>
+              <TrendingUp size={14} className="text-amber-700" />
+              <span className="hidden sm:inline">Bulk Rates</span>
+              <span className="sm:hidden">Bulk</span>
             </button>
 
             {onOpenAddRoom && (
@@ -611,22 +608,6 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               }`}
             >
               F3
-            </button>
-
-            {/* Toggle Daily Rates Row */}
-            <span className="text-slate-300 ml-1">|</span>
-            <button
-              type="button"
-              onClick={() => setShowDailyRatesRow(prev => !prev)}
-              className={`px-2 py-0.5 rounded-md font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1 ${
-                showDailyRatesRow
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs font-bold'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-              }`}
-              title="Show / Hide Daily Rates Row on Calendar"
-            >
-              <Coins size={12} className={showDailyRatesRow ? 'text-amber-800' : 'text-slate-400'} />
-              <span>{showDailyRatesRow ? 'Rates: ON' : 'Rates: OFF'}</span>
             </button>
           </div>
         </div>
@@ -1022,72 +1003,6 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                     ))}
                   </div>
                 </div>
-
-                {/* Row 2: Interactive Daily Rates Row */}
-                {showDailyRatesRow && (
-                  <div className="flex bg-teal-50/80">
-                    <div className="w-32 sm:w-44 md:w-56 shrink-0 px-2 sm:px-3 py-1.5 bg-teal-100/90 border-r border-teal-200 sticky left-0 z-30 flex items-center justify-between shadow-2xs">
-                      <div className="flex items-center gap-1.5">
-                        <Tag size={13} className="text-teal-800 shrink-0" />
-                        <div>
-                          <span className="font-bold text-[10px] sm:text-xs text-teal-950 uppercase tracking-wider block leading-tight">
-                            Daily Rates (₹)
-                          </span>
-                          <span className="text-[9px] text-teal-700 font-medium hidden sm:inline">
-                            Click date to edit
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsBulkRateModalOpen(true)}
-                        className="px-1.5 py-0.5 text-[9px] font-bold text-teal-900 bg-white hover:bg-teal-50 border border-teal-300 rounded shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5"
-                        title="Bulk Rate & Surge Manager"
-                      >
-                        <Edit3 size={9} />
-                        <span className="hidden sm:inline">Manage</span>
-                      </button>
-                    </div>
-
-                    <div className="flex flex-1">
-                      {dates.map((d) => {
-                        const rates = filteredRooms.map(r => getRoomDailyRate(r, d.dateStr, lastMinuteStatus));
-                        const minR = rates.length > 0 ? Math.min(...rates) : 0;
-                        const maxR = rates.length > 0 ? Math.max(...rates) : 0;
-                        const hasCustom = filteredRooms.some(r => isDateCustomRate(r, d.dateStr));
-
-                        return (
-                          <div
-                            key={`daily-rate-${d.dateStr}`}
-                            onClick={() => handleOpenQuickRateEdit(null, d.dateStr)}
-                            className={`w-24 shrink-0 text-center py-1 px-1 border-r border-teal-200/70 hover:bg-teal-200/70 cursor-pointer transition-colors group relative flex flex-col justify-center items-center ${
-                              hasCustom ? 'bg-amber-100/80 font-bold' : ''
-                            }`}
-                            title={`Click to edit daily rate for ${d.dayName}, ${d.dayNumber} ${d.monthName}`}
-                          >
-                            <div className="flex items-center justify-center gap-0.5">
-                              <span className={`text-[11px] font-mono font-bold leading-tight ${
-                                hasCustom ? 'text-amber-950 font-black' : 'text-teal-950'
-                              }`}>
-                                ₹{minR === maxR ? minR.toLocaleString() : `${minR.toLocaleString()}+`}
-                              </span>
-                              <Edit3 size={9} className="text-teal-700 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all shrink-0" />
-                            </div>
-                            {hasCustom ? (
-                              <span className="text-[8px] font-black text-amber-900 bg-amber-200 px-1 rounded leading-none mt-0.5">
-                                Custom ⚡
-                              </span>
-                            ) : (
-                              <span className="text-[8px] text-teal-700/80 group-hover:text-teal-950 leading-none mt-0.5 font-medium">
-                                Edit Rate
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Room Rows & Booking Tape Grid */}

@@ -1766,16 +1766,32 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased">
-      {/* Left Sidebar Navigation */}
+      {/* Left Sidebar Navigation with Property Selector & Actions */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
         propertyName={hotelProfile.name}
+        hotelProfile={hotelProfile}
+        hotels={hotels}
+        activeHotelId={activeHotelId}
+        onSelectHotel={handleSelectHotel}
         hotelsCount={hotels.length}
+        currentUser={currentUser}
         isSuperAdmin={currentUser?.role === 'super_admin' || currentUser?.role === 'hotel_owner'}
         onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
+        onRequestDeleteHotel={handleRequestDeleteHotel}
+        onNavigateToSettingsHotels={() => {
+          setSettingsInitialSubTab('hotels');
+          setActiveTab('settings');
+        }}
+        onNewBookingClick={() => {
+          setEditingBooking(null);
+          setPreSelectedRoomId(undefined);
+          setPreSelectedDate(getTodayDateStr());
+          setIsBookingModalOpen(true);
+        }}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}

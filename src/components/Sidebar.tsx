@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Calendar, 
   BarChart3, 
@@ -11,14 +11,25 @@ import {
   ChevronDown, 
   ChevronsLeft,
   ChevronsRight,
-  PlusCircle,
+  Plus,
   HelpCircle,
   Sparkles,
   Users,
   Mail,
   X,
-  Smartphone
+  Smartphone,
+  Check,
+  Trash2,
+  Lock
 } from 'lucide-react';
+import { Hotel, UserAccount, HotelProfile } from '../types';
+import { 
+  canUserAddProperty, 
+  getAccessibleHotels, 
+  isSuperAdminUser, 
+  isPropertyOwnerUser, 
+  isStaffUser 
+} from '../utils/permissionHelper';
 
 export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'gemini_assistant' | 'settings';
 
@@ -28,9 +39,17 @@ interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
   propertyName: string;
+  hotelProfile?: HotelProfile;
+  hotels?: Hotel[];
+  activeHotelId?: string;
+  onSelectHotel?: (hotelId: string) => void;
   hotelsCount?: number;
+  currentUser?: UserAccount | null;
   isSuperAdmin?: boolean;
   onOpenAddHotel?: () => void;
+  onRequestDeleteHotel?: (hotel: Hotel) => void;
+  onNavigateToSettingsHotels?: () => void;
+  onNewBookingClick?: () => void;
   onOpenLogin?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -43,14 +62,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   setCollapsed,
   propertyName,
+  hotelProfile,
+  hotels = [],
+  activeHotelId = 'hotel-bighouse',
+  onSelectHotel,
   hotelsCount = 1,
+  currentUser,
   isSuperAdmin = false,
   onOpenAddHotel,
+  onRequestDeleteHotel,
+  onNavigateToSettingsHotels,
+  onNewBookingClick,
   onOpenLogin,
   isMobileOpen = false,
   onCloseMobile,
   onOpenInstallModal
 }) => {
+  const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
+  const propertyMenuRef = useRef<HTMLDivElement>(null);
+
+  const isSuper = isSuperAdminUser(currentUser);
+  const isOwner = isPropertyOwnerUser(currentUser);
+  const isStaff = isStaffUser(currentUser);
+  const propertyAddCheck = canUserAddProperty(currentUser, hotels);
+  const accessibleHotels = getAccessibleHotels(currentUser, hotels);
+  const activeHotel = hotels.find(h => h.id === activeHotelId);
+
+  // Close property dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (propertyMenuRef.current && !propertyMenuRef.current.contains(e.target as Node)) {
+        setIsPropertyMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const navItems = [
     {
       group: 'DASHBOARDS',
@@ -130,43 +178,180 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Property Selector Tile */}
-      <div className="p-3 border-b border-slate-800/80 shrink-0">
-        <div 
-          onClick={() => {
-            if (isSuperAdmin && onOpenAddHotel) {
-              onOpenAddHotel();
-              if (isMobileView && onCloseMobile) onCloseMobile();
-            }
-          }}
-          className={`flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/60 border border-slate-700/60 transition-colors ${
-            collapsed && !isMobileView ? 'justify-center' : 'justify-between'
-          } hover:bg-slate-800 cursor-pointer`}
-          title={`${hotelsCount} Hotel Properties Active - Click to Add Hotel`}
-        >
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <Building2 size={18} className="text-teal-400 shrink-0" />
-            {(!collapsed || isMobileView) && (
-              <div className="truncate text-left">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
-                  <span>Hotel Property</span>
-                  {hotelsCount > 1 && (
-                    <span className="bg-teal-900/90 text-teal-200 px-1.5 rounded text-[9px] font-mono">
-                      {hotelsCount} Active
-                    </span>
-                  )}
+      {/* Property Selector & Multi-Hotel Management (Moved to Left Side Panel) */}
+      <div className="p-3 border-b border-slate-800/80 shrink-0" ref={propertyMenuRef}>
+        {collapsed && !isMobileView ? (
+          <div 
+            onClick={() => setCollapsed(false)}
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-teal-400 border border-slate-700/80 cursor-pointer transition-colors"
+            title={`${activeHotel?.name || propertyName} • Click to expand hotel options`}
+          >
+            <Building2 size={20} />
+            <span className="text-[9px] font-black text-slate-300 mt-1 uppercase">
+              {activeHotel?.code || 'BHI'}
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Active Property Card Tile */}
+            <div 
+              id="sidebar-property-selector"
+              onClick={() => setIsPropertyMenuOpen(prev => !prev)}
+              className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/90 transition-all cursor-pointer shadow-xs group"
+              title="Click to Switch Hotel Property or Manage Properties"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-105 transition-transform">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-white text-xs truncate leading-snug">
+                      {hotelProfile?.name || activeHotel?.name || propertyName}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate leading-tight font-medium mt-0.5">
+                      {hotelProfile?.city || activeHotel?.city || 'Calangute, Goa'} {activeHotel?.code ? `• ${activeHotel.code}` : ''}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs font-bold text-white truncate">{propertyName}</div>
+                <ChevronDown 
+                  size={15} 
+                  className={`text-slate-400 group-hover:text-white transition-transform shrink-0 ${
+                    isPropertyMenuOpen ? 'rotate-180 text-teal-400' : ''
+                  }`} 
+                />
+              </div>
+            </div>
+
+            {/* Quick "+ Add Property" button */}
+            {!isStaff && onOpenAddHotel && (
+              <button
+                type="button"
+                id="sidebar-btn-add-property"
+                onClick={() => {
+                  onOpenAddHotel();
+                  if (isMobileView && onCloseMobile) onCloseMobile();
+                }}
+                className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border shadow-2xs ${
+                  isOwner && propertyAddCheck.currentCount >= 5
+                    ? 'bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border-amber-800/80'
+                    : 'bg-teal-950/70 hover:bg-teal-900/80 text-teal-300 border-teal-800/80 hover:border-teal-600'
+                }`}
+                title={isOwner ? `Owned Properties: ${propertyAddCheck.currentCount}/5` : 'Add New Property to Portfolio'}
+              >
+                <Plus size={13} strokeWidth={2.5} />
+                <span>
+                  {isOwner && propertyAddCheck.currentCount >= 5
+                    ? 'Property Quota Full (5/5)'
+                    : isOwner
+                    ? `+ Add Property (${propertyAddCheck.currentCount}/5)`
+                    : '+ Add Property'}
+                </span>
+              </button>
+            )}
+
+            {/* Expandable Property Switcher Dropdown */}
+            {isPropertyMenuOpen && (
+              <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2 space-y-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span>Switch Hotel ({accessibleHotels.length})</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                    isSuper ? 'bg-amber-900 text-amber-200' : isOwner ? 'bg-blue-900 text-blue-200' : 'bg-teal-900 text-teal-200'
+                  }`}>
+                    {isSuper ? 'Admin' : isOwner ? 'Owner' : 'Staff'}
+                  </span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1 py-1 scrollbar-thin">
+                  {accessibleHotels.map(h => {
+                    const isCurrent = h.id === activeHotelId;
+                    return (
+                      <div
+                        key={h.id}
+                        onClick={() => {
+                          if (onSelectHotel) onSelectHotel(h.id);
+                          setIsPropertyMenuOpen(false);
+                          if (isMobileView && onCloseMobile) onCloseMobile();
+                        }}
+                        className={`p-2 rounded-lg flex items-center justify-between text-left cursor-pointer transition-colors ${
+                          isCurrent 
+                            ? 'bg-teal-900/60 border border-teal-700/80 text-white' 
+                            : 'hover:bg-slate-800 text-slate-300 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                            isCurrent ? 'bg-teal-600 text-white' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {h.code || 'HTL'}
+                          </span>
+                          <div className="truncate">
+                            <div className="font-bold text-xs truncate">{h.name}</div>
+                            <div className="text-[10px] text-slate-400 truncate">{h.city}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                          {isCurrent && <Check size={14} className="text-teal-400" />}
+                          {isSuper && onRequestDeleteHotel && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsPropertyMenuOpen(false);
+                                onRequestDeleteHotel(h);
+                              }}
+                              className="p-1 hover:text-rose-400 text-slate-500 rounded transition-colors"
+                              title="Delete Hotel"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {onNavigateToSettingsHotels && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPropertyMenuOpen(false);
+                      onNavigateToSettingsHotels();
+                      if (isMobileView && onCloseMobile) onCloseMobile();
+                    }}
+                    className="w-full text-center py-1 text-[10px] text-slate-400 hover:text-teal-300 transition-colors font-semibold"
+                  >
+                    Manage Properties in Settings →
+                  </button>
+                )}
               </div>
             )}
           </div>
-          {(!collapsed || isMobileView) && (
-            <span className="text-[10px] bg-slate-700 hover:bg-teal-700 text-slate-200 px-1.5 py-0.5 rounded font-bold transition-colors">
-              + Add
-            </span>
-          )}
-        </div>
+        )}
       </div>
+
+      {/* Prominent "+ New Booking" Primary Action Button in Sidebar */}
+      {onNewBookingClick && (
+        <div className="px-3 pt-2 pb-1 shrink-0">
+          <button
+            type="button"
+            id="sidebar-btn-new-booking"
+            onClick={() => {
+              onNewBookingClick();
+              if (isMobileView && onCloseMobile) onCloseMobile();
+            }}
+            className={`w-full bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm ${
+              collapsed && !isMobileView ? 'p-2.5' : 'py-2.5 px-3 text-xs'
+            }`}
+            title="Create New Front Desk or Walk-in Booking"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            {(!collapsed || isMobileView) && <span>New Booking</span>}
+          </button>
+        </div>
+      )}
 
       {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4 scrollbar-thin">

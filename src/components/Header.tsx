@@ -88,10 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLastMinuteModal,
   onOpenInstallModal
 }) => {
-  const [isHotelMenuOpen, setIsHotelMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  const hotelMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isSuper = isSuperAdminUser(currentUser);
@@ -104,9 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (hotelMenuRef.current && !hotelMenuRef.current.contains(e.target as Node)) {
-        setIsHotelMenuOpen(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
       }
@@ -120,8 +114,8 @@ export const Header: React.FC<HeaderProps> = ({
       id="pms-header"
       className="h-14 sm:h-16 bg-white border-b border-slate-200 px-2.5 sm:px-4 md:px-6 flex items-center justify-between gap-2 sm:gap-3 shadow-xs sticky top-0 z-20"
     >
-      {/* Left side: Mobile Hamburger + Property Selector & New Booking Button */}
-      <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0">
+      {/* Left side: Mobile Hamburger + Clean Property Tag & New Booking Button */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
         {/* Mobile Hamburger Drawer Trigger */}
         {onOpenMobileMenu && (
           <button
@@ -135,208 +129,26 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Multi-Hotel Property Selector */}
-        <div className="relative" ref={hotelMenuRef}>
-          <div 
-            id="property-selector-button"
-            onClick={() => setIsHotelMenuOpen(prev => !prev)}
-            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all shadow-2xs border bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer"
-            title="Switch Hotel Property or View Properties"
-          >
-            <Building2 size={15} className="text-teal-700 shrink-0" />
-            <div className="flex flex-col text-left min-w-0">
-              <span className="truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px] md:max-w-[220px] font-bold text-slate-900 leading-tight">
-                {hotelProfile?.name || activeHotel?.name || propertyName}
-              </span>
-              <span className="text-[10px] text-slate-500 font-normal leading-tight truncate max-w-[105px] xs:max-w-[130px] sm:max-w-[180px]">
-                {hotelProfile?.city || activeHotel?.city || 'Property'} • {activeHotel?.code || 'PMS'}
-              </span>
-            </div>
-            <ChevronDown size={13} className={`text-slate-400 shrink-0 transition-transform ${isHotelMenuOpen ? 'rotate-180 text-teal-700' : ''}`} />
-          </div>
-
-          {/* Dropdown Menu for Hotel Management */}
-          {isHotelMenuOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-80 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  {isSuper 
-                    ? `Hotel Properties (${hotels.length})` 
-                    : isOwner 
-                      ? `My Properties (${accessibleHotels.length}/5)` 
-                      : 'Assigned Hotel'}
-                </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                  isSuper 
-                    ? 'bg-amber-100 text-amber-900 border-amber-300' 
-                    : isOwner 
-                      ? 'bg-blue-100 text-blue-900 border-blue-300'
-                      : 'bg-teal-100 text-teal-900 border-teal-300'
-                }`}>
-                  {isSuper ? 'Group Admin' : isOwner ? `Owner (${accessibleHotels.length}/5)` : 'Hotel Staff'}
-                </span>
-              </div>
-
-              <div className="max-h-64 overflow-y-auto py-1">
-                {accessibleHotels.map(hotel => {
-                  const isCurrent = hotel.id === activeHotelId;
-                  return (
-                    <div
-                      key={hotel.id}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors hover:bg-slate-50 group ${
-                        isCurrent ? 'bg-teal-50/80 text-teal-900' : 'text-slate-800'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSelectHotel(hotel.id);
-                          setIsHotelMenuOpen(false);
-                        }}
-                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
-                      >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                          isCurrent ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {hotel.code || 'HTL'}
-                        </div>
-                        <div className="truncate">
-                          <div className="font-bold text-xs truncate">{hotel.name}</div>
-                          <div className="text-[11px] text-slate-500">{hotel.city}, {hotel.state || ''}</div>
-                        </div>
-                      </button>
-
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        {isCurrent && (
-                          <Check size={16} className="text-teal-700 shrink-0" />
-                        )}
-
-                        {isSuper && onRequestDeleteHotel && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsHotelMenuOpen(false);
-                              onRequestDeleteHotel(hotel);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title={`Delete Property: ${hotel.name} (Super Admin)`}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom action in hotel dropdown */}
-              {isStaff ? (
-                <div className="p-2.5 border-t border-slate-100 bg-slate-50 text-center text-[11px] text-slate-500 font-semibold flex items-center justify-center gap-1.5 rounded-b-xl">
-                  <Lock size={12} className="text-slate-400" />
-                  <span>Staff Member • Cannot add new property</span>
-                </div>
-              ) : isOwner ? (
-                <div className="p-2 border-t border-slate-100 mt-1">
-                  <button
-                    id="btn-add-hotel-dropdown"
-                    onClick={() => {
-                      setIsHotelMenuOpen(false);
-                      onOpenAddHotel();
-                    }}
-                    className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                      propertyAddCheck.currentCount >= 5 
-                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300' 
-                        : 'bg-teal-800 hover:bg-teal-900 text-white'
-                    }`}
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>
-                      {propertyAddCheck.currentCount >= 5 
-                        ? 'Quota Reached (5/5 Properties)' 
-                        : `Add Property (${propertyAddCheck.currentCount}/5)`}
-                    </span>
-                  </button>
-                </div>
-              ) : isSuper ? (
-                <div className="p-2 border-t border-slate-100 mt-1 space-y-1">
-                  <button
-                    id="btn-add-hotel-dropdown"
-                    onClick={() => {
-                      setIsHotelMenuOpen(false);
-                      onOpenAddHotel();
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>Add New Hotel Property</span>
-                  </button>
-                  {onNavigateToSettingsHotels && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsHotelMenuOpen(false);
-                        onNavigateToSettingsHotels();
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
-                    >
-                      <Settings size={12} />
-                      <span>Manage &amp; Delete Properties in Settings</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="p-2 border-t border-slate-100 mt-1">
-                  <button
-                    id="btn-add-hotel-dropdown"
-                    onClick={() => {
-                      setIsHotelMenuOpen(false);
-                      onOpenAddHotel();
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>Add New Hotel Property</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+        {/* Current Active Property Badge (Clean & Compact) */}
+        <div 
+          onClick={onOpenMobileMenu}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs shrink-0 cursor-pointer md:cursor-default"
+          title={`Active Property: ${hotelProfile?.name || activeHotel?.name || propertyName} (Managed in Left Sidebar)`}
+        >
+          <Building2 size={14} className="text-teal-700 shrink-0" />
+          <span className="truncate max-w-[120px] sm:max-w-[190px] font-bold text-slate-900">
+            {hotelProfile?.name || activeHotel?.name || propertyName}
+          </span>
+          <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+            • {activeHotel?.city || 'Goa'}
+          </span>
         </div>
-
-        {/* Header "+ Add Property" quick button: HIDDEN FOR STAFF */}
-        {!isStaff && (
-          <button
-            id="btn-header-add-property"
-            onClick={onOpenAddHotel}
-            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer ${
-              isOwner && propertyAddCheck.currentCount >= 5
-                ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300'
-                : 'bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200'
-            }`}
-            title={
-              isOwner 
-                ? (propertyAddCheck.currentCount >= 5 
-                    ? 'Maximum 5 Properties Limit Reached (Contact Super Admin)' 
-                    : `Add Property (${propertyAddCheck.currentCount}/5 Allowed)`)
-                : 'Add / Register New Hotel Property'
-            }
-          >
-            <Building2 size={14} className={isOwner && propertyAddCheck.currentCount >= 5 ? 'text-amber-700' : 'text-teal-700'} />
-            <span>
-              {isOwner 
-                ? (propertyAddCheck.currentCount >= 5 ? 'Properties: 5/5 (Max)' : `+ Add Property (${propertyAddCheck.currentCount}/5)`) 
-                : '+ Add Property'}
-            </span>
-          </button>
-        )}
 
         {/* Primary "+ New Booking" button matching Maahi Trips styling */}
         <button
           id="btn-new-booking"
           onClick={onNewBookingClick}
-          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-3.5 py-2 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs md:text-sm font-bold rounded-lg shadow-sm transition-all hover:shadow cursor-pointer"
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-3.5 py-1.5 md:py-2 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs md:text-sm font-bold rounded-lg shadow-sm transition-all hover:shadow cursor-pointer shrink-0"
         >
           <Plus size={16} strokeWidth={2.5} />
           <span className="hidden sm:inline">New Booking</span>
@@ -346,22 +158,22 @@ export const Header: React.FC<HeaderProps> = ({
         {/* OTA Channel Live Status pill */}
         <div 
           onClick={onSyncAllOtas}
-          className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 hover:bg-emerald-100 cursor-pointer transition-colors"
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 hover:bg-emerald-100 cursor-pointer transition-colors whitespace-nowrap shrink-0"
           title="Click to force 2-Way OTA synchronization across MakeMyTrip, Booking.com, Agoda, Airbnb"
         >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
           </span>
-          <Globe2 size={14} className="text-emerald-700" />
+          <Globe2 size={13} className="text-emerald-700 shrink-0" />
           <span>OTA Sync Active ({activeChannelsCount})</span>
-          <RefreshCw size={12} className={`text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+          <RefreshCw size={11} className={`text-emerald-600 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
         </div>
 
         {/* Multi-Device Cloud Sync Status pill */}
         <div 
           onClick={onOpenCloudSync}
-          className={`flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shrink-0 ${
+          className={`hidden sm:flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
             isCloudConnected 
               ? 'bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100'
               : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
@@ -373,20 +185,20 @@ export const Header: React.FC<HeaderProps> = ({
             <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudConnected ? 'bg-teal-600' : 'bg-amber-600'}`}></span>
           </span>
           <Cloud size={13} className={`${isCloudConnected ? "text-teal-700" : "text-amber-700"} shrink-0`} />
-          <span className="hidden sm:inline">{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
-          <span className="sm:hidden">{isCloudConnected ? "Cloud" : "Local"}</span>
+          <span className="hidden md:inline">{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
+          <span className="md:hidden">{isCloudConnected ? "Cloud" : "Local"}</span>
         </div>
 
         {/* ⚡ 7:00 AM Last-Minute Flash Rate Pill */}
         {lastMinuteStatus && (
           <div
             onClick={onOpenLastMinuteModal}
-            className={`flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border shrink-0 ${
+            className={`hidden lg:flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
               lastMinuteStatus.isTriggered
                 ? 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100 shadow-2xs'
                 : lastMinuteStatus.isPast7Am
-                ? 'hidden lg:flex bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
-                : 'hidden xl:flex bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
             }`}
             title={`7:00 AM Last-Minute Automation: ${lastMinuteStatus.statusLabel}`}
           >
@@ -399,31 +211,14 @@ export const Header: React.FC<HeaderProps> = ({
               }`}></span>
             </span>
             <Zap size={13} className={`${lastMinuteStatus.isTriggered ? 'text-rose-600 fill-rose-500' : 'text-slate-500'} shrink-0`} />
-            <span className="hidden sm:inline">
+            <span>
               {lastMinuteStatus.isTriggered 
                 ? `⚡ 7 AM Flash: -${lastMinuteStatus.discountPercent}%` 
                 : lastMinuteStatus.isPast7Am 
                 ? `🎯 Target Met (${lastMinuteStatus.currentOccupancyPercent}%)` 
                 : `⏱️ 7 AM Cutoff Ready`}
             </span>
-            <span className="sm:hidden">
-              {lastMinuteStatus.isTriggered ? `⚡ -${lastMinuteStatus.discountPercent}%` : `7 AM`}
-            </span>
           </div>
-        )}
-
-        {/* Mobile App Install Pill */}
-        {onOpenInstallModal && (
-          <button
-            type="button"
-            onClick={onOpenInstallModal}
-            className="flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors border shrink-0 bg-teal-50 hover:bg-teal-100 text-teal-900 border-teal-300/80 cursor-pointer shadow-2xs"
-            title="Download & Install Mobile App on Android, iOS or Play Store"
-          >
-            <Smartphone size={13} className="text-teal-700" />
-            <span className="hidden sm:inline">Install App</span>
-            <span className="sm:hidden">App</span>
-          </button>
         )}
       </div>
 
