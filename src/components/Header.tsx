@@ -259,6 +259,26 @@ export const Header: React.FC<HeaderProps> = ({
           </kbd>
         </div>
 
+        {/* 👑 Super Admin Quick Access Pill/Button in Header */}
+        {isSuper ? (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-bold shadow-2xs shrink-0">
+            <span>👑</span>
+            <span>Super Admin</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            id="btn-header-super-admin-login"
+            onClick={onOpenLogin}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border-2 border-amber-400 hover:border-amber-500 text-amber-950 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+            title="Login as Super Admin (Maahi Trips)"
+          >
+            <span>👑</span>
+            <span className="hidden sm:inline">Super Admin Login</span>
+            <span className="sm:hidden">Admin</span>
+          </button>
+        )}
+
         {/* User Account / Login Avatar Dropdown */}
         <div className="relative" ref={userMenuRef}>
           <button

@@ -20,7 +20,8 @@ import {
   Smartphone,
   Check,
   Trash2,
-  Lock
+  Lock,
+  ChevronRight
 } from 'lucide-react';
 import { Hotel, UserAccount, HotelProfile } from '../types';
 import { 
@@ -326,6 +327,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     Manage Properties in Settings →
                   </button>
                 )}
+
+                {/* Direct 1-Click Super Admin Login Option in Dropdown */}
+                {!isSuper && onOpenLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPropertyMenuOpen(false);
+                      onOpenLogin();
+                      if (isMobileView && onCloseMobile) onCloseMobile();
+                    }}
+                    className="w-full text-left p-2 mt-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 rounded-lg text-xs text-amber-300 font-bold flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>👑</span>
+                      <span>Super Admin Login (All Properties)</span>
+                    </div>
+                    <ChevronRight size={13} className="text-amber-400" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -398,6 +418,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </div>
+
+      {/* 👑 Super Admin Access Portal in Left Sidebar */}
+      {!collapsed || isMobileView ? (
+        <div className="px-3 pb-2 pt-1 shrink-0">
+          {isSuper ? (
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-600/15 to-slate-800 border border-amber-400/40 text-left flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
+                  👑
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-amber-200 flex items-center gap-1">
+                    <span>Super Admin</span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold px-1 py-0.2 rounded">Active</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">Maahi Trips • Shahid</div>
+                </div>
+              </div>
+              {onOpenLogin && (
+                <button
+                  type="button"
+                  onClick={onOpenLogin}
+                  className="text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-2 py-1 rounded font-semibold transition-colors cursor-pointer border border-amber-500/30 shrink-0 ml-1.5"
+                  title="Switch User / Account"
+                >
+                  Switch
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              id="sidebar-btn-super-admin-portal"
+              onClick={() => {
+                if (onOpenLogin) onOpenLogin();
+                if (isMobileView && onCloseMobile) onCloseMobile();
+              }}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/25 via-amber-600/20 to-teal-900/40 hover:from-amber-500/35 hover:to-teal-900/60 border-2 border-amber-400/80 hover:border-amber-300 text-left flex items-center justify-between transition-all cursor-pointer shadow-md group"
+              title="Login as Super Admin (Maahi Trips)"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-base shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                  👑
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-amber-300 group-hover:text-amber-200 flex items-center gap-1.5">
+                    <span>Super Admin Login</span>
+                    <span className="text-[9px] bg-amber-400/30 text-amber-200 px-1 py-0.2 rounded font-mono font-bold">PORTAL</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">Maahi Trips (Shahid)</div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-amber-400 group-hover:translate-x-0.5 transition-transform shrink-0 ml-1" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="px-3 pb-2 pt-1 shrink-0 flex justify-center">
+          <button
+            type="button"
+            id="sidebar-btn-super-admin-collapsed"
+            onClick={onOpenLogin}
+            className="w-10 h-10 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 flex items-center justify-center font-bold text-base cursor-pointer shadow-xs transition-transform hover:scale-105"
+            title={isSuper ? "Super Admin (Maahi Trips) Active • Click to Switch" : "👑 Super Admin Login Portal"}
+          >
+            👑
+          </button>
+        </div>
+      )}
 
       {/* Install Mobile App Prompt in Sidebar */}
       {(!collapsed || isMobileView) && onOpenInstallModal && (

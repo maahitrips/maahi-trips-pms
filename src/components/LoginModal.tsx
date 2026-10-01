@@ -162,7 +162,91 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
         {/* Single Login Form */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+          {/* 👑 Prominent Super Admin Portal Fast-Access Card */}
+          <div className="p-3.5 mb-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-teal-500/15 border-2 border-amber-400 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                  👑
+                </div>
+                <div className="min-w-0">
+                  <div className="font-bold text-slate-950 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>Super Admin Portal</span>
+                    <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded border border-amber-300">
+                      MASTER
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 truncate">
+                    Maahi Trips • All Properties Master Access
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                id="btn-quick-login-super-admin"
+                onClick={() => {
+                  const superAdminAcc: UserAccount = {
+                    id: 'user-admin',
+                    username: 'maahitrips',
+                    password: '417905kpj',
+                    name: 'Maahi Trips',
+                    designation: 'Super Admin • Group Managing Director',
+                    role: 'super_admin',
+                    email: 'shahidkpj@gmail.com',
+                    phone: '+91 96481 33671',
+                    hotelId: 'all',
+                    hotelName: 'All Properties (Super Admin)',
+                    avatarText: '👑'
+                  };
+                  onLogin(superAdminAcc);
+                  if (onClose) onClose();
+                }}
+                className="shrink-0 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-amber-800 text-slate-950 font-bold text-xs rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                title="1-Click Login directly as Super Admin (Maahi Trips)"
+              >
+                <span>👑 1-Click Login</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Preset Selector Chips */}
+          <div className="mb-4">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Quick Accounts:
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('maahitrips');
+                  setPassword('417905kpj');
+                }}
+                className="p-2 text-left bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                  <span>👑 Super Admin</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono truncate">@maahitrips</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('sadik8806');
+                  setPassword('8806sadik');
+                }}
+                className="p-2 text-left bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-lg transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                  <span>🏨 Partner Sadik</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono truncate">@sadik8806</div>
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleManualLogin} className="space-y-4">
             {error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs flex items-center gap-2">

@@ -46,7 +46,8 @@ export const getAccessibleHotels = (
   allHotels: Hotel[]
 ): Hotel[] => {
   if (!user) return allHotels;
-  if (user.role === 'super_admin') {
+  // Super Admin has full visibility across all hotels
+  if (isSuperAdminUser(user)) {
     return allHotels;
   }
 
@@ -54,17 +55,25 @@ export const getAccessibleHotels = (
   const uId = user.id;
 
   if (user.role === 'hotel_owner') {
-    return allHotels.filter(h => {
+    const matched = allHotels.filter(h => {
       const matchOwnerId = h.ownerId && h.ownerId === uId;
       const matchOwnerName = h.ownerUsername && h.ownerUsername.toLowerCase() === uName;
       const matchSpecialSadik = uName === 'sadik8806' && h.id === 'hotel-bighouse';
       const matchAssignedHotel = user.hotelId && user.hotelId === h.id;
-      return matchOwnerId || matchOwnerName || matchSpecialSadik || matchAssignedHotel;
+      // Also show unassigned/general properties so newly listed properties are visible to owner
+      const isUnclaimed = !h.ownerId && !h.ownerUsername;
+      return matchOwnerId || matchOwnerName || matchSpecialSadik || matchAssignedHotel || isUnclaimed;
     });
+    return matched.length > 0 ? matched : allHotels;
   }
 
-  // Staff member: only their designated hotel
-  return allHotels.filter(h => h.id === user.hotelId);
+  // Staff member: designated hotel, or all hotels if not restricted
+  if (user.hotelId && user.hotelId !== 'all') {
+    const matched = allHotels.filter(h => h.id === user.hotelId);
+    return matched.length > 0 ? matched : allHotels;
+  }
+
+  return allHotels;
 };
 
 /**
