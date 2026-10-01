@@ -129,28 +129,28 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Current Active Property Badge (Clean & Compact) */}
+        {/* Current Active Property Badge (Clean, Sleek & Compact) */}
         <div 
           onClick={onOpenMobileMenu}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs shrink-0 cursor-pointer md:cursor-default"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs shrink-0 cursor-pointer md:cursor-default"
           title={`Active Property: ${hotelProfile?.name || activeHotel?.name || propertyName} (Managed in Left Sidebar)`}
         >
-          <Building2 size={14} className="text-teal-700 shrink-0" />
-          <span className="truncate max-w-[120px] sm:max-w-[190px] font-bold text-slate-900">
+          <Building2 size={13} className="text-teal-700 shrink-0" />
+          <span className="truncate max-w-[120px] sm:max-w-[170px] font-bold text-slate-900">
             {hotelProfile?.name || activeHotel?.name || propertyName}
           </span>
-          <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+          <span className="text-[9px] text-slate-500 font-medium hidden sm:inline">
             • {activeHotel?.city || 'Goa'}
           </span>
         </div>
 
-        {/* Primary "+ New Booking" button matching Maahi Trips styling */}
+        {/* Primary "+ New Booking" button */}
         <button
           id="btn-new-booking"
           onClick={onNewBookingClick}
-          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-3.5 py-1.5 md:py-2 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs md:text-sm font-bold rounded-lg shadow-sm transition-all hover:shadow cursor-pointer shrink-0"
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
         >
-          <Plus size={16} strokeWidth={2.5} />
+          <Plus size={14} strokeWidth={2.5} />
           <span className="hidden sm:inline">New Booking</span>
           <span className="sm:hidden">Book</span>
         </button>
@@ -158,33 +158,33 @@ export const Header: React.FC<HeaderProps> = ({
         {/* OTA Channel Live Status pill */}
         <div 
           onClick={onSyncAllOtas}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 hover:bg-emerald-100 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+          className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] font-medium text-emerald-800 hover:bg-emerald-100 cursor-pointer transition-colors whitespace-nowrap shrink-0"
           title="Click to force 2-Way OTA synchronization across MakeMyTrip, Booking.com, Agoda, Airbnb"
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-600"></span>
           </span>
-          <Globe2 size={13} className="text-emerald-700 shrink-0" />
+          <Globe2 size={12} className="text-emerald-700 shrink-0" />
           <span>OTA Sync Active ({activeChannelsCount})</span>
-          <RefreshCw size={11} className={`text-emerald-600 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
+          <RefreshCw size={10} className={`text-emerald-600 ${isSyncing ? 'animate-spin' : ''} shrink-0`} />
         </div>
 
         {/* Multi-Device Cloud Sync Status pill */}
         <div 
           onClick={onOpenCloudSync}
-          className={`hidden sm:flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
+          className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
             isCloudConnected 
               ? 'bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100'
               : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
           }`}
           title={isCloudConnected ? "Google Cloud Firestore Real-Time Multi-Device Sync Active" : "Local Storage Only (Offline)"}
         >
-          <span className="relative flex h-2 w-2 shrink-0">
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isCloudConnected ? 'bg-teal-400' : 'bg-amber-400'}`}></span>
-            <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudConnected ? 'bg-teal-600' : 'bg-amber-600'}`}></span>
+            <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isCloudConnected ? 'bg-teal-600' : 'bg-amber-600'}`}></span>
           </span>
-          <Cloud size={13} className={`${isCloudConnected ? "text-teal-700" : "text-amber-700"} shrink-0`} />
+          <Cloud size={12} className={`${isCloudConnected ? "text-teal-700" : "text-amber-700"} shrink-0`} />
           <span className="hidden md:inline">{isCloudConnected ? "Cloud Sync Active" : "Local Only"}</span>
           <span className="md:hidden">{isCloudConnected ? "Cloud" : "Local"}</span>
         </div>
@@ -193,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
         {lastMinuteStatus && (
           <div
             onClick={onOpenLastMinuteModal}
-            className={`hidden lg:flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
+            className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium cursor-pointer transition-colors border shrink-0 whitespace-nowrap ${
               lastMinuteStatus.isTriggered
                 ? 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100 shadow-2xs'
                 : lastMinuteStatus.isPast7Am
@@ -202,15 +202,15 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
             title={`7:00 AM Last-Minute Automation: ${lastMinuteStatus.statusLabel}`}
           >
-            <span className="relative flex h-2 w-2 shrink-0">
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                 lastMinuteStatus.isTriggered ? 'bg-rose-400' : lastMinuteStatus.isPast7Am ? 'bg-emerald-400' : 'bg-amber-400'
               }`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
                 lastMinuteStatus.isTriggered ? 'bg-rose-600' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600' : 'bg-amber-600'
               }`}></span>
             </span>
-            <Zap size={13} className={`${lastMinuteStatus.isTriggered ? 'text-rose-600 fill-rose-500' : 'text-slate-500'} shrink-0`} />
+            <Zap size={12} className={`${lastMinuteStatus.isTriggered ? 'text-rose-600 fill-rose-500' : 'text-slate-500'} shrink-0`} />
             <span>
               {lastMinuteStatus.isTriggered 
                 ? `⚡ 7 AM Flash: -${lastMinuteStatus.discountPercent}%` 
@@ -223,15 +223,15 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right side: Search, Simulate OTA, User Login / Account Switcher */}
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center gap-1.5 md:gap-2">
         {/* Quick Simulate OTA Inbound Booking */}
         <button
           id="btn-simulate-ota"
           onClick={onSimulateOtaClick}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          className="hidden sm:flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-medium rounded-lg transition-colors cursor-pointer"
           title="Simulate incoming OTA reservation from MakeMyTrip or Booking.com"
         >
-          <Zap size={14} className="text-amber-600 fill-amber-500" />
+          <Zap size={12} className="text-amber-600 fill-amber-500" />
           <span className="hidden md:inline">Simulate</span> OTA Inflow
         </button>
 
@@ -243,25 +243,25 @@ export const Header: React.FC<HeaderProps> = ({
           title="Search Bookings & Rooms"
           aria-label="Search"
         >
-          <Search size={18} />
+          <Search size={16} />
         </button>
 
         {/* Global Search Bar (matching screenshot search box Ctrl K) */}
         <div 
           id="global-search-trigger"
           onClick={onOpenSearch}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-slate-500 text-xs md:text-sm cursor-pointer transition-colors shadow-2xs w-28 sm:w-36 md:w-52"
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-slate-500 text-xs cursor-pointer transition-colors shadow-2xs w-28 sm:w-36 md:w-44"
         >
-          <Search size={15} className="text-slate-400 shrink-0" />
-          <span className="truncate">Search...</span>
-          <kbd className="hidden md:inline-block ml-auto text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono text-slate-400">
+          <Search size={13} className="text-slate-400 shrink-0" />
+          <span className="truncate text-xs">Search...</span>
+          <kbd className="hidden md:inline-block ml-auto text-[9px] bg-white border border-slate-200 px-1 py-0.5 rounded font-mono text-slate-400">
             Ctrl K
           </kbd>
         </div>
 
         {/* 👑 Super Admin Quick Access Pill/Button in Header */}
         {isSuper ? (
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-bold shadow-2xs shrink-0">
+          <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-[11px] font-semibold shadow-2xs shrink-0">
             <span>👑</span>
             <span>Super Admin</span>
           </div>
@@ -270,11 +270,11 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="btn-header-super-admin-login"
             onClick={onOpenLogin}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border-2 border-amber-400 hover:border-amber-500 text-amber-950 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400 hover:border-amber-500 text-amber-950 rounded-lg text-[11px] font-semibold transition-all shadow-2xs cursor-pointer shrink-0"
             title="Login as Super Admin (Maahi Trips)"
           >
             <span>👑</span>
-            <span className="hidden sm:inline">Super Admin Login</span>
+            <span className="hidden sm:inline">Super Admin</span>
             <span className="sm:hidden">Admin</span>
           </button>
         )}

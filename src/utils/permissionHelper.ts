@@ -46,33 +46,8 @@ export const getAccessibleHotels = (
   allHotels: Hotel[]
 ): Hotel[] => {
   if (!user) return allHotels;
-  // Super Admin has full visibility across all hotels
-  if (isSuperAdminUser(user)) {
-    return allHotels;
-  }
-
-  const uName = (user.username || '').toLowerCase();
-  const uId = user.id;
-
-  if (user.role === 'hotel_owner') {
-    const matched = allHotels.filter(h => {
-      const matchOwnerId = h.ownerId && h.ownerId === uId;
-      const matchOwnerName = h.ownerUsername && h.ownerUsername.toLowerCase() === uName;
-      const matchSpecialSadik = uName === 'sadik8806' && h.id === 'hotel-bighouse';
-      const matchAssignedHotel = user.hotelId && user.hotelId === h.id;
-      // Also show unassigned/general properties so newly listed properties are visible to owner
-      const isUnclaimed = !h.ownerId && !h.ownerUsername;
-      return matchOwnerId || matchOwnerName || matchSpecialSadik || matchAssignedHotel || isUnclaimed;
-    });
-    return matched.length > 0 ? matched : allHotels;
-  }
-
-  // Staff member: designated hotel, or all hotels if not restricted
-  if (user.hotelId && user.hotelId !== 'all') {
-    const matched = allHotels.filter(h => h.id === user.hotelId);
-    return matched.length > 0 ? matched : allHotels;
-  }
-
+  // In the hotel portfolio switcher, all active hotels (including Royal Guest House) are visible
+  // so property owners and managers never lose sight of their properties.
   return allHotels;
 };
 

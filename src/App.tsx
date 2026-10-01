@@ -224,7 +224,13 @@ const getInitialHotelsWithRecovery = (): Hotel[] => {
     console.warn('Bundle scan error:', err);
   }
 
-  // 5. Clean up any invalid or corrupted hotel entries where id !== 'hotel-bighouse' but name was overwritten with 'Big House Inn'
+  // 5. Ensure core hotels like Royal Guest House are always present
+  if (!hotelsMap.has('hotel-royalguesthouse')) {
+    const rgh = initialHotels.find(h => h.id === 'hotel-royalguesthouse');
+    if (rgh) hotelsMap.set('hotel-royalguesthouse', { ...rgh });
+  }
+
+  // 6. Clean up any invalid or corrupted hotel entries where id !== 'hotel-bighouse' but name was overwritten with 'Big House Inn'
   const finalHotels = Array.from(hotelsMap.values()).map(h => {
     if (h.id !== 'hotel-bighouse' && (h.name === 'Big House Inn' || !h.name || h.name.trim() === '')) {
       const prettyName = h.code 
@@ -237,6 +243,10 @@ const getInitialHotelsWithRecovery = (): Hotel[] => {
     }
     return h;
   });
+
+  try {
+    localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(finalHotels));
+  } catch {}
 
   return finalHotels;
 };

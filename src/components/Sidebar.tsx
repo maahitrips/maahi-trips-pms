@@ -21,7 +21,8 @@ import {
   Check,
   Trash2,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { Hotel, UserAccount, HotelProfile } from '../types';
 import { 
@@ -80,6 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenInstallModal
 }) => {
   const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
+  const [hotelSearch, setHotelSearch] = useState('');
   const propertyMenuRef = useRef<HTMLDivElement>(null);
 
   const isSuper = isSuperAdminUser(currentUser);
@@ -263,55 +265,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </div>
 
-                <div className="max-h-48 overflow-y-auto space-y-1 py-1 scrollbar-thin">
-                  {accessibleHotels.map(h => {
-                    const isCurrent = h.id === activeHotelId;
-                    return (
-                      <div
-                        key={h.id}
-                        onClick={() => {
-                          if (onSelectHotel) onSelectHotel(h.id);
-                          setIsPropertyMenuOpen(false);
-                          if (isMobileView && onCloseMobile) onCloseMobile();
-                        }}
-                        className={`p-2 rounded-lg flex items-center justify-between text-left cursor-pointer transition-colors ${
-                          isCurrent 
-                            ? 'bg-teal-900/60 border border-teal-700/80 text-white' 
-                            : 'hover:bg-slate-800 text-slate-300 hover:text-white border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
-                            isCurrent ? 'bg-teal-600 text-white' : 'bg-slate-800 text-slate-400'
-                          }`}>
-                            {h.code || 'HTL'}
-                          </span>
-                          <div className="truncate">
-                            <div className="font-bold text-xs truncate">{h.name}</div>
-                            <div className="text-[10px] text-slate-400 truncate">{h.city}</div>
+                {/* Quick Search Property Bar */}
+                <div className="relative pt-0.5 px-0.5">
+                  <Search size={11} className="absolute left-2.5 top-2.5 text-slate-500" />
+                  <input
+                    type="text"
+                    value={hotelSearch}
+                    onChange={(e) => setHotelSearch(e.target.value)}
+                    placeholder="Search hotel (e.g. Royal)..."
+                    className="w-full pl-6 pr-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-white placeholder:text-slate-500 focus:outline-hidden focus:border-teal-500 font-medium"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-52 overflow-y-auto space-y-1 py-1 scrollbar-thin">
+                  {accessibleHotels
+                    .filter(h => {
+                      if (!hotelSearch.trim()) return true;
+                      const q = hotelSearch.toLowerCase().trim();
+                      return (
+                        h.name.toLowerCase().includes(q) ||
+                        (h.code && h.code.toLowerCase().includes(q)) ||
+                        (h.city && h.city.toLowerCase().includes(q))
+                      );
+                    })
+                    .map(h => {
+                      const isCurrent = h.id === activeHotelId;
+                      const isRoyal = h.name.toLowerCase().includes('royal') || h.code === 'RGH';
+                      return (
+                        <div
+                          key={h.id}
+                          onClick={() => {
+                            if (onSelectHotel) onSelectHotel(h.id);
+                            setIsPropertyMenuOpen(false);
+                            setHotelSearch('');
+                            if (isMobileView && onCloseMobile) onCloseMobile();
+                          }}
+                          className={`p-2 rounded-lg flex items-center justify-between text-left cursor-pointer transition-colors ${
+                            isCurrent 
+                              ? 'bg-teal-900/60 border border-teal-700/80 text-white' 
+                              : isRoyal
+                              ? 'bg-amber-950/30 hover:bg-amber-900/40 text-amber-200 border border-amber-800/40'
+                              : 'hover:bg-slate-800 text-slate-300 hover:text-white border border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                              isCurrent 
+                                ? 'bg-teal-600 text-white' 
+                                : isRoyal 
+                                ? 'bg-amber-500 text-slate-950 font-bold' 
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {h.code || 'HTL'}
+                            </span>
+                            <div className="truncate">
+                              <div className="font-bold text-xs truncate flex items-center gap-1">
+                                <span>{h.name}</span>
+                                {isRoyal && <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded font-normal">Goa</span>}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">{h.city}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                            {isCurrent && <Check size={14} className="text-teal-400" />}
+                            {isSuper && onRequestDeleteHotel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsPropertyMenuOpen(false);
+                                  onRequestDeleteHotel(h);
+                                }}
+                                className="p-1 hover:text-rose-400 text-slate-500 rounded transition-colors"
+                                title="Delete Hotel"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-1 shrink-0 ml-1.5">
-                          {isCurrent && <Check size={14} className="text-teal-400" />}
-                          {isSuper && onRequestDeleteHotel && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsPropertyMenuOpen(false);
-                                onRequestDeleteHotel(h);
-                              }}
-                              className="p-1 hover:text-rose-400 text-slate-500 rounded transition-colors"
-                              title="Delete Hotel"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
 
                 {onNavigateToSettingsHotels && (

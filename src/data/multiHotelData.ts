@@ -81,6 +81,26 @@ export const initialHotels: Hotel[] = [
     createdAt: '2023-11-20',
     ownerId: 'user-admin',
     ownerUsername: 'maahitrips'
+  },
+  {
+    id: 'hotel-royalguesthouse',
+    name: 'Royal Guest House',
+    code: 'RGH',
+    tagline: 'Comfort & Royal Hospitality near Calangute Beach',
+    address: 'Near Calangute Beach Circle, Tito Lane',
+    city: 'Calangute, Goa',
+    state: 'Goa',
+    phone: '+91 96481 33671',
+    email: 'reservations@royalguesthousegoa.com',
+    gstin: '30AABCR7812M1Z5',
+    checkInTime: '12:00 PM',
+    checkOutTime: '11:00 AM',
+    currencySymbol: '₹',
+    starCategory: '3-Star Deluxe',
+    status: 'active',
+    createdAt: '2024-02-15',
+    ownerId: 'user-admin',
+    ownerUsername: 'maahitrips'
   }
 ];
 
@@ -350,6 +370,117 @@ const grandHeritageBookings: Booking[] = [
   }
 ];
 
+// Hotel 4: Royal Guest House (Calangute, Goa) Data
+const royalGuestHouseProfile: HotelProfile = {
+  name: 'Royal Guest House',
+  tagline: 'Comfort & Royal Hospitality near Calangute Beach',
+  address: 'Near Calangute Beach Circle, Tito Lane',
+  city: 'Calangute, Goa 403516',
+  phone: '+91 96481 33671',
+  email: 'reservations@royalguesthousegoa.com',
+  gstin: '30AABCR7812M1Z5',
+  checkInTime: '12:00 PM',
+  checkOutTime: '11:00 AM',
+  currencySymbol: '₹'
+};
+
+const royalGuestHouseRooms: Room[] = [
+  { id: 'rgh-101', number: '101', name: '101 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-102', number: '102', name: '102 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-103', number: '103', name: '103 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-201', number: '201', name: '201 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
+  { id: 'rgh-202', number: '202', name: '202 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'dirty', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
+  { id: 'rgh-203', number: '203', name: '203 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
+  { id: 'rgh-301', number: '301', name: '301 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 3, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] },
+  { id: 'rgh-302', number: '302', name: '302 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 3, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] }
+];
+
+const royalGuestHouseBookings: Booking[] = [
+  {
+    id: 'bk-rgh-1',
+    bookingCode: 'RGH-5102',
+    roomId: 'rgh-201',
+    guest: {
+      id: 'g-rgh-1',
+      fullName: 'Amanpreet Singh',
+      phone: '+91 98721 04921',
+      email: 'aman.singh@gmail.com',
+      city: 'Chandigarh',
+      state: 'Punjab',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 1,
+      totalSpent: 9600,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '6721 9081 2234',
+        frontImageUrl: sampleAadhaarFront,
+        backImageUrl: sampleAadhaarBack,
+        isVerified: true,
+        uploadedAt: '2026-09-24T10:00:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-09-28',
+    checkOutDate: '2026-10-02',
+    nights: 4,
+    adults: 2,
+    children: 0,
+    channel: 'walkin',
+    roomRatePerNight: 3200,
+    taxRatePercent: 5,
+    extraCharges: [
+      { id: 'ext-rgh-1', description: 'Goa Airport Pick & Drop', amount: 1500, date: '2026-09-28' }
+    ],
+    payments: [
+      { id: 'pm-rgh-1', amount: 6000, mode: 'upi', reference: 'UPI/HDFC/881920', date: '2026-09-28', notes: 'Advance received' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Calangute beach tour map requested',
+    createdAt: '2026-09-27T14:00:00Z'
+  },
+  {
+    id: 'bk-rgh-2',
+    bookingCode: 'MMT-RGH-890',
+    roomId: 'rgh-301',
+    guest: {
+      id: 'g-rgh-2',
+      fullName: 'Rohit & Sneha Kulkarni',
+      phone: '+91 98200 44912',
+      email: 'rohit.kulkarni@yahoo.com',
+      city: 'Pune',
+      state: 'Maharashtra',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 2,
+      totalSpent: 14400,
+      idDocument: {
+        idType: 'driving_license',
+        idNumber: 'MH-12-2018-09182',
+        isVerified: true,
+        uploadedAt: '2026-09-25T11:00:00Z',
+        issuedBy: 'RTO Pune'
+      }
+    },
+    checkInDate: '2026-09-29',
+    checkOutDate: '2026-10-03',
+    nights: 4,
+    adults: 2,
+    children: 1,
+    channel: 'makemytrip',
+    channelRefId: 'MMT-GOA-7719',
+    roomRatePerNight: 4800,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-rgh-2', amount: 20160, mode: 'ota_virtual_card', reference: 'MMT-VC-9018', date: '2026-09-29' }
+    ],
+    status: 'confirmed',
+    specialRequests: 'Upper floor room with sea breeze',
+    createdAt: '2026-09-25T11:00:00Z'
+  }
+];
+
 export const initialHotelDataMap: Record<string, HotelDataBundle> = {
   'hotel-bighouse': {
     hotelId: 'hotel-bighouse',
@@ -359,6 +490,30 @@ export const initialHotelDataMap: Record<string, HotelDataBundle> = {
     roomMappings: initialRoomMappings,
     syncLogs: initialSyncLogs,
     profile: initialHotelProfile
+  },
+  'hotel-royalguesthouse': {
+    hotelId: 'hotel-royalguesthouse',
+    rooms: royalGuestHouseRooms,
+    bookings: royalGuestHouseBookings,
+    channels: initialOTAChannels.map(ch => ({
+      ...ch,
+      mappedRoomsCount: 6,
+      totalRoomsCount: 8,
+      activeReservationsCount: 5
+    })),
+    roomMappings: initialRoomMappings,
+    syncLogs: [
+      {
+        id: 'log-rgh-1',
+        timestamp: '11:00 AM',
+        channel: 'makemytrip',
+        channelName: 'MakeMyTrip',
+        eventType: 'rate_update',
+        status: 'success',
+        message: 'Royal Guest House rates & inventory live on OTA Channels'
+      }
+    ],
+    profile: royalGuestHouseProfile
   },
   'hotel-sairesidency': {
     hotelId: 'hotel-sairesidency',

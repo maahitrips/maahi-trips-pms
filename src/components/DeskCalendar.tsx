@@ -412,47 +412,47 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
       {/* Top Banner: Title & Controls */}
-      <div className="p-3 sm:p-4 md:p-6 pb-2 md:pb-3 bg-white border-b border-slate-200 shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 mb-3">
+      <div className="p-2 sm:p-3 md:p-3.5 pb-2 bg-white border-b border-slate-200 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-2.5 mb-2">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               Desk
-              <span className="text-[10px] sm:text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-[9px] sm:text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.2 rounded-full font-medium">
                 Live Tape Chart
               </span>
             </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm text-slate-500 mt-0.5">
+            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.2">
               Front desk booking calendar &amp; room status grid
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1 sm:gap-1.5 self-start sm:self-auto">
             {/* View Mode Switcher: Tape Chart vs Today's Quick Operations */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
               <button
                 type="button"
                 onClick={() => setViewMode('tape')}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                   viewMode === 'tape'
                     ? 'bg-teal-800 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
                 title="Full Tape Chart Grid"
               >
-                <Grid3X3 size={14} />
+                <Grid3X3 size={12} />
                 <span>Tape Chart</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('agenda')}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer relative ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer relative ${
                   viewMode === 'agenda'
                     ? 'bg-teal-800 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
                 title="Today's Arrivals, In-House, & Departures (Mobile Friendly)"
               >
-                <LayoutList size={14} />
+                <LayoutList size={12} />
                 <span>Today's View</span>
                 {(todayArrivals.length > 0 || todayDepartures.length > 0) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -465,10 +465,10 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               id="btn-desk-bulk-rates"
               type="button"
               onClick={() => setIsBulkRateModalOpen(true)}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
               title="Bulk Rate & Surge Manager (Weekends, Holidays, Custom Date Ranges)"
             >
-              <TrendingUp size={14} className="text-amber-700" />
+              <TrendingUp size={12} className="text-amber-700" />
               <span className="hidden sm:inline">Bulk Rates</span>
               <span className="sm:hidden">Bulk</span>
             </button>
@@ -477,9 +477,9 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               <button
                 id="btn-desk-add-room"
                 onClick={onOpenAddRoom}
-                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
               >
-                <Plus size={15} strokeWidth={2.5} />
+                <Plus size={13} strokeWidth={2.5} />
                 <span className="hidden sm:inline">Add Room</span>
               </button>
             )}
@@ -488,29 +488,29 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             <button
               id="refresh-calendar-btn"
               onClick={onRefresh}
-              className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
               title="Refresh desk bookings"
             >
-              <RotateCw size={16} />
+              <RotateCw size={13} />
             </button>
           </div>
         </div>
 
         {/* Date Selector Row with interactive date picker and dynamic range */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
             <label 
-              className="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-white border border-slate-300 hover:border-teal-700 rounded-lg text-xs md:text-sm font-medium text-slate-800 shadow-2xs transition-all cursor-pointer group"
+              className="relative flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 hover:border-teal-700 rounded-lg text-[11px] font-semibold text-slate-800 shadow-2xs transition-all cursor-pointer group"
               title="Click to jump to another date"
             >
-              <CalendarIcon size={14} className="text-teal-700 shrink-0 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-bold text-slate-900">
+              <CalendarIcon size={12} className="text-teal-700 shrink-0 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-semibold text-slate-900">
                 {dates[0] && dates[dates.length - 1] 
                   ? `${dates[0].dayNumber} ${dates[0].monthName} ${dates[0].dateStr.split('-')[0]} — ${dates[dates.length - 1].dayNumber} ${dates[dates.length - 1].monthName} ${dates[dates.length - 1].dateStr.split('-')[0]}`
                   : ''}
               </span>
               <span className="text-slate-300">|</span>
-              <span className="text-[11px] text-slate-500 font-normal">{dates.length} days</span>
+              <span className="text-[10px] text-slate-500 font-normal">{dates.length} days</span>
               <input
                 type="date"
                 value={dates[0]?.dateStr || todayStr}
@@ -529,10 +529,10 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               <button
                 type="button"
                 onClick={() => setCurrentStartOffset(prev => prev - 7)}
-                className="p-1 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                className="p-0.5 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                 title="Previous 7 days"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={13} />
               </button>
               <button
                 type="button"
@@ -540,7 +540,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                   setCalendarBaseDate(todayStr);
                   setCurrentStartOffset(0);
                 }}
-                className={`px-2.5 py-0.5 text-xs font-bold rounded transition-colors cursor-pointer ${
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors cursor-pointer ${
                   dates[0]?.dateStr === todayStr
                     ? 'bg-teal-800 text-white shadow-2xs'
                     : 'text-teal-800 hover:bg-teal-50'
@@ -552,26 +552,26 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               <button
                 type="button"
                 onClick={() => setCurrentStartOffset(prev => prev + 7)}
-                className="p-1 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                className="p-0.5 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                 title="Next 7 days"
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={13} />
               </button>
             </div>
 
             {/* Today indicator badge */}
-            <div className="hidden xs:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 text-[11px] font-semibold">
+            <div className="hidden xs:flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 text-[10px] font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
               <span>Today: {formatDisplayDate(todayStr)}</span>
             </div>
           </div>
 
           {/* Floor & Room Filter Chips */}
-          <div className="flex items-center gap-1 text-xs">
-            <span className="text-slate-400 font-medium hidden sm:inline">Floor:</span>
+          <div className="flex items-center gap-1 text-[11px]">
+            <span className="text-slate-400 font-medium hidden sm:inline text-[10px]">Floor:</span>
             <button
               onClick={() => setSelectedFloor('all')}
-              className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+              className={`px-1.5 py-0.2 rounded font-medium text-[10px] transition-colors cursor-pointer ${
                 selectedFloor === 'all' 
                   ? 'bg-teal-800 text-white' 
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -581,7 +581,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             </button>
             <button
               onClick={() => setSelectedFloor(1)}
-              className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+              className={`px-1.5 py-0.2 rounded font-medium text-[10px] transition-colors cursor-pointer ${
                 selectedFloor === 1 
                   ? 'bg-teal-800 text-white' 
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -591,7 +591,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             </button>
             <button
               onClick={() => setSelectedFloor(2)}
-              className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+              className={`px-1.5 py-0.2 rounded font-medium text-[10px] transition-colors cursor-pointer ${
                 selectedFloor === 2 
                   ? 'bg-teal-800 text-white' 
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -601,7 +601,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             </button>
             <button
               onClick={() => setSelectedFloor(3)}
-              className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+              className={`px-1.5 py-0.2 rounded font-medium text-[10px] transition-colors cursor-pointer ${
                 selectedFloor === 3 
                   ? 'bg-teal-800 text-white' 
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -615,29 +615,29 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
 
       {/* ⚡ Morning 7:00 AM Last-Minute Booking Automation Banner */}
       {lastMinuteStatus && (
-        <div className={`mx-3 sm:mx-4 mt-2 p-3 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 transition-all shrink-0 ${
+        <div className={`mx-2 sm:mx-3 mt-1.5 p-2 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-2 transition-all shrink-0 ${
           lastMinuteStatus.isTriggered
             ? 'bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 border-rose-300 text-rose-950 shadow-2xs'
             : lastMinuteStatus.isPast7Am
             ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-950'
             : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
         }`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+          <div className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
               lastMinuteStatus.isTriggered ? 'bg-rose-600 text-white animate-pulse' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
             }`}>
-              <Clock size={16} />
+              <Clock size={12} />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-xs">
                   {lastMinuteStatus.isTriggered
                     ? `⚡ 7:00 AM Last-Minute Flash Sale Active: Base Rates -${lastMinuteStatus.discountPercent}% Reduced`
                     : lastMinuteStatus.isPast7Am
                     ? `🎯 60% Booking Target Met (${lastMinuteStatus.currentOccupancyPercent}% Occupancy)`
                     : `⏳ Pending 7:00 AM Last-Minute Cutoff (${lastMinuteStatus.currentOccupancyPercent}% Booked)`}
                 </span>
-                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full border ${
                   lastMinuteStatus.isTriggered 
                     ? 'bg-rose-100 text-rose-900 border-rose-300'
                     : lastMinuteStatus.isPast7Am 
@@ -647,7 +647,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                   Today: {lastMinuteStatus.currentOccupancyPercent}% Occupied ({lastMinuteStatus.occupiedRoomsCount}/{lastMinuteStatus.totalRoomsCount} Rooms)
                 </span>
               </div>
-              <p className="text-[11px] opacity-85 mt-0.5">
+              <p className="text-[10px] opacity-80 mt-0.5">
                 {lastMinuteStatus.isTriggered
                   ? `Same-date occupancy is under 60% after 7:00 AM cutoff. 15% discount is automatically applied to today's walk-in bookings and OTA channels.`
                   : lastMinuteStatus.isPast7Am
@@ -657,15 +657,15 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+          <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
             {onToggleSimulate7am && (
               <button
                 type="button"
                 onClick={onToggleSimulate7am}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg border bg-white hover:bg-slate-50 text-slate-700 shadow-2xs flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 text-[11px] font-semibold rounded-lg border bg-white hover:bg-slate-50 text-slate-700 shadow-2xs flex items-center gap-1 cursor-pointer"
                 title="Toggle 7:00 AM Cutoff Simulation to test 15% discount immediately"
               >
-                <Zap size={12} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
+                <Zap size={11} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
                 <span>{lastMinuteStatus.isPast7Am ? 'Simulation (ON)' : 'Test 7 AM'}</span>
               </button>
             )}
@@ -673,9 +673,9 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               <button
                 type="button"
                 onClick={onOpenLastMinuteModal}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-800 hover:bg-teal-900 text-white shadow-2xs flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 text-[11px] font-semibold rounded-lg bg-teal-800 hover:bg-teal-900 text-white shadow-2xs flex items-center gap-1 cursor-pointer"
               >
-                <SlidersHorizontal size={12} />
+                <SlidersHorizontal size={11} />
                 <span>Rule Settings</span>
               </button>
             )}
