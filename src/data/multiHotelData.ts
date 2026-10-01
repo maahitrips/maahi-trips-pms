@@ -127,8 +127,8 @@ export const initialUsers: UserAccount[] = [
     role: 'hotel_owner',
     email: 'sadik8806@gmail.com',
     phone: '+91 96481 33671',
-    hotelId: 'hotel-bighouse',
-    hotelName: 'Big House Inn (Udaipur)',
+    hotelId: 'hotel-royalguesthouse',
+    hotelName: 'Royal Guest House (Calangute, Goa)',
     avatarText: 'SK'
   },
   {
@@ -388,18 +388,24 @@ const royalGuestHouseRooms: Room[] = [
   { id: 'rgh-101', number: '101', name: '101 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
   { id: 'rgh-102', number: '102', name: '102 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
   { id: 'rgh-103', number: '103', name: '103 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
-  { id: 'rgh-201', number: '201', name: '201 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
-  { id: 'rgh-202', number: '202', name: '202 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'dirty', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
-  { id: 'rgh-203', number: '203', name: '203 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
-  { id: 'rgh-301', number: '301', name: '301 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 3, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] },
-  { id: 'rgh-302', number: '302', name: '302 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 3, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] }
+  { id: 'rgh-104', number: '104', name: '104 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-105', number: '105', name: '105 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-106', number: '106', name: '106 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2400, status: 'dirty', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser'] },
+  { id: 'rgh-107', number: '107', name: '107 - Executive AC Room', type: 'Executive AC Room', floor: 1, baseRate: 2800, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Balcony', 'Geyser'] },
+  { id: 'rgh-108', number: '108', name: '108 - Executive AC Room', type: 'Executive AC Room', floor: 1, baseRate: 2800, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Balcony', 'Geyser'] },
+  { id: 'rgh-109', number: '109', name: '109 - Executive Balcony', type: 'Executive Balcony', floor: 1, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
+  { id: 'rgh-110', number: '110', name: '110 - Executive Balcony', type: 'Executive Balcony', floor: 1, baseRate: 3200, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Tea/Coffee Maker'] },
+  { id: 'rgh-111', number: '111', name: '111 - Super Deluxe Room', type: 'Super Deluxe Room', floor: 1, baseRate: 3500, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Smart TV', 'Mini Bar'] },
+  { id: 'rgh-112', number: '112', name: '112 - Super Deluxe Room', type: 'Super Deluxe Room', floor: 1, baseRate: 3500, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Smart TV', 'Mini Bar'] },
+  { id: 'rgh-113', number: '113', name: '113 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 1, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] },
+  { id: 'rgh-114', number: '114', name: '114 - Royal Sea View Suite', type: 'Royal Sea View Suite', floor: 1, baseRate: 4800, status: 'clean', maxOccupancy: 4, amenities: ['Sea Breeze Terrace', 'AC', 'Bathtub', 'Smart TV', 'Fridge'] }
 ];
 
 const royalGuestHouseBookings: Booking[] = [
   {
     id: 'bk-rgh-1',
     bookingCode: 'RGH-5102',
-    roomId: 'rgh-201',
+    roomId: 'rgh-109',
     guest: {
       id: 'g-rgh-1',
       fullName: 'Amanpreet Singh',
@@ -442,7 +448,7 @@ const royalGuestHouseBookings: Booking[] = [
   {
     id: 'bk-rgh-2',
     bookingCode: 'MMT-RGH-890',
-    roomId: 'rgh-301',
+    roomId: 'rgh-113',
     guest: {
       id: 'g-rgh-2',
       fullName: 'Rohit & Sneha Kulkarni',
@@ -478,6 +484,91 @@ const royalGuestHouseBookings: Booking[] = [
     status: 'confirmed',
     specialRequests: 'Upper floor room with sea breeze',
     createdAt: '2026-09-25T11:00:00Z'
+  },
+  {
+    id: 'bk-rgh-3',
+    bookingCode: 'BDC-RGH-3301',
+    roomId: 'rgh-101',
+    guest: {
+      id: 'g-rgh-3',
+      fullName: 'Ananya Sen',
+      phone: '+91 98301 77219',
+      email: 'ananya.sen@gmail.com',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 1,
+      totalSpent: 7200,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '3819 4410 9021',
+        frontImageUrl: sampleAadhaarFront,
+        backImageUrl: sampleAadhaarBack,
+        isVerified: true,
+        uploadedAt: '2026-10-01T09:30:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-10-01',
+    checkOutDate: '2026-10-04',
+    nights: 3,
+    adults: 2,
+    children: 0,
+    channel: 'booking_com',
+    channelRefId: 'BDC-GOA-90182',
+    roomRatePerNight: 2400,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-rgh-3', amount: 7560, mode: 'card', reference: 'CC-AXIS-9921', date: '2026-10-01' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Ground floor room near reception',
+    createdAt: '2026-09-28T16:00:00Z'
+  },
+  {
+    id: 'bk-rgh-4',
+    bookingCode: 'RGH-WALK-104',
+    roomId: 'rgh-110',
+    guest: {
+      id: 'g-rgh-4',
+      fullName: 'Rahul & Priya Mehra',
+      phone: '+91 98199 82341',
+      email: 'rahul.mehra@outlook.com',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 3,
+      totalSpent: 18500,
+      idDocument: {
+        idType: 'passport',
+        idNumber: 'Z9182304',
+        frontImageUrl: samplePassportFront,
+        isVerified: true,
+        uploadedAt: '2026-09-30T15:00:00Z',
+        issuedBy: 'Passport Office Mumbai'
+      }
+    },
+    checkInDate: '2026-09-30',
+    checkOutDate: '2026-10-02',
+    nights: 2,
+    adults: 2,
+    children: 0,
+    channel: 'walkin',
+    channelRefId: 'WALK-GOA-202',
+    roomRatePerNight: 3200,
+    taxRatePercent: 5,
+    extraCharges: [
+      { id: 'ext-rgh-4', description: 'Early Check-in & Breakfast', amount: 800, date: '2026-09-30' }
+    ],
+    payments: [
+      { id: 'pm-rgh-4', amount: 7520, mode: 'upi', reference: 'UPI/GPAY/554901', date: '2026-09-30' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Quiet room with balcony',
+    createdAt: '2026-09-30T12:00:00Z'
   }
 ];
 
@@ -497,8 +588,8 @@ export const initialHotelDataMap: Record<string, HotelDataBundle> = {
     bookings: royalGuestHouseBookings,
     channels: initialOTAChannels.map(ch => ({
       ...ch,
-      mappedRoomsCount: 6,
-      totalRoomsCount: 8,
+      mappedRoomsCount: 12,
+      totalRoomsCount: 14,
       activeReservationsCount: 5
     })),
     roomMappings: initialRoomMappings,

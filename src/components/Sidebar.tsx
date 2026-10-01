@@ -22,7 +22,8 @@ import {
   Trash2,
   Lock,
   ChevronRight,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { Hotel, UserAccount, HotelProfile } from '../types';
 import { 
@@ -56,6 +57,7 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onOpenInstallModal?: () => void;
+  onRestoreHotelData?: (hotelId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -78,7 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenLogin,
   isMobileOpen = false,
   onCloseMobile,
-  onOpenInstallModal
+  onOpenInstallModal,
+  onRestoreHotelData
 }) => {
   const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
   const [hotelSearch, setHotelSearch] = useState('');
@@ -322,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="truncate">
                               <div className="font-bold text-xs truncate flex items-center gap-1">
                                 <span>{h.name}</span>
-                                {isRoyal && <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded font-normal">Goa</span>}
+                                {isRoyal && <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded font-normal">Goa • Rooms 101-114</span>}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate">{h.city}</div>
                             </div>
@@ -330,6 +333,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                           <div className="flex items-center gap-1 shrink-0 ml-1.5">
                             {isCurrent && <Check size={14} className="text-teal-400" />}
+                            {isRoyal && onRestoreHotelData && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsPropertyMenuOpen(false);
+                                  onRestoreHotelData(h.id);
+                                }}
+                                className="p-1 hover:text-amber-200 text-amber-400 rounded transition-colors text-[10px] flex items-center gap-0.5 bg-amber-950/60 hover:bg-amber-900/80 px-1.5 py-0.5 border border-amber-700/50"
+                                title="Restore Royal Guest House original Goa data (पुरानी डेटा रिस्टोर करें)"
+                              >
+                                <RefreshCw size={10} />
+                                <span>Restore</span>
+                              </button>
+                            )}
                             {isSuper && onRequestDeleteHotel && (
                               <button
                                 type="button"

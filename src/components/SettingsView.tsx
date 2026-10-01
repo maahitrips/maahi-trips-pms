@@ -46,7 +46,8 @@ import {
   X,
   Zap,
   SlidersHorizontal,
-  TrendingUp
+  TrendingUp,
+  RefreshCw
 } from 'lucide-react';
 import { defaultLastMinuteConfig, LastMinuteRuleStatus } from '../utils/pricingHelper';
 import { 
@@ -86,6 +87,7 @@ interface SettingsViewProps {
   onRejectDeleteRequest?: (reqId: string) => void;
   onShowToast?: (message: string, sub?: string) => void;
   isCloudConnected?: boolean;
+  onRestoreHotelData?: (hotelId: string) => void;
   // Dynamic Pricing & 7 AM Last-Minute Automation
   dynamicPricing?: DynamicPricingConfig;
   onUpdateDynamicPricing?: (newConfig: DynamicPricingConfig) => void;
@@ -117,6 +119,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRejectDeleteRequest,
   onShowToast,
   isCloudConnected = true,
+  onRestoreHotelData,
   dynamicPricing,
   onUpdateDynamicPricing,
   lastMinuteStatus,
@@ -989,6 +992,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </button>
                     )}
                   </div>
+
+                  {/* Dedicated Restore Original Preset Data Button */}
+                  {onRestoreHotelData && (
+                    <div className="pt-2 mt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => onRestoreHotelData(h.id)}
+                        className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                          h.id === 'hotel-royalguesthouse'
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-bold shadow-2xs'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                        title="Restore original preset data, rooms & bookings"
+                      >
+                        <RefreshCw size={12} className={h.id === 'hotel-royalguesthouse' ? 'text-amber-700' : 'text-slate-500'} />
+                        <span>
+                          {h.id === 'hotel-royalguesthouse' 
+                            ? '🔄 Restore Rooms 101-114 Data (कमरे 101 से 114 रिस्टोर)' 
+                            : `🔄 Restore Default Data for ${h.name}`}
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

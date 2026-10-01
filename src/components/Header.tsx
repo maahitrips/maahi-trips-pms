@@ -48,6 +48,7 @@ interface HeaderProps {
   hotels: Hotel[];
   activeHotelId: string;
   onSelectHotel: (hotelId: string) => void;
+  onRestoreHotelData?: (hotelId: string) => void;
   onOpenAddHotel: () => void;
   onRequestDeleteHotel?: (hotel: Hotel) => void;
   onNavigateToSettingsHotels?: () => void;
@@ -75,6 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
   hotels,
   activeHotelId,
   onSelectHotel,
+  onRestoreHotelData,
   onOpenAddHotel,
   onRequestDeleteHotel,
   onNavigateToSettingsHotels,
@@ -89,7 +91,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInstallModal
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const propertyMenuRef = useRef<HTMLDivElement>(null);
 
   const isSuper = isSuperAdminUser(currentUser);
   const isOwner = isPropertyOwnerUser(currentUser);
@@ -97,12 +101,16 @@ export const Header: React.FC<HeaderProps> = ({
   const propertyAddCheck = canUserAddProperty(currentUser, hotels);
   const accessibleHotels = getAccessibleHotels(currentUser, hotels);
   const activeHotel = hotels.find(h => h.id === activeHotelId);
+  const isRoyalActive = activeHotelId === 'hotel-royalguesthouse';
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (propertyMenuRef.current && !propertyMenuRef.current.contains(e.target as Node)) {
+        setIsPropertyMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -114,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
       id="pms-header"
       className="h-14 sm:h-16 bg-white border-b border-slate-200 px-2.5 sm:px-4 md:px-6 flex items-center justify-between gap-2 sm:gap-3 shadow-xs sticky top-0 z-20"
     >
-      {/* Left side: Mobile Hamburger + Clean Property Tag & New Booking Button */}
+      {/* Left side: Mobile Hamburger + Property Switcher + New Booking Button */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
         {/* Mobile Hamburger Drawer Trigger */}
         {onOpenMobileMenu && (
@@ -129,20 +137,155 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Current Active Property Badge (Clean, Sleek & Compact) */}
-        <div 
-          onClick={onOpenMobileMenu}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs shrink-0 cursor-pointer md:cursor-default"
-          title={`Active Property: ${hotelProfile?.name || activeHotel?.name || propertyName} (Managed in Left Sidebar)`}
-        >
-          <Building2 size={13} className="text-teal-700 shrink-0" />
-          <span className="truncate max-w-[120px] sm:max-w-[170px] font-bold text-slate-900">
-            {hotelProfile?.name || activeHotel?.name || propertyName}
-          </span>
-          <span className="text-[9px] text-slate-500 font-medium hidden sm:inline">
-            • {activeHotel?.city || 'Goa'}
-          </span>
+        {/* Current Active Property Badge with Interactive Dropdown */}
+        <div className="relative" ref={propertyMenuRef}>
+          <button 
+            type="button"
+            onClick={() => setIsPropertyMenuOpen(prev => !prev)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 text-slate-800 shadow-2xs shrink-0 cursor-pointer transition-colors"
+            title="Click to Switch Hotel Property or Restore Data"
+          >
+            <Building2 size={13} className="text-teal-700 shrink-0" />
+            <span className="truncate max-w-[120px] sm:max-w-[180px] font-bold text-slate-900">
+              {hotelProfile?.name || activeHotel?.name || propertyName}
+            </span>
+            <span className="text-[9px] text-slate-500 font-medium hidden sm:inline">
+              • {activeHotel?.city || 'Calangute, Goa'}
+            </span>
+            <ChevronDown size={12} className={`text-slate-500 transition-transform ${isPropertyMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Interactive Property Switcher Dropdown */}
+          {isPropertyMenuOpen && (
+            <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Switch Hotel Property ({accessibleHotels.length})
+                </span>
+                {onNavigateToSettingsHotels && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPropertyMenuOpen(false);
+                      onNavigateToSettingsHotels();
+                    }}
+                    className="text-[10px] text-teal-700 hover:text-teal-900 font-bold"
+                  >
+                    Manage &rarr;
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-64 overflow-y-auto py-1 scrollbar-thin">
+                {accessibleHotels.map(h => {
+                  const isCurrent = h.id === activeHotelId;
+                  const isRoyal = h.id === 'hotel-royalguesthouse' || h.name.toLowerCase().includes('royal') || h.code === 'RGH';
+
+                  return (
+                    <div
+                      key={h.id}
+                      onClick={() => {
+                        onSelectHotel(h.id);
+                        setIsPropertyMenuOpen(false);
+                      }}
+                      className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                        isCurrent
+                          ? 'bg-teal-50 text-teal-950 font-bold border-l-4 border-teal-600'
+                          : isRoyal
+                          ? 'bg-amber-50/60 hover:bg-amber-100/70 text-slate-900 border-l-4 border-amber-500'
+                          : 'hover:bg-slate-50 text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                          isCurrent
+                            ? 'bg-teal-700 text-white'
+                            : isRoyal
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {h.code || 'HTL'}
+                        </span>
+                        <div className="truncate">
+                          <div className="text-xs font-bold truncate flex items-center gap-1">
+                            <span>{h.name}</span>
+                            {isRoyal && (
+                              <span className="text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-semibold">
+                                Goa • Rooms 101-114
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">{h.city || 'India'}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                        {isCurrent && <Check size={14} className="text-teal-600 shrink-0" />}
+                        {isRoyal && onRestoreHotelData && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsPropertyMenuOpen(false);
+                              onRestoreHotelData(h.id);
+                            }}
+                            className="p-1 hover:bg-amber-200 text-amber-800 rounded transition-colors text-[10px] font-bold flex items-center gap-0.5"
+                            title="Restore Royal Guest House original Goa data"
+                          >
+                            <RefreshCw size={11} />
+                            <span className="hidden sm:inline">Restore</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {onOpenAddHotel && !isStaff && (
+                <div className="p-2 border-t border-slate-100 bg-slate-50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPropertyMenuOpen(false);
+                      onOpenAddHotel();
+                    }}
+                    className="w-full py-1.5 px-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                    <span>+ Add New Hotel Property</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* 🏖️ Quick Switch to Royal Guest House (Goa) Shortcut Button */}
+        {!isRoyalActive && (
+          <button
+            type="button"
+            onClick={() => onSelectHotel('hotel-royalguesthouse')}
+            className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-950 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
+            title="1-Click Switch to Royal Guest House (Calangute, Goa)"
+          >
+            <span>🏖️ Royal Guest House</span>
+            <span className="text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-black">Goa</span>
+          </button>
+        )}
+
+        {/* 🔄 Restore Royal Guest House Data Button (When Royal Guest House is active) */}
+        {isRoyalActive && onRestoreHotelData && (
+          <button
+            type="button"
+            onClick={() => onRestoreHotelData('hotel-royalguesthouse')}
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
+            title="Purana data restore karein (8 Rooms, Bookings & Goa Profile)"
+          >
+            <RefreshCw size={12} className="text-amber-700 animate-spin-hover" />
+            <span>Restore Old Data</span>
+          </button>
+        )}
 
         {/* Primary "+ New Booking" button */}
         <button

@@ -224,14 +224,37 @@ const getInitialHotelsWithRecovery = (): Hotel[] => {
     console.warn('Bundle scan error:', err);
   }
 
-  // 5. Ensure core hotels like Royal Guest House are always present
-  if (!hotelsMap.has('hotel-royalguesthouse')) {
-    const rgh = initialHotels.find(h => h.id === 'hotel-royalguesthouse');
-    if (rgh) hotelsMap.set('hotel-royalguesthouse', { ...rgh });
+  // 5. Ensure core hotels like Royal Guest House are always present and accurate
+  const rgh = initialHotels.find(h => h.id === 'hotel-royalguesthouse');
+  if (rgh) {
+    const existingRgh = hotelsMap.get('hotel-royalguesthouse');
+    if (!existingRgh || existingRgh.name === 'Big House Inn' || !existingRgh.name) {
+      hotelsMap.set('hotel-royalguesthouse', { ...rgh });
+    } else {
+      hotelsMap.set('hotel-royalguesthouse', {
+        ...rgh,
+        ...existingRgh,
+        name: 'Royal Guest House',
+        code: 'RGH',
+        city: 'Calangute, Goa',
+        state: 'Goa',
+        address: existingRgh.address || 'Near Calangute Beach Circle, Tito Lane'
+      });
+    }
   }
 
   // 6. Clean up any invalid or corrupted hotel entries where id !== 'hotel-bighouse' but name was overwritten with 'Big House Inn'
   const finalHotels = Array.from(hotelsMap.values()).map(h => {
+    if (h.id === 'hotel-royalguesthouse') {
+      return {
+        ...h,
+        name: 'Royal Guest House',
+        code: 'RGH',
+        city: 'Calangute, Goa',
+        state: 'Goa',
+        address: h.address || 'Near Calangute Beach Circle, Tito Lane'
+      };
+    }
     if (h.id !== 'hotel-bighouse' && (h.name === 'Big House Inn' || !h.name || h.name.trim() === '')) {
       const prettyName = h.code 
         ? `Hotel ${h.code}` 
@@ -251,8 +274,17 @@ const getInitialHotelsWithRecovery = (): Hotel[] => {
   return finalHotels;
 };
 
-// Helper to load hotel data bundle with legacy data preservation and safe name retention
-const loadHotelBundle = (hotelId: string, knownHotelsList?: Hotel[]): HotelDataBundle => {
+// Helper to load hotel data bundle with legacy data preservation, wrong data auto-healing, and safe name retention
+const loadHotelBundle = (hotelId: string, knownHotelsList?: Hotel[], forceRestore = false): HotelDataBundle => {
+  // If forceRestore requested, immediately clone pristine bundle from defaults
+  if (forceRestore && initialHotelBundles[hotelId]) {
+    const pristine = JSON.parse(JSON.stringify(initialHotelBundles[hotelId]));
+    try {
+      localStorage.setItem(getHotelBundleKey(hotelId), JSON.stringify(pristine));
+    } catch {}
+    return pristine;
+  }
+
   const saved = localStorage.getItem(getHotelBundleKey(hotelId));
   const knownHotels = knownHotelsList && knownHotelsList.length > 0 ? knownHotelsList : initialHotels;
   const currentHotel = knownHotels.find(h => h.id === hotelId);
@@ -273,6 +305,40 @@ const loadHotelBundle = (hotelId: string, knownHotelsList?: Hotel[]): HotelDataB
         };
       } else if (!migrated.dynamicPricing.lastMinuteAutomation) {
         migrated.dynamicPricing.lastMinuteAutomation = defaultLastMinuteConfig;
+      }
+
+      // Auto-heal Royal Guest House if it has wrong data (must have all 14 rooms: 101 to 114)
+      if (hotelId === 'hotel-royalguesthouse') {
+        const hasAllRooms101to114 = Array.isArray(migrated.rooms) &&
+          migrated.rooms.length === 14 &&
+          migrated.rooms.every((r: any) => {
+            const num = parseInt(r.number, 10);
+            return !isNaN(num) && num >= 101 && num <= 114;
+          });
+
+        const hasWrongRooms = !hasAllRooms101to114 || migrated.rooms.some((r: any) => 
+          (r.id && r.id.startsWith('rm-')) || 
+          (r.name && r.name.toLowerCase().includes('jambo')) ||
+          (r.id && r.id.startsWith('hotel-royalguesthouse-')) ||
+          r.number === '201' || r.number === '202' || r.number === '203' || r.number === '301' || r.number === '302'
+        );
+        const hasWrongProfile = migrated.profile && (
+          migrated.profile.name === 'Big House Inn' || 
+          (migrated.profile.city || '').toLowerCase().includes('udaipur')
+        );
+        const hasWrongBookings = !migrated.bookings || migrated.bookings.length === 0 || migrated.bookings.some((b: any) => 
+          (b.bookingCode && b.bookingCode.startsWith('BHI-')) ||
+          (b.guest && b.guest.fullName && b.guest.fullName.toLowerCase().includes('nizamuddin'))
+        );
+
+        if (hasWrongRooms || hasWrongProfile || hasWrongBookings) {
+          console.log('Restoring authentic Royal Guest House data bundle with 14 rooms (101-114)...');
+          const originalBundle = JSON.parse(JSON.stringify(initialHotelBundles['hotel-royalguesthouse']));
+          try {
+            localStorage.setItem(getHotelBundleKey('hotel-royalguesthouse'), JSON.stringify(originalBundle));
+          } catch {}
+          return originalBundle;
+        }
       }
 
       // If bundle profile is missing or got corrupted to Big House Inn for a non-Big House Inn property, restore it!
@@ -431,8 +497,8 @@ export default function App() {
           phone: '+91 96481 33671',
           name: u.name || 'Sadik',
           role: 'hotel_owner',
-          hotelId: u.hotelId || 'hotel-bighouse',
-          hotelName: u.hotelName || 'Big House Inn (Udaipur)'
+          hotelId: 'hotel-royalguesthouse',
+          hotelName: 'Royal Guest House (Calangute, Goa)'
         };
       }
       return u;
@@ -474,9 +540,12 @@ export default function App() {
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_HOTEL_ID);
-    if (saved) return saved;
-    const initialUser = initialUsers[0];
-    return (initialUser && initialUser.hotelId && initialUser.hotelId !== 'all') ? initialUser.hotelId : 'hotel-bighouse';
+    // Prioritize Royal Guest House if not previously saved or if defaulted to Big House Inn
+    if (saved && saved !== 'hotel-bighouse') return saved;
+    try {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-royalguesthouse');
+    } catch {}
+    return 'hotel-royalguesthouse';
   });
 
   // Current Hotel Data State (isolated per hotel)
@@ -977,6 +1046,66 @@ export default function App() {
     const targetHotel = hotels.find(h => h.id === newHotelId);
     showToast(`Switched to ${targetHotel?.name || 'Hotel'}`, `${nextBundle.rooms.length} Rooms • ${nextBundle.bookings.length} Bookings loaded`);
   };
+
+  // Restore Original / Historical Hotel Data (e.g. Royal Guest House Goa beach data)
+  const handleRestoreHotelData = (hotelId: string) => {
+    if (!initialHotelBundles[hotelId]) {
+      showToast('No original backup found', 'This property has no default template to restore.');
+      return;
+    }
+
+    const pristineBundle: HotelDataBundle = JSON.parse(JSON.stringify(initialHotelBundles[hotelId]));
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem(getHotelBundleKey(hotelId), JSON.stringify(pristineBundle));
+    } catch (e) {
+      console.error('Storage error', e);
+    }
+
+    // Save to Cloud
+    saveHotelBundleToCloud(hotelId, pristineBundle, false);
+
+    // If currently active, immediately update active state
+    if (hotelId === activeHotelId) {
+      setHotelProfile(pristineBundle.profile);
+      setRooms(pristineBundle.rooms);
+      setBookings(pristineBundle.bookings);
+      setChannels(pristineBundle.channels);
+      setRoomMappings(pristineBundle.roomMappings);
+      setSyncLogs(pristineBundle.syncLogs);
+      if (pristineBundle.dynamicPricing) {
+        setDynamicPricing(pristineBundle.dynamicPricing);
+      }
+    } else {
+      // Switch to this hotel automatically so user immediately sees the restored data!
+      handleSelectHotel(hotelId);
+    }
+
+    const hotelName = pristineBundle.profile?.name || (hotelId === 'hotel-royalguesthouse' ? 'Royal Guest House' : 'Property');
+    showToast(
+      `✅ ${hotelName} Data Restore Ho Gaya!`,
+      `${pristineBundle.rooms.length} Rooms (101-114) • ${pristineBundle.bookings.length} Bookings • Goa Address & Profile Restored`
+    );
+  };
+
+  // Ensure Royal Guest House room list is synced to 101-114 if currently active
+  useEffect(() => {
+    if (activeHotelId === 'hotel-royalguesthouse') {
+      const hasOldRooms = rooms.some(r => r.number === '201' || r.number === '301' || parseInt(r.number, 10) > 114) || rooms.length !== 14;
+      if (hasOldRooms) {
+        const rghBundle = initialHotelBundles['hotel-royalguesthouse'];
+        if (rghBundle) {
+          setRooms(rghBundle.rooms);
+          setBookings(rghBundle.bookings);
+          try {
+            localStorage.setItem(getHotelBundleKey('hotel-royalguesthouse'), JSON.stringify(rghBundle));
+          } catch {}
+          saveHotelBundleToCloud('hotel-royalguesthouse', rghBundle, false);
+        }
+      }
+    }
+  }, [activeHotelId, rooms]);
 
   // User Login Action
   const handleLogin = (user: UserAccount) => {
@@ -1968,6 +2097,7 @@ export default function App() {
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        onRestoreHotelData={handleRestoreHotelData}
       />
 
       {/* Main Workspace Area */}
@@ -1991,6 +2121,7 @@ export default function App() {
           hotels={hotels}
           activeHotelId={activeHotelId}
           onSelectHotel={handleSelectHotel}
+          onRestoreHotelData={handleRestoreHotelData}
           onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
           onRequestDeleteHotel={handleRequestDeleteHotel}
           onNavigateToSettingsHotels={() => {
@@ -2200,6 +2331,7 @@ export default function App() {
               hotels={hotels}
               activeHotelId={activeHotelId}
               onSelectHotel={handleSelectHotel}
+              onRestoreHotelData={handleRestoreHotelData}
               onOpenAddHotel={() => setIsAddHotelModalOpen(true)}
               initialSubTab={settingsInitialSubTab}
               currentUser={currentUser}
