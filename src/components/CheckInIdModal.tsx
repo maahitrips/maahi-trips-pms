@@ -239,6 +239,9 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
       reader.onload = (uploadEvent) => {
         const result = uploadEvent.target?.result as string;
         updateDocField(docIdx, side === 'front' ? 'frontImageUrl' : 'backImageUrl', result);
+        if (side === 'front' && (!documents[docIdx]?.documentTitle || documents[docIdx]?.documentTitle?.startsWith('Doc #'))) {
+          updateDocField(docIdx, 'documentTitle', file.name.replace(/\.[^/.]+$/, ""));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -304,6 +307,7 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
     updateDocField(0, 'idNumber', 'Z9182304');
     updateDocField(0, 'expiryDate', '2031-09-18');
     updateDocField(0, 'frontImageUrl', samplePassportFront);
+    updateDocField(0, 'backImageUrl', undefined);
     updateDocField(0, 'isVerified', true);
     updateDocField(0, 'documentTitle', 'Primary Guest Passport');
     updateDocField(0, 'notes', 'Original Indian Passport physical copy verified at front desk counter');
@@ -485,7 +489,7 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
             <div className="bg-slate-900 rounded-xl p-4 text-white space-y-3 shadow-lg">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-teal-400 flex items-center gap-1.5">
-                  <Camera size={15} /> Live Front Desk Camera — Capturing {cameraTarget.toUpperCase()} of Document #{capturingDocIdx + 1}
+                  <Camera size={15} /> Live Front Desk Camera — Capturing Document #{capturingDocIdx + 1}
                 </span>
                 <button
                   type="button"
@@ -710,7 +714,7 @@ export const CheckInIdModal: React.FC<CheckInIdModalProps> = ({
                     {/* Back Side */}
                     <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                        <span>Back Side Photo (Optional)</span>
+                        <span>Back Side Photo</span>
                         {doc.backImageUrl && (
                           <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                             <Check size={11} /> Attached

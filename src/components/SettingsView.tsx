@@ -999,18 +999,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onRestoreHotelData(h.id)}
-                        className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                          h.id === 'hotel-royalguesthouse'
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-bold shadow-2xs'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}
+                        className="w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200"
                         title="Restore original preset data, rooms & bookings"
                       >
-                        <RefreshCw size={12} className={h.id === 'hotel-royalguesthouse' ? 'text-amber-700' : 'text-slate-500'} />
+                        <RefreshCw size={12} className="text-slate-500" />
                         <span>
-                          {h.id === 'hotel-royalguesthouse' 
-                            ? '🔄 Restore Rooms 101-114 Data (कमरे 101 से 114 रिस्टोर)' 
-                            : `🔄 Restore Default Data for ${h.name}`}
+                          {`🔄 Restore Default Data for ${h.name}`}
                         </span>
                       </button>
                     </div>

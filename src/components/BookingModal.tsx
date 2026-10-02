@@ -5,7 +5,8 @@ import {
   BookingChannel, 
   IdType, 
   IdDocument, 
-  Guest 
+  Guest, 
+  ID_TYPE_OPTIONS 
 } from '../types';
 import { sampleAadhaarFront, sampleAadhaarBack, samplePassportFront } from '../data/initialData';
 import { getTodayDateStr, addDaysToStr } from '../utils/dateHelper';
@@ -23,29 +24,33 @@ import {
   Phone, 
   Mail, 
   MapPin, 
-  Eye, 
-  Sparkles,
-  RefreshCw,
+  Check, 
+  Clock, 
+  Building, 
+  ArrowRight, 
+  ArrowLeft,
   Search,
-  Lock,
-  Check,
-  AlertTriangle,
-  Bed,
-  ArrowRight,
-  Clock,
-  Building,
-  Tag,
-  Percent,
-  BadgePercent,
-  Zap,
-  FileText,
   Plus,
-  Files,
-  Paperclip
+  Zap,
+  Tag,
+  Eye,
+  FileText,
+  BedDouble,
+  Users,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 export interface BookingDocItem extends IdDocument {
   id: string;
+}
+
+export interface RoomAllocation {
+  roomId: string;
+  guestName: string;
+  adults: number;
+  children: number;
+  ratePerNight: number;
 }
 
 interface BookingModalProps {
@@ -60,7 +65,24 @@ interface BookingModalProps {
   existingBooking?: Booking | null;
   isLastMinuteFlashActive?: boolean;
   lastMinuteDiscountPercent?: number;
+  hotelName?: string;
+  initialBookingMode?: 'single' | 'multi';
 }
+
+const formatDisplayDate = (dStr: string) => {
+  if (!dStr) return '';
+  try {
+    const parts = dStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parts[2].padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${day} ${months[monthIdx] || parts[1]} ${year}`;
+    }
+  } catch {}
+  return dStr;
+};
 
 export const BookingModal: React.FC<BookingModalProps> = ({
   isOpen,
@@ -73,10 +95,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onSaveBooking,
   existingBooking,
   isLastMinuteFlashActive = false,
-  lastMinuteDiscountPercent = 15
+  lastMinuteDiscountPercent = 15,
+  hotelName = 'Big House Inn',
+  initialBookingMode = 'single'
 }) => {
-  // Active step tab: 'stay' | 'guest_id' | 'billing'
-  const [activeTab, setActiveTab] = useState<'stay' | 'guest_id' | 'billing'>('stay');
+  // Stepper State: 1 = Dates, 2 = Rooms, 3 = Booking Details
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(() => {
+    if (existingBooking) return 3;
+    if (initialRoomId && initialDate) return 2;
+    return 1;
+  });
+
+  // Booking Mode: single vs multi
+  const [bookingMode, setBookingMode] = useState<'single' | 'multi'>(() => {
+    if (existingBooking?.groupId || ((existingBooking?.groupTotalRooms ?? 0) > 1)) {
+      return 'multi';
+    }
+    return initialBookingMode || 'single';
+  });
 
   // Stay & Date Range info
   const [checkInDate, setCheckInDate] = useState<string>(
@@ -88,10 +124,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return addDaysToStr(initialDate || getTodayDateStr(), 1);
   });
 
-  // Room search state
-  const [selectedRoomTypeFilter, setSelectedRoomTypeFilter] = useState<string>('all');
-  const [availabilitySearchCount, setAvailabilitySearchCount] = useState<number>(0);
-  const [searchNotification, setSearchNotification] = useState<string>('');
+  // Calculate nights
+  const computeNights = () => {
+    if (!checkInDate || !checkOutDate) return 1;
+    const start = new Date(checkInDate).getTime();
+    const end = new Date(checkOutDate).getTime();
+    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return (!isNaN(diff) && diff > 0) ? diff : 1;
+  };
+  const nights = computeNights();
 
   // Helper to check availability for any room over the selected date range
   const checkRoomAvailability = (targetRoomId: string, inDate: string, outDate: string) => {
@@ -102,7 +143,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       if (b.status === 'cancelled') return false;
       if (existingBooking && b.id === existingBooking.id) return false;
       if (b.roomId !== targetRoomId) return false;
-      // Standard overlap check: inDate < checkOutDate && outDate > checkInDate
       return inDate < b.checkOutDate && outDate > b.checkInDate;
     });
 
@@ -128,33 +168,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return roomAvailabilityList.filter(item => item.isAvailable).map(item => item.room);
   }, [roomAvailabilityList]);
 
-  const occupiedRooms = useMemo(() => {
-    return roomAvailabilityList.filter(item => !item.isAvailable);
-  }, [roomAvailabilityList]);
-
-  // Booking Selection Mode: 'single' (1 Room) or 'multi' (Multiple Rooms under 1 Guest Name)
-  const [bookingMode, setBookingMode] = useState<'single' | 'multi'>(() => {
-    if (existingBooking?.groupId || ((existingBooking?.groupTotalRooms ?? 0) > 1)) {
-      return 'multi';
-    }
-    return 'single';
-  });
-
-  // Selected Room IDs (array of strings supporting multi-room allocation)
+  // Selected Room IDs (array supporting single or multi-room)
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
     if (existingBooking?.roomId) return [existingBooking.roomId];
     if (initialRoomId) return [initialRoomId];
-    // Otherwise pick first available room if one exists
-    const firstFree = rooms.find(r => {
-      const st = checkRoomAvailability(r.id, checkInDate, checkOutDate);
-      return st.isAvailable;
-    });
+    const firstFree = rooms.find(r => checkRoomAvailability(r.id, checkInDate, checkOutDate).isAvailable);
     return firstFree ? [firstFree.id] : (rooms[0] ? [rooms[0].id] : []);
   });
 
-  // Check if today's 7 AM Flash Rate is applicable to this new booking
-  const todayStr = useMemo(() => getTodayDateStr(), []);
-  const isFlashApplicable = isLastMinuteFlashActive && checkInDate === todayStr && !existingBooking;
+  // Selected room object (primary)
+  const primaryRoomId = selectedRoomIds[0] || '';
+  const selectedRoom = rooms.find(r => r.id === primaryRoomId);
 
   // Custom rate per room (roomId -> nightly rate)
   const [roomRates, setRoomRates] = useState<Record<string, number>>(() => {
@@ -174,377 +198,317 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (existingBooking?.roomId && existingBooking?.roomRatePerNight) {
       map[existingBooking.roomId] = existingBooking.roomRatePerNight;
     }
-    if (existingBooking?.groupId && bookings) {
-      bookings
-        .filter(b => b.groupId === existingBooking.groupId)
-        .forEach(b => {
-          map[b.roomId] = b.roomRatePerNight;
-        });
-    }
     return map;
   });
 
-  // When checkInDate or rooms change, auto-apply custom daily rates (or flash discount) to non-existing bookings
-  useEffect(() => {
-    if (!existingBooking) {
-      setRoomRates(prev => {
-        const next = { ...prev };
-        rooms.forEach(r => {
-          if (r.customRates && r.customRates[checkInDate] !== undefined && r.customRates[checkInDate] > 0) {
-            next[r.id] = r.customRates[checkInDate];
-          } else if (isLastMinuteFlashActive && checkInDate === todayStr) {
-            next[r.id] = Math.round(r.baseRate * (1 - (lastMinuteDiscountPercent || 15) / 100));
-          } else {
-            next[r.id] = r.baseRate;
-          }
-        });
-        return next;
-      });
-    }
-  }, [checkInDate, isLastMinuteFlashActive, todayStr, rooms, existingBooking]);
-
-  // Primary room helper for backward-compatibility
-  const roomId = selectedRoomIds[0] || '';
-  const selectedRoom = rooms.find(r => r.id === roomId);
-
-  // Check if any of the chosen rooms are blocked
-  const selectedRoomsStatus = useMemo(() => {
-    if (selectedRoomIds.length === 0) return { isAvailable: false, conflicts: [] };
-    const conflicts = selectedRoomIds
-      .map(id => ({ id, status: checkRoomAvailability(id, checkInDate, checkOutDate) }))
-      .filter(item => !item.status.isAvailable);
-
-    return {
-      isAvailable: conflicts.length === 0,
-      conflicts
-    };
-  }, [selectedRoomIds, checkInDate, checkOutDate, bookings, existingBooking]);
-
-  const isCurrentRoomBlocked = !selectedRoomsStatus.isAvailable;
-  const currentRoomConflict = selectedRoomsStatus.conflicts[0]?.status.conflict || null;
-
-  const [adults, setAdults] = useState<number>(existingBooking?.adults || 2);
-  const [children, setChildren] = useState<number>(existingBooking?.children || 0);
-  const [channel, setChannel] = useState<BookingChannel>(existingBooking?.channel || 'walkin');
-  const [channelRefId, setChannelRefId] = useState<string>(existingBooking?.channelRefId || '');
-  const [specialRequests, setSpecialRequests] = useState<string>(existingBooking?.specialRequests || '');
-
-  // Calculate sum of room rates for all selected rooms
-  const totalRoomRatePerNight = useMemo(() => {
-    if (selectedRoomIds.length === 0) return 0;
-    return selectedRoomIds.reduce((sum, rId) => {
-      const rm = rooms.find(r => r.id === rId);
-      const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
-      return sum + rate;
-    }, 0);
-  }, [selectedRoomIds, roomRates, rooms]);
-
-  const roomRate = totalRoomRatePerNight;
-
-  // Quick duration presets (1N, 2N, 3N, 5N, 7N)
-  const handleQuickDuration = (days: number) => {
-    const d = new Date(checkInDate);
-    d.setDate(d.getDate() + days);
-    const newOutDate = d.toISOString().split('T')[0];
-    setCheckOutDate(newOutDate);
-    setSearchNotification(`Updated stay to ${days} night${days > 1 ? 's' : ''}`);
-    setTimeout(() => setSearchNotification(''), 2500);
-  };
-
-  // Action to toggle room in selection or set as single room
-  const handleSelectAndBlockRoom = (targetRoomId: string) => {
-    const status = checkRoomAvailability(targetRoomId, checkInDate, checkOutDate);
-    if (!status.isAvailable) {
-      alert(`Cannot select this room: Room is already booked by ${status.conflict?.guest.fullName || 'another guest'}.`);
-      return;
-    }
-
-    if (bookingMode === 'single') {
-      setSelectedRoomIds([targetRoomId]);
-      const rm = rooms.find(r => r.id === targetRoomId);
-      if (rm) {
-        setSearchNotification(`✓ Room ${rm.name} (${rm.type}) selected & blocked!`);
-        setTimeout(() => setSearchNotification(''), 3000);
-      }
-    } else {
-      setSelectedRoomIds(prev => {
-        if (prev.includes(targetRoomId)) {
-          if (prev.length <= 1) {
-            alert('At least 1 room must remain selected for this guest booking.');
-            return prev;
-          }
-          const filtered = prev.filter(id => id !== targetRoomId);
-          setSearchNotification(`Room deselected. ${filtered.length} room(s) currently selected.`);
-          setTimeout(() => setSearchNotification(''), 2500);
-          return filtered;
-        } else {
-          const updated = [...prev, targetRoomId];
-          const rm = rooms.find(r => r.id === targetRoomId);
-          setSearchNotification(`✓ Room ${rm?.name || targetRoomId} added! Total: ${updated.length} rooms under this guest.`);
-          setTimeout(() => setSearchNotification(''), 3000);
-          return updated;
-        }
-      });
-    }
-  };
-
-  // Remove room from selection
-  const handleRemoveRoomFromSelection = (targetRoomId: string) => {
-    if (selectedRoomIds.length <= 1) {
-      alert('At least 1 room must remain selected.');
-      return;
-    }
-    setSelectedRoomIds(prev => prev.filter(id => id !== targetRoomId));
-  };
-
-  // Update specific room rate
-  const handleUpdateSpecificRoomRate = (targetRoomId: string, newRate: number) => {
-    setRoomRates(prev => ({
-      ...prev,
-      [targetRoomId]: Math.max(0, newRate)
-    }));
-  };
-
-  // Auto pick first available room if conflict occurs
-  const handleAutoSelectAvailableRoom = () => {
-    if (availableRooms.length > 0) {
-      handleSelectAndBlockRoom(availableRooms[0].id);
-    }
-  };
-
-  // Explicit Search Available Rooms trigger
-  const handleTriggerSearch = () => {
-    setAvailabilitySearchCount(prev => prev + 1);
-    setSearchNotification(
-      `Search Complete: ${availableRooms.length} room${availableRooms.length === 1 ? '' : 's'} available for ${nights} night${nights > 1 ? 's' : ''}!`
-    );
-    setTimeout(() => setSearchNotification(''), 3000);
-  };
-
-  // Guest Details
+  // Guest Details State
   const [fullName, setFullName] = useState<string>(existingBooking?.guest?.fullName || '');
   const [phone, setPhone] = useState<string>(existingBooking?.guest?.phone || '');
   const [email, setEmail] = useState<string>(existingBooking?.guest?.email || '');
-  const [address, setAddress] = useState<string>(existingBooking?.guest?.address || '');
-  const [city, setCity] = useState<string>(existingBooking?.guest?.city || '');
-  const [state, setState] = useState<string>(existingBooking?.guest?.state || '');
-  const [nationality, setNationality] = useState<string>(existingBooking?.guest?.nationality || 'Indian');
-  const [purposeOfVisit, setPurposeOfVisit] = useState<string>(existingBooking?.guest?.purposeOfVisit || 'Tourism & Leisure');
-  const [vehicleNumber, setVehicleNumber] = useState<string>(existingBooking?.guest?.vehicleNumber || '');
-  const [emergencyContact, setEmergencyContact] = useState<string>(existingBooking?.guest?.emergencyContact || '');
+  const [arrivingFrom, setArrivingFrom] = useState<string>(existingBooking?.guest?.arrivingFrom || '');
+  const [departingTo, setDepartingTo] = useState<string>(existingBooking?.guest?.departingTo || '');
+  const [remarks, setRemarks] = useState<string>(existingBooking?.specialRequests || '');
 
-  // ID Proof Details (Hotel Workflow: ID is submitted during check-in or upfront)
-  const [idSubmissionPolicy, setIdSubmissionPolicy] = useState<'at_checkin' | 'submit_now'>(
-    existingBooking?.guest?.idDocument?.isVerified ? 'submit_now' : 'at_checkin'
+  // Room Allocations for Multi-Room (occupant name, adults, kids, rate per room)
+  const [roomAllocations, setRoomAllocations] = useState<Record<string, RoomAllocation>>(() => {
+    const init: Record<string, RoomAllocation> = {};
+    rooms.forEach(r => {
+      init[r.id] = {
+        roomId: r.id,
+        guestName: existingBooking?.guest?.fullName || '',
+        adults: 2,
+        children: 0,
+        ratePerNight: roomRates[r.id] || r.baseRate || 3500
+      };
+    });
+    return init;
+  });
+
+  // Ensure allocations exist for any newly added room
+  useEffect(() => {
+    setRoomAllocations(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      selectedRoomIds.forEach((rId, idx) => {
+        if (!updated[rId]) {
+          const rm = rooms.find(r => r.id === rId);
+          updated[rId] = {
+            roomId: rId,
+            guestName: idx === 0 ? fullName : '',
+            adults: 2,
+            children: 0,
+            ratePerNight: roomRates[rId] || rm?.baseRate || 3500
+          };
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+  }, [selectedRoomIds, rooms, roomRates, fullName]);
+
+  const updateRoomAllocation = (rId: string, field: keyof RoomAllocation, val: any) => {
+    setRoomAllocations(prev => ({
+      ...prev,
+      [rId]: {
+        ...(prev[rId] || { roomId: rId, guestName: '', adults: 2, children: 0, ratePerNight: 3500 }),
+        [field]: val
+      }
+    }));
+  };
+
+  // Total room rate per night (computed from allocations)
+  const totalRoomRatePerNight = useMemo(() => {
+    if (selectedRoomIds.length === 0) return 0;
+    return selectedRoomIds.reduce((sum, rId) => {
+      const rate = roomAllocations[rId]?.ratePerNight !== undefined 
+        ? roomAllocations[rId].ratePerNight 
+        : (roomRates[rId] || 3500);
+      return sum + rate;
+    }, 0);
+  }, [selectedRoomIds, roomAllocations, roomRates]);
+
+  const subtotal = nights * totalRoomRatePerNight;
+
+  // Room Type Filter
+  const [selectedRoomTypeFilter, setSelectedRoomTypeFilter] = useState<string>('all');
+  const roomTypes = useMemo(() => {
+    const set = new Set<string>();
+    rooms.forEach(r => set.add(r.type));
+    return ['all', ...Array.from(set)];
+  }, [rooms]);
+
+  // Overall Occupancy Summary
+  const totalAdults = useMemo(() => {
+    if (bookingMode === 'single') return 2;
+    return selectedRoomIds.reduce((sum, rId) => sum + (roomAllocations[rId]?.adults || 2), 0);
+  }, [selectedRoomIds, roomAllocations, bookingMode]);
+
+  const totalChildren = useMemo(() => {
+    if (bookingMode === 'single') return 0;
+    return selectedRoomIds.reduce((sum, rId) => sum + (roomAllocations[rId]?.children || 0), 0);
+  }, [selectedRoomIds, roomAllocations, bookingMode]);
+
+  // Booking details & channel
+  const [channel, setChannel] = useState<BookingChannel>(existingBooking?.channel || 'walkin');
+  const [channelRefId, setChannelRefId] = useState<string>(existingBooking?.channelRefId || '');
+
+  // Financials & Payment
+  const [advanceAmount, setAdvanceAmount] = useState<number>(() => {
+    if (existingBooking?.payments && existingBooking.payments.length > 0) {
+      return existingBooking.payments.reduce((sum, p) => sum + p.amount, 0);
+    }
+    return 0;
+  });
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card' | 'ota_virtual_card'>('cash');
+  const [paymentRef, setPaymentRef] = useState<string>('');
+
+  // Discount
+  const [discountValue, setDiscountValue] = useState<number>(existingBooking?.discountValue || 0);
+  const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
+  const discountAmount = useMemo(() => {
+    if (!discountValue || discountValue <= 0) return 0;
+    if (discountType === 'percentage') {
+      return Math.round((subtotal * Math.min(100, discountValue)) / 100);
+    }
+    return Math.min(subtotal, discountValue);
+  }, [discountValue, discountType, subtotal]);
+
+  const totalAmount = Math.max(0, subtotal - discountAmount);
+  const balanceDue = Math.max(0, totalAmount - advanceAmount);
+
+  // ID Proof / KYC Documents State (supports both Front & Back)
+  const [isKycExpanded, setIsKycExpanded] = useState<boolean>(
+    Boolean(existingBooking?.guest?.idDocument?.idNumber || existingBooking?.documents?.length)
   );
-
-  // Multiple ID Documents state (Supports 1 or multiple documents per booking)
   const [documents, setDocuments] = useState<BookingDocItem[]>(() => {
     if (existingBooking?.documents && existingBooking.documents.length > 0) {
       return existingBooking.documents.map((d, idx) => ({
         ...d,
-        id: d.id || `doc-${Date.now()}-${idx}`,
-        documentTitle: d.documentTitle || (idx === 0 ? 'Primary Guest ID' : `Document #${idx + 1}`),
-        guestName: d.guestName || (idx === 0 ? (existingBooking.guest?.fullName || 'Primary Guest') : `Co-Guest ${idx}`)
+        id: d.id || `doc-${Date.now()}-${idx}`
       }));
-    }
-    if (existingBooking?.guest?.idDocuments && existingBooking.guest.idDocuments.length > 0) {
-      return existingBooking.guest.idDocuments.map((d, idx) => ({
-        ...d,
-        id: d.id || `doc-${Date.now()}-${idx}`,
-        documentTitle: d.documentTitle || (idx === 0 ? 'Primary Guest ID' : `Document #${idx + 1}`),
-        guestName: d.guestName || (idx === 0 ? (existingBooking.guest?.fullName || 'Primary Guest') : `Co-Guest ${idx}`)
-      }));
-    }
-    if (existingBooking?.guest?.idDocument) {
-      const d = existingBooking.guest.idDocument;
-      return [{
-        ...d,
-        id: d.id || 'doc-1',
-        documentTitle: d.documentTitle || 'Primary Guest ID (Aadhaar / Passport)',
-        guestName: d.guestName || existingBooking.guest?.fullName || 'Primary Guest'
-      }];
     }
     return [{
       id: 'doc-1',
       idType: 'aadhaar',
       idNumber: '',
-      frontImageUrl: '',
-      backImageUrl: '',
-      expiryDate: '',
       isVerified: false,
-      uploadedAt: '',
-      notes: 'Customer ID to be submitted upon arrival at check-in',
-      documentTitle: 'Primary Guest ID (Aadhaar / Passport)',
-      guestName: 'Primary Guest'
+      uploadedAt: 'Due at Check-in',
+      documentTitle: 'Primary Guest ID'
     }];
   });
 
-  const [capturingDocIndex, setCapturingDocIndex] = useState<number>(0);
+  // Camera state for document snap
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [capturingSide, setCapturingSide] = useState<'front' | 'back'>('front');
+  const [capturingDocIdx, setCapturingDocIdx] = useState<number>(0);
+  const [cameraTarget, setCameraTarget] = useState<'front' | 'back'>('front');
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [previewDocImage, setPreviewDocImage] = useState<{ url: string; title: string } | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Discount Option & Concession
-  const [discountType, setDiscountType] = useState<'flat' | 'percentage'>(
-    existingBooking?.discountType || 'flat'
-  );
-  const [discountValue, setDiscountValue] = useState<number>(
-    existingBooking?.discountValue !== undefined
-      ? (existingBooking?.discountValue ?? 0)
-      : (existingBooking?.discountAmount || 0)
-  );
-  const [discountReason, setDiscountReason] = useState<string>(
-    existingBooking?.discountReason || ''
-  );
+  const [validationError, setValidationError] = useState<string>('');
 
-  // Billing (GST Optional: 5% or 0%)
-  const [applyGst, setApplyGst] = useState<boolean>(
-    existingBooking ? ((existingBooking?.taxRatePercent ?? 5) > 0) : true
-  );
-  const taxRate = applyGst ? 5 : 0;
-  const [advanceAmount, setAdvanceAmount] = useState<number>(
-    (existingBooking?.payments || []).reduce((sum, p) => sum + p.amount, 0)
-  );
-  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card' | 'ota_virtual_card'>('upi');
-  const [paymentRef, setPaymentRef] = useState<string>('');
-
-  // Calculate nights
-  const computeNights = () => {
-    if (!checkInDate || !checkOutDate) return 1;
-    const start = new Date(checkInDate).getTime();
-    const end = new Date(checkOutDate).getTime();
-    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    return (!isNaN(diff) && diff > 0) ? diff : 1;
+  // Step 1: Quick duration presets
+  const handleQuickDuration = (days: number) => {
+    const newOutDate = addDaysToStr(checkInDate, days);
+    setCheckOutDate(newOutDate);
   };
-  const nights = computeNights();
-  const subtotal = nights * roomRate;
 
-  // Calculate discount deduction
-  const discountAmount = useMemo(() => {
-    if (!discountValue || discountValue <= 0) return 0;
-    if (discountType === 'percentage') {
-      const pct = Math.min(100, Math.max(0, discountValue));
-      return Math.round((subtotal * pct) / 100);
+  // Toggle room selection
+  const handleToggleRoom = (rId: string) => {
+    const status = checkRoomAvailability(rId, checkInDate, checkOutDate);
+    if (!status.isAvailable) {
+      alert(`Cannot select this room: already booked by ${status.conflict?.guest.fullName || 'another guest'}.`);
+      return;
     }
-    return Math.min(subtotal, Math.max(0, discountValue));
-  }, [discountType, discountValue, subtotal]);
 
-  // Taxable subtotal after discount deduction
-  const taxableSubtotal = Math.max(0, subtotal - discountAmount);
-
-  // GST (Optional: 5% or 0%)
-  const taxes = applyGst ? Math.round((taxableSubtotal * 5) / 100) : 0;
-  const totalAmount = taxableSubtotal + taxes;
-  const balanceDue = Math.max(0, totalAmount - advanceAmount);
-
-  // Update room rate when room changes
-  const handleRoomChange = (newRoomId: string) => {
-    handleSelectAndBlockRoom(newRoomId);
+    if (bookingMode === 'single') {
+      setSelectedRoomIds([rId]);
+    } else {
+      setSelectedRoomIds(prev => {
+        if (prev.includes(rId)) {
+          if (prev.length <= 1) return prev; // keep at least 1
+          return prev.filter(id => id !== rId);
+        } else {
+          return [...prev, rId];
+        }
+      });
+    }
   };
 
-  // Document manipulation helpers
-  const updateDocField = (idx: number, field: keyof BookingDocItem, val: any) => {
+  // Quick Select All Available Rooms (for group bookings)
+  const handleSelectAllAvailableRooms = () => {
+    if (availableRooms.length === 0) {
+      alert('No available rooms for the selected dates.');
+      return;
+    }
+    setBookingMode('multi');
+    setSelectedRoomIds(availableRooms.map(r => r.id));
+  };
+
+  // Single document file upload (front or back)
+  const handleDocFileUpload = (e: React.ChangeEvent<HTMLInputElement>, docIdx: number, side: 'front' | 'back') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const result = uploadEvent.target?.result as string;
+        setDocuments(prev => {
+          const copy = [...prev];
+          if (copy[docIdx]) {
+            copy[docIdx] = {
+              ...copy[docIdx],
+              [side === 'front' ? 'frontImageUrl' : 'backImageUrl']: result,
+              isVerified: true,
+              uploadedAt: new Date().toLocaleString()
+            };
+          }
+          return copy;
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Camera start & capture
+  const startCamera = async (docIdx: number, side: 'front' | 'back') => {
+    setCapturingDocIdx(docIdx);
+    setCameraTarget(side);
+    setIsCameraActive(true);
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.warn('Camera access error:', err);
+      setCameraError('Webcam / Camera not accessible. You can upload a document file instead.');
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setDocuments(prev => {
+          const copy = [...prev];
+          if (copy[capturingDocIdx]) {
+            copy[capturingDocIdx] = {
+              ...copy[capturingDocIdx],
+              [cameraTarget === 'front' ? 'frontImageUrl' : 'backImageUrl']: dataUrl,
+              isVerified: true,
+              uploadedAt: new Date().toLocaleString()
+            };
+          }
+          return copy;
+        });
+      }
+    }
+    stopCamera();
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraError(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  // Quick Sample ID fillers
+  const handleFillSampleAadhaar = (docIdx = 0) => {
     setDocuments(prev => {
       const copy = [...prev];
-      if (copy[idx]) {
-        copy[idx] = { ...copy[idx], [field]: val };
+      if (copy[docIdx]) {
+        copy[docIdx] = {
+          ...copy[docIdx],
+          idType: 'aadhaar',
+          idNumber: '5482 9104 3821',
+          frontImageUrl: sampleAadhaarFront,
+          backImageUrl: sampleAadhaarBack,
+          isVerified: true,
+          uploadedAt: new Date().toLocaleString(),
+          documentTitle: 'Primary Guest Aadhaar Card'
+        };
       }
       return copy;
     });
   };
 
-  // Quick fill sample Aadhaar
-  const fillSampleAadhaar = () => {
-    setIdSubmissionPolicy('submit_now');
-    updateDocField(0, 'idType', 'aadhaar');
-    updateDocField(0, 'idNumber', '5482 9104 3821');
-    updateDocField(0, 'frontImageUrl', sampleAadhaarFront);
-    updateDocField(0, 'backImageUrl', sampleAadhaarBack);
-    updateDocField(0, 'isVerified', true);
-    updateDocField(0, 'notes', 'Biometric QR Code verified via UIDAI Portal');
-    updateDocField(0, 'documentTitle', 'Primary Guest Aadhaar Card');
-    updateDocField(0, 'guestName', fullName || 'Nizamuddin Saifi');
-    if (!fullName) setFullName('Nizamuddin Saifi');
-    if (!city) setCity('New Delhi');
-    if (!phone) setPhone('+91 98112 44332');
-  };
-
-  // Quick fill sample Passport
-  const fillSamplePassport = () => {
-    setIdSubmissionPolicy('submit_now');
-    updateDocField(0, 'idType', 'passport');
-    updateDocField(0, 'idNumber', 'Z9182304');
-    updateDocField(0, 'frontImageUrl', samplePassportFront);
-    updateDocField(0, 'backImageUrl', '');
-    updateDocField(0, 'expiryDate', '2031-09-18');
-    updateDocField(0, 'isVerified', true);
-    updateDocField(0, 'notes', 'Indian Passport verified by Receptionist');
-    updateDocField(0, 'documentTitle', 'Primary Guest Passport');
-    updateDocField(0, 'guestName', fullName || 'Tanu Shukla');
-    if (!fullName) setFullName('Tanu Shukla');
-    if (!city) setCity('Lucknow');
-    if (!phone) setPhone('+91 94500 12890');
-  };
-
-  // Quick fill sample Voter ID
-  const fillSampleVoter = () => {
-    setIdSubmissionPolicy('submit_now');
-    updateDocField(0, 'idType', 'voter_id');
-    updateDocField(0, 'idNumber', 'WBF2910482');
-    updateDocField(0, 'isVerified', true);
-    updateDocField(0, 'notes', 'Election Commission of India Voter ID card verified');
-    updateDocField(0, 'documentTitle', 'Primary Guest Voter ID');
-    if (!fullName) setFullName('Rajeev Sengupta');
-    if (!city) setCity('Kolkata');
-    if (!phone) setPhone('+91 98301 22910');
-  };
-
-  // Quick fill sample Driving License
-  const fillSampleDL = () => {
-    setIdSubmissionPolicy('submit_now');
-    updateDocField(0, 'idType', 'driving_license');
-    updateDocField(0, 'idNumber', 'DL-042019008129');
-    updateDocField(0, 'expiryDate', '2038-08-15');
-    updateDocField(0, 'isVerified', true);
-    updateDocField(0, 'notes', 'State Transport Authority Driving License verified');
-    updateDocField(0, 'documentTitle', 'Primary Guest Driving License');
-    if (!fullName) setFullName('Amitabh Verma');
-    if (!city) setCity('New Delhi');
-    if (!phone) setPhone('+91 98100 44219');
-  };
-
-  // Add a sample Co-Guest ID Document
-  const addSampleCoGuestDoc = () => {
-    const nextIdx = documents.length + 1;
-    setDocuments(prev => [
-      ...prev,
-      {
-        id: `doc-${Date.now()}-${nextIdx}`,
-        idType: 'driving_license',
-        idNumber: `DL-04202400${Math.floor(1000 + Math.random() * 9000)}`,
-        frontImageUrl: samplePassportFront,
-        backImageUrl: '',
-        expiryDate: '2036-11-20',
-        isVerified: true,
-        uploadedAt: new Date().toLocaleString(),
-        notes: 'Co-guest verification document',
-        documentTitle: `Co-Guest #${nextIdx - 1} Driving License`,
-        guestName: `Co-Guest ${nextIdx - 1}`
+  const handleFillSamplePassport = (docIdx = 0) => {
+    setDocuments(prev => {
+      const copy = [...prev];
+      if (copy[docIdx]) {
+        copy[docIdx] = {
+          ...copy[docIdx],
+          idType: 'passport',
+          idNumber: 'Z9182304',
+          frontImageUrl: samplePassportFront,
+          backImageUrl: undefined,
+          isVerified: true,
+          uploadedAt: new Date().toLocaleString(),
+          documentTitle: 'Primary Guest Passport'
+        };
       }
-    ]);
-  };
-
-  // Quick set Pending at Check-in
-  const fillPendingCheckIn = () => {
-    setIdSubmissionPolicy('at_checkin');
-    updateDocField(0, 'idNumber', '');
-    updateDocField(0, 'frontImageUrl', '');
-    updateDocField(0, 'backImageUrl', '');
-    updateDocField(0, 'isVerified', false);
-    updateDocField(0, 'notes', 'Customer ID to be submitted upon arrival at front desk check-in');
+      return copy;
+    });
   };
 
   const handleAddAnotherDoc = () => {
@@ -555,233 +519,91 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         id: `doc-${Date.now()}-${nextIdx}`,
         idType: 'aadhaar',
         idNumber: '',
-        frontImageUrl: '',
-        backImageUrl: '',
-        expiryDate: '',
-        isVerified: idSubmissionPolicy === 'submit_now',
-        uploadedAt: new Date().toLocaleString(),
-        notes: '',
-        documentTitle: `Co-Guest ${nextIdx - 1} ID`,
-        guestName: `Co-Guest ${nextIdx - 1}`
+        frontImageUrl: undefined,
+        backImageUrl: undefined,
+        isVerified: false,
+        uploadedAt: 'Due at Check-in',
+        documentTitle: `Co-Guest #${nextIdx - 1} ID`
       }
     ]);
   };
 
-  const handleRemoveDoc = (idxToRemove: number) => {
+  const handleRemoveDoc = (idx: number) => {
     if (documents.length <= 1) {
       setDocuments([{
         id: 'doc-1',
         idType: 'aadhaar',
         idNumber: '',
-        frontImageUrl: '',
-        backImageUrl: '',
-        expiryDate: '',
+        frontImageUrl: undefined,
+        backImageUrl: undefined,
         isVerified: false,
-        uploadedAt: '',
-        notes: 'Customer ID to be submitted upon arrival at check-in',
-        documentTitle: 'Primary Guest ID',
-        guestName: 'Primary Guest'
+        uploadedAt: 'Due at Check-in',
+        documentTitle: 'Primary Guest ID'
       }]);
       return;
     }
-    setDocuments(prev => prev.filter((_, idx) => idx !== idxToRemove));
+    setDocuments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Batch Multi-File Upload
-  const handleBatchFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    files.forEach((file, fIndex) => {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        const dataUrl = uploadEvent.target?.result as string;
-        setDocuments(prev => {
-          if (prev.length === 1 && !prev[0].frontImageUrl && fIndex === 0) {
-            const updated = [...prev];
-            updated[0] = {
-              ...updated[0],
-              frontImageUrl: dataUrl,
-              documentTitle: prev[0].documentTitle || file.name.replace(/\.[^/.]+$/, "")
-            };
-            return updated;
-          }
-          return [
-            ...prev,
-            {
-              id: `doc-${Date.now()}-${fIndex}`,
-              idType: 'aadhaar',
-              idNumber: '',
-              frontImageUrl: dataUrl,
-              backImageUrl: '',
-              expiryDate: '',
-              isVerified: true,
-              uploadedAt: new Date().toLocaleString(),
-              notes: 'Batch uploaded from file selection',
-              documentTitle: file.name.replace(/\.[^/.]+$/, "") || `Document #${prev.length + 1}`,
-              guestName: `Co-Guest / Doc #${prev.length + 1}`
-            }
-          ];
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Single File Upload for a specific document
-  const handleDocFileUpload = (e: React.ChangeEvent<HTMLInputElement>, docIndex: number, side: 'front' | 'back') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const dataUrl = uploadEvent.target?.result as string;
-      updateDocField(docIndex, side === 'front' ? 'frontImageUrl' : 'backImageUrl', dataUrl);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Camera Handlers
-  const startCamera = async (docIndex: number, side: 'front' | 'back') => {
-    setCapturingDocIndex(docIndex);
-    setCapturingSide(side);
-    setIsCameraActive(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 } }
-      });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.warn('Camera access error:', err);
-      alert('Camera access not granted or not available. You can also upload photos or use sample ID cards.');
-      setIsCameraActive(false);
-    }
-  };
-
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const photoDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      updateDocField(
-        capturingDocIndex,
-        capturingSide === 'front' ? 'frontImageUrl' : 'backImageUrl',
-        photoDataUrl
-      );
-    }
-    stopCamera();
-  };
-
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-    }
-    setIsCameraActive(false);
-  };
-
-  const fillSampleDocAadhaar = (docIdx: number) => {
-    updateDocField(docIdx, 'idType', 'aadhaar');
-    updateDocField(docIdx, 'idNumber', docIdx === 0 ? '5482 9104 3821' : `5482 9104 ${Math.floor(1000 + Math.random() * 9000)}`);
-    updateDocField(docIdx, 'frontImageUrl', sampleAadhaarFront);
-    updateDocField(docIdx, 'backImageUrl', sampleAadhaarBack);
-    updateDocField(docIdx, 'isVerified', true);
-    updateDocField(docIdx, 'notes', 'Original UIDAI Aadhaar QR scanned and verified');
-    setIdSubmissionPolicy('submit_now');
-  };
-
-  const fillSampleDocPassport = (docIdx: number) => {
-    updateDocField(docIdx, 'idType', 'passport');
-    updateDocField(docIdx, 'idNumber', docIdx === 0 ? 'Z9182304' : `Z${Math.floor(1000000 + Math.random() * 9000000)}`);
-    updateDocField(docIdx, 'expiryDate', '2031-09-18');
-    updateDocField(docIdx, 'frontImageUrl', samplePassportFront);
-    updateDocField(docIdx, 'isVerified', true);
-    updateDocField(docIdx, 'notes', 'Original Indian Passport physical copy verified');
-    setIdSubmissionPolicy('submit_now');
-  };
-
-  // Final Form Submission
+  // Handle Submit Form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError('');
 
-    // 1. Verify Date Range
-    if (!checkInDate || !checkOutDate || checkInDate >= checkOutDate) {
-      setActiveTab('stay');
-      alert('Please select a valid date range (Check-out date must be after Check-in date).');
+    if (!checkInDate || !checkOutDate) {
+      setValidationError('Please select valid check-in and check-out dates.');
+      setActiveStep(1);
       return;
     }
 
-    // 2. Verify Room Selected and Not Blocked
+    if (checkInDate >= checkOutDate) {
+      setValidationError('Check-out date must be after check-in date.');
+      setActiveStep(1);
+      return;
+    }
+
     if (selectedRoomIds.length === 0) {
-      setActiveTab('stay');
-      alert('Please search and select at least one available room to block for this reservation.');
+      setValidationError('Please select at least 1 room.');
+      setActiveStep(2);
       return;
-    }
-
-    for (const rId of selectedRoomIds) {
-      const roomStatus = checkRoomAvailability(rId, checkInDate, checkOutDate);
-      if (!roomStatus.isAvailable) {
-        setActiveTab('stay');
-        const rm = rooms.find(r => r.id === rId);
-        const conflictMsg = roomStatus.conflict 
-          ? `Room ${rm?.name || rId} is ALREADY OCCUPIED by ${roomStatus.conflict.guest.fullName} from ${roomStatus.conflict.checkInDate} to ${roomStatus.conflict.checkOutDate}.`
-          : `Room ${rm?.name || rId} is currently blocked for these dates.`;
-        alert(`⚠️ Room Conflict Detected!\n\n${conflictMsg}\n\nPlease remove this room or select another available room from the list below.`);
-        return;
-      }
     }
 
     if (!fullName.trim()) {
-      setActiveTab('guest_id');
-      alert('Please enter guest full name');
+      setValidationError('Lead guest full name is required.');
+      setActiveStep(3);
       return;
     }
 
-    const primaryDoc = documents[0];
-    const isAtCheckin = idSubmissionPolicy === 'at_checkin' && !primaryDoc?.idNumber?.trim();
-
-    if (!primaryDoc?.idNumber?.trim() && idSubmissionPolicy === 'submit_now') {
-      setActiveTab('guest_id');
-      alert('Please enter customer ID number (Aadhaar / Passport / DL) or select "Submit ID at Check-In".');
+    if (!phone.trim()) {
+      setValidationError('Lead guest phone number is required.');
+      setActiveStep(3);
       return;
     }
 
-    // Prepare all documents
-    const preparedDocuments: IdDocument[] = documents.map((doc, idx) => ({
+    // Build Guest object
+    const preparedDocuments: IdDocument[] = documents.map(doc => ({
       ...doc,
-      idNumber: isAtCheckin && idx === 0 && !doc.idNumber.trim() ? 'Pending at Check-in' : (doc.idNumber.trim() || (idx === 0 ? 'Pending at Check-in' : '')),
-      isVerified: isAtCheckin && idx === 0 ? false : (doc.isVerified || Boolean(doc.idNumber.trim() || doc.frontImageUrl)),
-      uploadedAt: doc.uploadedAt || (isAtCheckin && idx === 0 ? 'Due at Check-in' : new Date().toLocaleString()),
-      notes: isAtCheckin && idx === 0 && !doc.notes ? 'Customer ID to be submitted upon arrival at front desk check-in' : doc.notes
+      isVerified: Boolean(doc.idNumber?.trim() || doc.frontImageUrl),
+      uploadedAt: doc.uploadedAt || (doc.idNumber ? new Date().toLocaleString() : 'Due at Check-in')
     }));
 
-    const guest: Guest = {
-      id: existingBooking?.guest.id || `gst-${Date.now()}`,
+    const primaryGuest: Guest = {
+      id: existingBooking?.guest?.id || `gst-${Date.now()}`,
       fullName: fullName.trim(),
       phone: phone.trim(),
       email: email.trim(),
-      address: address.trim(),
-      city: city.trim(),
-      state: state.trim(),
+      arrivingFrom: arrivingFrom.trim() || undefined,
+      departingTo: departingTo.trim() || undefined,
       country: 'India',
-      nationality: nationality.trim(),
-      purposeOfVisit,
-      vehicleNumber,
-      emergencyContact,
+      nationality: 'Indian',
+      purposeOfVisit: 'Tourism & Leisure',
       idDocument: preparedDocuments[0],
       idDocuments: preparedDocuments,
-      previousStaysCount: existingBooking?.guest.previousStaysCount || 0,
-      totalSpent: (existingBooking?.guest.totalSpent || 0) + totalAmount
+      previousStaysCount: existingBooking?.guest?.previousStaysCount || 0,
+      totalSpent: (existingBooking?.guest?.totalSpent || 0) + totalAmount
     };
 
-    // Auto-generate booking code if new (Matches TripMakerz format: 16-digit reference like 2609160502199534)
+    // Booking code
     let code = existingBooking?.bookingCode;
     if (!code) {
       const now = new Date();
@@ -792,34 +614,33 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       code = `${yy}${mm}${dd}${randomSuffix}`;
     }
 
-    if (selectedRoomIds.length === 1) {
-      // Single Room Booking
-      const singleRoomId = selectedRoomIds[0];
-      const rm = rooms.find(r => r.id === singleRoomId);
-      const singleRate = roomRates[singleRoomId] !== undefined ? roomRates[singleRoomId] : (rm?.baseRate || 3000);
+    if (selectedRoomIds.length === 1 && bookingMode === 'single') {
+      const sRoomId = selectedRoomIds[0];
+      const rm = rooms.find(r => r.id === sRoomId);
+      const alloc = roomAllocations[sRoomId];
+      const sRate = alloc?.ratePerNight || roomRates[sRoomId] || (rm?.baseRate || 3500);
 
       const bookingPayload: Booking = {
         id: existingBooking?.id || `bk-${Date.now()}`,
         bookingCode: code,
-        roomId: singleRoomId,
+        roomId: sRoomId,
         roomNumber: rm?.number,
         groupId: existingBooking?.groupId || undefined,
         groupTotalRooms: 1,
-        guest,
+        guest: primaryGuest,
         documents: preparedDocuments,
         checkInDate,
         checkOutDate,
         nights,
-        adults,
-        children,
+        adults: alloc?.adults || 2,
+        children: alloc?.children || 0,
         channel,
         channelRefId: channelRefId.trim() || undefined,
-        roomRatePerNight: Number(singleRate),
+        roomRatePerNight: Number(sRate),
         discountAmount: discountAmount > 0 ? discountAmount : undefined,
         discountType: discountAmount > 0 ? discountType : undefined,
-        discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
-        discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
-        taxRatePercent: applyGst ? 5 : 0, // Optional GST
+        discountReason: discountAmount > 0 ? 'Direct Booking Concession' : undefined,
+        taxRatePercent: existingBooking?.taxRatePercent ?? 0,
         extraCharges: existingBooking?.extraCharges || [],
         payments: advanceAmount > 0 ? [
           {
@@ -831,23 +652,31 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           }
         ] : [],
         status: existingBooking?.status || 'confirmed',
-        specialRequests,
+        specialRequests: remarks.trim() || undefined,
         createdAt: existingBooking?.createdAt || new Date().toLocaleString()
       };
 
       onSaveBooking(bookingPayload);
     } else {
-      // Multi-Room Booking under 1 Guest Name
+      // Multi-room group booking
       const groupId = existingBooking?.groupId || `grp-${Date.now()}`;
       const numRooms = selectedRoomIds.length;
       const baseRoomDiscount = numRooms > 0 ? Math.floor(discountAmount / numRooms) : 0;
-      const remainderDiscount = numRooms > 0 ? (discountAmount % numRooms) : 0;
 
       const multiPayloads: Booking[] = selectedRoomIds.map((rId, idx) => {
         const rm = rooms.find(r => r.id === rId);
-        const rRate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
+        const alloc = roomAllocations[rId];
+        const rRate = alloc?.ratePerNight || roomRates[rId] || (rm?.baseRate || 3500);
         const isPrimary = idx === 0;
-        const roomDiscount = idx === 0 ? baseRoomDiscount + remainderDiscount : baseRoomDiscount;
+
+        const roomGuestName = alloc?.guestName?.trim() || fullName.trim();
+        const roomGuest: Guest = {
+          ...primaryGuest,
+          id: isPrimary ? primaryGuest.id : `gst-${Date.now()}-${idx}`,
+          fullName: roomGuestName,
+          phone: isPrimary ? primaryGuest.phone : (primaryGuest.phone || ''),
+          email: primaryGuest.email
+        };
 
         return {
           id: (existingBooking && idx === 0) ? existingBooking.id : `bk-${Date.now()}-${idx}`,
@@ -856,39 +685,33 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           roomNumber: rm?.number,
           groupId,
           groupTotalRooms: selectedRoomIds.length,
-          guest,
-          documents: preparedDocuments,
+          guest: roomGuest,
+          documents: isPrimary ? preparedDocuments : (preparedDocuments[idx] ? [preparedDocuments[idx]] : preparedDocuments),
           checkInDate,
           checkOutDate,
           nights,
-          adults: Math.max(1, Math.round(adults / selectedRoomIds.length)),
-          children: Math.round(children / selectedRoomIds.length),
+          adults: alloc?.adults || 2,
+          children: alloc?.children || 0,
           channel,
           channelRefId: channelRefId.trim() || undefined,
           roomRatePerNight: Number(rRate),
-          discountAmount: roomDiscount > 0 ? roomDiscount : undefined,
-          discountType: discountAmount > 0 ? discountType : undefined,
-          discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
-          discountReason: discountAmount > 0 ? (discountReason.trim() || undefined) : undefined,
-          taxRatePercent: applyGst ? 5 : 0, // Optional GST
+          discountAmount: baseRoomDiscount > 0 ? baseRoomDiscount : undefined,
+          taxRatePercent: existingBooking?.taxRatePercent ?? 0,
           extraCharges: [],
           payments: (isPrimary && advanceAmount > 0) ? [
             {
               id: `pay-${Date.now()}-${idx}`,
               amount: Number(advanceAmount),
               mode: paymentMode,
-              reference: paymentRef.trim() || undefined,
-              date: new Date().toLocaleString(),
-              notes: `Multi-Room Group Advance (Total ${selectedRoomIds.length} rooms for ${guest.fullName})`
+              reference: paymentRef.trim() || `GRP-ADV-${Date.now().toString().slice(-4)}`,
+              date: new Date().toLocaleString()
             }
           ] : [],
           status: existingBooking?.status || 'confirmed',
-          specialRequests: [
-            specialRequests.trim(),
-            `[Multi-Room Group: Room ${idx + 1} of ${selectedRoomIds.length} for ${guest.fullName}]`
-          ].filter(Boolean).join(' • '),
-          createdAt: existingBooking?.createdAt || new Date().toLocaleString(),
-          notes: `Multi-Room Group: ${selectedRoomIds.length} rooms booked under 1 guest (${guest.fullName})`
+          specialRequests: remarks.trim() 
+            ? `${remarks.trim()} [Group: ${numRooms} Rooms]` 
+            : `Group Booking: ${numRooms} Rooms (${selectedRoomIds.map(id => rooms.find(r => r.id === id)?.number || id).join(', ')})`,
+          createdAt: existingBooking?.createdAt || new Date().toLocaleString()
         };
       });
 
@@ -901,1387 +724,903 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[96vh] sm:max-h-[92vh]">
-        {/* Modal Header */}
-        <div className="bg-slate-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight">
-                {existingBooking ? 'Edit Reservation & KYC ID' : 'New Reservation & Guest KYC ID Registration'}
-              </h2>
-              <span className="text-[10px] sm:text-xs bg-teal-500/20 text-teal-300 font-semibold px-2 py-0.5 rounded border border-teal-500/40">
-                Front Desk
-              </span>
+    <div 
+      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header with Title, Mode Switcher & Stepper Tabs */}
+        <div className="bg-[#1e293b] text-white px-5 py-4 shrink-0 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold">
+              {bookingMode === 'multi' ? <Building size={22} /> : <BedDouble size={22} />}
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
-              Manage room allocation, save customer ID proofs (Aadhaar/Passport), and track OTA channel source
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  {existingBooking 
+                    ? 'Edit Booking' 
+                    : bookingMode === 'multi' 
+                    ? '🏢 Multi-Room Group Booking' 
+                    : '+ New Room Reservation'}
+                </h2>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                  {hotelName}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                {bookingMode === 'multi' 
+                  ? `Group reservation for ${selectedRoomIds.length} room${selectedRoomIds.length > 1 ? 's' : ''}` 
+                  : 'Single room reservation for front desk'}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X size={20} />
-          </button>
+
+          {/* Booking Mode Switcher: Single vs Multi-Room */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setBookingMode('single');
+                  if (selectedRoomIds.length > 1) {
+                    setSelectedRoomIds([selectedRoomIds[0]]);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  bookingMode === 'single'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <BedDouble size={14} />
+                <span>Single Room</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBookingMode('multi');
+                  if (selectedRoomIds.length === 1 && availableRooms.length > 1) {
+                    // Preselect another room if available to guide user
+                    const nextRoom = availableRooms.find(r => r.id !== selectedRoomIds[0]);
+                    if (nextRoom) {
+                      setSelectedRoomIds(prev => [...prev, nextRoom.id]);
+                    }
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  bookingMode === 'multi'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Building size={14} />
+                <span>Multi-Room Group ({selectedRoomIds.length})</span>
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="bg-slate-100 px-3 sm:px-6 pt-2 sm:pt-3 flex border-b border-slate-200 gap-1 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab('stay')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-              activeTab === 'stay'
-                ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Calendar size={14} />
-            <span>1. Stay &amp; Room Allocation</span>
-          </button>
+        {/* Stepper Navigation Bar */}
+        <div className="bg-slate-100/80 px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveStep(1)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeStep === 1 
+                  ? 'bg-teal-700 text-white shadow-xs' 
+                  : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full bg-black/10 flex items-center justify-center text-[10px]">1</span>
+              <span>Stay Dates</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('guest_id')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all relative shrink-0 whitespace-nowrap cursor-pointer ${
-              activeTab === 'guest_id'
-                ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <ShieldCheck size={14} className="text-emerald-700" />
-            <span>2. Guest KYC &amp; Customer ID</span>
-            {documents.some(d => d.idNumber || d.frontImageUrl) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block ml-0.5"></span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveStep(2)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeStep === 2 
+                  ? 'bg-teal-700 text-white shadow-xs' 
+                  : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full bg-black/10 flex items-center justify-center text-[10px]">2</span>
+              <span>Select Rooms ({selectedRoomIds.length})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('billing')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold rounded-t-lg transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-              activeTab === 'billing'
-                ? 'bg-white text-teal-900 border-t-2 border-teal-600 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <CreditCard size={14} />
-            <span>3. Billing &amp; Advance</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveStep(3)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeStep === 3 
+                  ? 'bg-teal-700 text-white shadow-xs' 
+                  : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full bg-black/10 flex items-center justify-center text-[10px]">3</span>
+              <span>Details &amp; Payment</span>
+            </button>
+          </div>
+
+          {/* Quick Active Summary Pill */}
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+            <span className="text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Calendar size={12} />
+              <span>{nights}N ({checkInDate.slice(5)} to {checkOutDate.slice(5)})</span>
+            </span>
+            <span className="text-teal-900 bg-teal-100/70 border border-teal-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Building size={12} />
+              <span>{selectedRoomIds.length} Room{selectedRoomIds.length > 1 ? 's' : ''}</span>
+            </span>
+            <span className="text-slate-900 font-extrabold bg-white border border-slate-300 px-2 py-0.5 rounded-full">
+              ₹{totalAmount}
+            </span>
+          </div>
         </div>
 
-        {/* Main Content Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-6">
-          {/* TAB 1: STAY & ROOM ALLOCATION (DATE RANGE -> SEARCH ROOMS -> BLOCK ROOM) */}
-          {activeTab === 'stay' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-150">
-              {/* STEP 1: DATE RANGE SELECTION & SEARCH BAR */}
-              <div className="bg-gradient-to-r from-slate-900 to-teal-950 text-white p-5 rounded-2xl shadow-md border border-slate-800 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-xs border border-teal-400/40">
-                      1
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white tracking-wide">
-                        Select Date Range &amp; Search Available Rooms
-                      </h3>
-                      <p className="text-xs text-slate-300">
-                        Specify reservation dates to search live inventory and block available rooms
-                      </p>
-                    </div>
-                  </div>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-5">
+          {validationError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2">
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
 
-                  {/* Stay Duration Badge */}
+          {/* STEP 1: DATES */}
+          {activeStep === 1 && (
+            <div className="space-y-5 animate-in fade-in-50 duration-150">
+              {/* Multi-Room Notification Banner */}
+              {bookingMode === 'multi' && (
+                <div className="p-3 bg-teal-50 border border-teal-300 rounded-xl flex items-center justify-between text-xs text-teal-900">
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-teal-600/30 text-teal-300 border border-teal-500/40 rounded-full text-xs font-bold flex items-center gap-1.5">
-                      <Clock size={13} />
-                      {nights} {nights === 1 ? 'Night' : 'Nights'} Stay
+                    <Building size={16} className="text-teal-700 shrink-0" />
+                    <span className="font-bold">
+                      Multi-Room Group Booking Mode is Active. You will be able to select multiple rooms on the next step!
                     </span>
                   </div>
+                  <span className="px-2 py-0.5 bg-teal-700 text-white rounded font-bold text-[11px]">
+                    Group Mode
+                  </span>
+                </div>
+              )}
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={18} className="text-teal-700" />
+                    <h3 className="text-sm font-bold text-slate-900">Select Stay Dates &amp; Duration</h3>
+                  </div>
+                  <span className="text-xs font-extrabold text-teal-800 bg-teal-100 px-2.5 py-1 rounded-full">
+                    {nights} Night{nights > 1 ? 's' : ''} Stay
+                  </span>
                 </div>
 
-                {/* Date Inputs & Search Trigger Button */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  {/* Check-in Date */}
-                  <div className="sm:col-span-4">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Calendar size={13} className="text-teal-400" />
-                      Check-in Date *
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Check-in Date <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={checkInDate}
-                      onChange={(e) => {
-                        const newIn = e.target.value;
-                        setCheckInDate(newIn);
-                        if (newIn >= checkOutDate) {
-                          const nextD = new Date(newIn);
-                          nextD.setDate(nextD.getDate() + 1);
-                          setCheckOutDate(nextD.toISOString().split('T')[0]);
-                        }
-                      }}
-                      className="w-full text-sm font-bold bg-slate-800 border border-slate-700 text-white rounded-xl p-2.5 focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 focus:ring-1 focus:ring-teal-600 outline-hidden"
                       required
                     />
                   </div>
 
-                  {/* Check-out Date */}
-                  <div className="sm:col-span-4">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Calendar size={13} className="text-teal-400" />
-                      Check-out Date *
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Check-out Date <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={checkOutDate}
-                      min={checkInDate}
+                      min={addDaysToStr(checkInDate, 1)}
                       onChange={(e) => setCheckOutDate(e.target.value)}
-                      className="w-full text-sm font-bold bg-slate-800 border border-slate-700 text-white rounded-xl p-2.5 focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+                      className="w-full px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 focus:ring-1 focus:ring-teal-600 outline-hidden"
                       required
                     />
                   </div>
-
-                  {/* Search Room Availability Button */}
-                  <div className="sm:col-span-4">
-                    <button
-                      type="button"
-                      id="btn-search-available-rooms"
-                      onClick={handleTriggerSearch}
-                      className="w-full h-10.5 px-4 bg-teal-500 hover:bg-teal-400 active:bg-teal-600 text-slate-950 font-bold text-xs md:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Search size={16} strokeWidth={2.5} />
-                      <span>Search Available Rooms</span>
-                    </button>
-                  </div>
                 </div>
 
-                {/* Quick Night Presets */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-xs text-slate-400 font-medium">Quick Stay Duration:</span>
-                  {[
-                    { label: '1 Night', days: 1 },
-                    { label: '2 Nights', days: 2 },
-                    { label: '3 Nights', days: 3 },
-                    { label: '5 Nights', days: 5 },
-                    { label: '7 Nights (1 Wk)', days: 7 },
-                  ].map(preset => (
-                    <button
-                      key={preset.days}
-                      type="button"
-                      onClick={() => handleQuickDuration(preset.days)}
-                      className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition-all border ${
-                        nights === preset.days
-                          ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-2xs font-bold'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Search Feedback Notification */}
-                {searchNotification && (
-                  <div className="p-2.5 bg-teal-900/60 border border-teal-500/50 rounded-lg text-xs font-semibold text-teal-200 flex items-center gap-2 animate-in fade-in duration-200">
-                    <CheckCircle2 size={15} className="text-teal-400 shrink-0" />
-                    <span>{searchNotification}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* STEP 2: AVAILABLE & BLOCKED ROOM RESULTS ("KAUN KAUNSA ROOM AVAILABLE H") */}
-              <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-4 shadow-2xs">
-                {/* Section Header & Summary Badges */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
-                        2
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        Room Inventory &amp; Availability Matrix
-                      </h4>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Showing live room occupancy for {checkInDate} to {checkOutDate} ({nights} {nights === 1 ? 'night' : 'nights'})
-                    </p>
-                  </div>
-
-                  {/* Summary Badges */}
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                      {availableRooms.length} Available to Block
-                    </span>
-                    <span className="px-2.5 py-1 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
-                      {occupiedRooms.length} Blocked / Booked
-                    </span>
-                  </div>
-                </div>
-
-                {/* Multi-Room Mode Selector Banner */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 bg-slate-900 text-white rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <Building size={16} className="text-teal-400 shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                        Room Allocation Mode:
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Ek hi guest ke naam par 2 ya zyada rooms add karne ke liye &ldquo;Multi-Room&rdquo; select karein
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBookingMode('single');
-                        if (selectedRoomIds.length > 1) {
-                          setSelectedRoomIds([selectedRoomIds[0]]);
-                        }
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                        bookingMode === 'single'
-                          ? 'bg-teal-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      Single Room (1 Room)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBookingMode('multi')}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                        bookingMode === 'multi'
-                          ? 'bg-teal-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      <Sparkles size={13} className={bookingMode === 'multi' ? 'text-slate-950' : 'text-teal-400'} />
-                      <span>Multi-Room (1 Guest • Multi Rooms)</span>
-                      <span className="px-1.5 py-0.2 bg-teal-900/60 text-teal-200 rounded text-[10px] font-bold">
-                        {selectedRoomIds.length}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Selected Rooms Tray */}
-                {selectedRoomIds.length > 0 && (
-                  <div className="p-3 bg-teal-50/80 border border-teal-200 rounded-xl space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-teal-700" />
-                        <span className="text-xs font-bold text-teal-950">
-                          Selected Rooms for {fullName.trim() || 'Guest'} ({selectedRoomIds.length} {selectedRoomIds.length === 1 ? 'Room' : 'Rooms'} Selected):
-                        </span>
-                      </div>
-                      <div className="text-xs font-bold text-teal-900">
-                        Combined Rate: ₹{totalRoomRatePerNight.toLocaleString()}/night ({nights} {nights === 1 ? 'Night' : 'Nights'} = ₹{subtotal.toLocaleString()})
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {selectedRoomIds.map((rId) => {
-                        const rm = rooms.find(r => r.id === rId);
-                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
-                        return (
-                          <div
-                            key={rId}
-                            className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-teal-300 shadow-2xs text-xs"
-                          >
-                            <span className="font-bold text-slate-900">
-                              Room {rm?.number || rId}
-                            </span>
-                            <span className="text-slate-500 text-[11px]">
-                              ({rm?.type})
-                            </span>
-                            <span className="font-semibold text-teal-800 font-mono">
-                              ₹{rate}/N
-                            </span>
-                            {selectedRoomIds.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveRoomFromSelection(rId)}
-                                className="p-0.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                                title="Remove this room from selection"
-                              >
-                                <X size={13} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Filter Chips */}
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-slate-500 font-semibold mr-1">Filter Rooms:</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRoomTypeFilter('all')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-colors ${
-                      selectedRoomTypeFilter === 'all'
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    All Rooms ({rooms.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRoomTypeFilter('available_only')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-colors ${
-                      selectedRoomTypeFilter === 'available_only'
-                        ? 'bg-emerald-700 text-white shadow-2xs'
-                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-                    }`}
-                  >
-                    🟢 Available Only ({availableRooms.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRoomTypeFilter('blocked_only')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-colors ${
-                      selectedRoomTypeFilter === 'blocked_only'
-                        ? 'bg-rose-700 text-white shadow-2xs'
-                        : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
-                    }`}
-                  >
-                    🔴 Blocked Only ({occupiedRooms.length})
-                  </button>
-                  {Array.from(new Set(rooms.map(r => r.type))).map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setSelectedRoomTypeFilter(type)}
-                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                        selectedRoomTypeFilter === type
-                          ? 'bg-teal-800 text-white shadow-2xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Room Cards Grid (Available vs Blocked Rooms) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
-                  {rooms
-                    .filter(room => {
-                      if (selectedRoomTypeFilter === 'available_only') {
-                        return availableRooms.some(r => r.id === room.id);
-                      }
-                      if (selectedRoomTypeFilter === 'blocked_only') {
-                        return occupiedRooms.some(item => item.room.id === room.id);
-                      }
-                      if (selectedRoomTypeFilter !== 'all') {
-                        return room.type === selectedRoomTypeFilter;
-                      }
-                      return true;
-                    })
-                    .map(room => {
-                      const availItem = roomAvailabilityList.find(item => item.room.id === room.id);
-                      const isAvail = availItem?.isAvailable ?? false;
-                      const conflict = availItem?.conflict;
-                      const isSelected = selectedRoomIds.includes(room.id);
-                      const customRate = roomRates[room.id] !== undefined ? roomRates[room.id] : room.baseRate;
-
-                      if (isAvail) {
-                        return (
-                          <div
-                            key={room.id}
-                            className={`rounded-xl border p-4 flex flex-col justify-between transition-all ${
-                              isSelected
-                                ? 'border-2 border-teal-600 bg-teal-50/50 shadow-md ring-2 ring-teal-500/20'
-                                : 'border-slate-200 bg-white hover:border-teal-400 hover:shadow-sm'
-                            }`}
-                          >
-                            <div className="space-y-2">
-                              {/* Top Bar: Room Name & Available Tag */}
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-base text-slate-900 flex items-center gap-1.5">
-                                  <Bed size={16} className={isSelected ? 'text-teal-700' : 'text-slate-600'} />
-                                  {room.name}
-                                </span>
-                                {isSelected ? (
-                                  <span className="px-2 py-0.5 bg-teal-700 text-white text-[10px] font-extrabold uppercase tracking-wide rounded-full shadow-2xs flex items-center gap-1">
-                                    <Check size={11} strokeWidth={3} />
-                                    <span>Selected</span>
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wide rounded-full border border-emerald-300">
-                                    🟢 Available
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Details */}
-                              <div className="text-xs text-slate-600 space-y-1">
-                                <div className="font-semibold text-slate-800">{room.type} • Floor {room.floor}</div>
-                                <div className="text-slate-500 text-[11px] truncate">
-                                  Max {room.maxOccupancy || 2} Guests • AC Room
-                                </div>
-                              </div>
-
-                              {/* Pricing */}
-                              <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
-                                <div>
-                                  <span className="text-xs text-slate-500">Tariff: </span>
-                                  <span className="text-sm font-bold text-slate-900">₹{customRate}</span>
-                                  <span className="text-[11px] text-slate-500">/night</span>
-                                </div>
-                                <div className="text-xs font-semibold text-teal-800">
-                                  Total: ₹{(customRate * nights).toLocaleString()}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Action Button: Block / Select Room */}
-                            <div className="pt-3">
-                              {isSelected ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSelectAndBlockRoom(room.id)}
-                                  className="w-full py-2 px-3 bg-teal-800 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer group/btn"
-                                  title="Click to remove from selection"
-                                >
-                                  <Check size={15} strokeWidth={2.5} className="group-hover/btn:hidden" />
-                                  <X size={15} strokeWidth={2.5} className="hidden group-hover/btn:inline" />
-                                  <span className="group-hover/btn:hidden">
-                                    {selectedRoomIds.length > 1 ? `✓ Added (${selectedRoomIds.length} Rooms)` : '✓ Selected & Blocked'}
-                                  </span>
-                                  <span className="hidden group-hover/btn:inline">
-                                    Click to Remove
-                                  </span>
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectAndBlockRoom(room.id)}
-                                    className="flex-1 py-2 px-3 bg-white hover:bg-teal-700 text-teal-800 hover:text-white border border-teal-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                                  >
-                                    <span>{bookingMode === 'multi' ? '+ Add to Multi-Room' : 'Select Room'}</span>
-                                    <ArrowRight size={13} />
-                                  </button>
-                                  {bookingMode === 'single' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setBookingMode('multi');
-                                        if (!selectedRoomIds.includes(room.id)) {
-                                          setSelectedRoomIds(prev => [...prev, room.id]);
-                                        }
-                                        setSearchNotification(`Switched to Multi-Room mode! Room ${room.name} added.`);
-                                        setTimeout(() => setSearchNotification(''), 3000);
-                                      }}
-                                      className="py-2 px-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
-                                      title="Add this room to multi-room booking"
-                                    >
-                                      + Multi
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      } else {
-                        // Room is Blocked / Occupied
-                        return (
-                          <div
-                            key={room.id}
-                            className="rounded-xl border border-rose-200 bg-rose-50/30 p-4 flex flex-col justify-between opacity-85"
-                          >
-                            <div className="space-y-2">
-                              {/* Top Bar: Room Name & Blocked Tag */}
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-base text-slate-700 flex items-center gap-1.5">
-                                  <Lock size={15} className="text-rose-600" />
-                                  {room.name}
-                                </span>
-                                <span className="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-extrabold uppercase tracking-wide rounded-full border border-rose-300">
-                                  🔴 Blocked / Booked
-                                </span>
-                              </div>
-
-                              <div className="text-xs text-slate-600">
-                                <div className="font-semibold text-slate-700">{room.type} • Floor {room.floor}</div>
-                              </div>
-
-                              {/* Conflict Info */}
-                              <div className="p-2 bg-white/90 border border-rose-200 rounded-lg text-[11px] text-slate-700 space-y-0.5">
-                                <div className="font-bold text-rose-900 truncate">
-                                  Booked by: {conflict?.guest.fullName || 'Guest'}
-                                </div>
-                                <div className="text-slate-500">
-                                  Source: <span className="font-semibold uppercase">{conflict?.channel || 'OTA'}</span> (#{conflict?.bookingCode})
-                                </div>
-                                <div className="text-slate-600 font-medium">
-                                  Stay: {conflict?.checkInDate} to {conflict?.checkOutDate}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Disabled Block Button */}
-                            <div className="pt-3">
-                              <button
-                                type="button"
-                                disabled
-                                className="w-full py-2 px-3 bg-slate-200 text-slate-500 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed"
-                              >
-                                <Lock size={13} />
-                                <span>Blocked for Selected Dates</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      }
-                    })}
-                </div>
-              </div>
-
-              {/* STEP 3: ROOM SELECTION & BLOCKING CONFIRMATION BANNER */}
-              {isCurrentRoomBlocked ? (
-                /* Red Conflict Alert */
-                <div className="p-4 bg-rose-50 border-2 border-rose-400 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-rose-200 text-rose-800 rounded-xl mt-0.5">
-                      <AlertTriangle size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-rose-950">
-                        Room Conflict Detected in Selected Rooms!
-                      </h4>
-                      <p className="text-xs text-rose-800 mt-0.5">
-                        One or more selected rooms are already occupied from{' '}
-                        <span className="font-semibold">{currentRoomConflict?.checkInDate}</span> to{' '}
-                        <span className="font-semibold">{currentRoomConflict?.checkOutDate}</span>. You cannot confirm this booking until conflicting rooms are deselected.
-                      </p>
-                    </div>
-                  </div>
-
-                  {availableRooms.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleAutoSelectAvailableRoom}
-                      className="px-4 py-2 bg-rose-700 hover:bg-rose-800 active:bg-rose-900 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1.5"
-                    >
-                      <Sparkles size={14} />
-                      <span>Auto-Pick Available Room</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Green Allocated & Blocked Confirmation */
-                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-emerald-200 text-emerald-900 rounded-xl mt-0.5">
-                      <Lock size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                        <span>
-                          {selectedRoomIds.length > 1 
-                            ? `Multi-Room (${selectedRoomIds.length} Rooms) Blocked for ${fullName || 'Guest'}` 
-                            : `${selectedRoom?.name} (${selectedRoom?.type}) Blocked for Reservation`
-                          }
-                        </span>
-                        <span className="text-[10px] bg-emerald-200 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
-                          Ready
-                        </span>
-                      </h4>
-                      <p className="text-xs text-emerald-800 mt-0.5">
-                        {selectedRoomIds.length > 1
-                          ? `Rooms: ${selectedRoomIds.map(id => rooms.find(r => r.id === id)?.name || id).join(', ')} • `
-                          : ''
-                        }
-                        Stay from <span className="font-bold">{checkInDate}</span> to{' '}
-                        <span className="font-bold">{checkOutDate}</span> ({nights} nights) • Combined tariff: ₹{totalRoomRatePerNight.toLocaleString()}/night (Total ₹{(totalRoomRatePerNight * nights).toLocaleString()}).
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('guest_id')}
-                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1.5"
-                  >
-                    <span>Proceed to Guest KYC &amp; ID Proof</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              )}
-
-              {/* STEP 4: ROOM OCCUPANCY & TARIFF FINE-TUNING */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Room Occupancy &amp; Per-Night Tariff Setup
-                  </span>
-                  <span className="text-xs font-bold text-teal-800">
-                    {selectedRoomIds.length > 1 ? `Multi-Room Booking (${selectedRoomIds.length} Rooms)` : 'Single Room Stay'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  {/* Room Allocation Display / Dropdown */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {selectedRoomIds.length > 1 ? `Selected Rooms (${selectedRoomIds.length})` : 'Room Allocation'}
-                    </label>
-                    {selectedRoomIds.length > 1 ? (
-                      <div className="text-xs font-bold bg-white border border-teal-300 text-teal-900 rounded-lg p-2 truncate" title={selectedRoomIds.map(id => rooms.find(r => r.id === id)?.name || id).join(', ')}>
-                        {selectedRoomIds.map(id => rooms.find(r => r.id === id)?.number || id).join(', ')}
-                      </div>
-                    ) : (
-                      <select
-                        value={roomId}
-                        onChange={(e) => handleSelectAndBlockRoom(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                {/* Quick Stay Presets */}
+                <div className="pt-2">
+                  <span className="text-xs font-bold text-slate-600 block mb-2">Quick Duration Presets:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[1, 2, 3, 4, 5, 7].map(days => (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => handleQuickDuration(days)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                          nights === days
+                            ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
                       >
-                        {rooms.map(rm => {
-                          const st = checkRoomAvailability(rm.id, checkInDate, checkOutDate);
-                          return (
-                            <option
-                              key={rm.id}
-                              value={rm.id}
-                              disabled={!st.isAvailable && rm.id !== roomId}
-                            >
-                              {st.isAvailable ? '🟢' : '🔴 [BLOCKED]'} {rm.name} — {rm.type} (₹{rm.baseRate})
-                            </option>
-                          );
-                        })}
-                      </select>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Adults
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={adults}
-                      onChange={(e) => setAdults(Number(e.target.value))}
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Children
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={10}
-                      value={children}
-                      onChange={(e) => setChildren(Number(e.target.value))}
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {selectedRoomIds.length <= 1 ? 'Room Tariff / Night (₹) *' : 'Total Combined Tariff (₹)'}
-                    </label>
-                    {selectedRoomIds.length <= 1 ? (
-                      <>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-slate-500 font-bold text-sm">₹</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={roomId && roomRates[roomId] !== undefined ? roomRates[roomId] : (selectedRoom?.baseRate || 3000)}
-                            onChange={(e) => {
-                              const val = Math.max(0, Number(e.target.value));
-                              if (roomId) {
-                                handleUpdateSpecificRoomRate(roomId, val);
-                              }
-                            }}
-                            className="w-full text-sm font-bold font-mono pl-7 pr-3 py-2 bg-white border border-teal-500 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 shadow-2xs"
-                            placeholder="e.g. 2500"
-                          />
-                        </div>
-
-                        {/* ⚡ 7 AM Last-Minute Flash Indicator */}
-                        {isFlashApplicable && selectedRoom && (
-                          <div className="mt-1.5 flex items-center justify-between text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
-                            <div className="flex items-center gap-1">
-                              <Zap size={12} className="fill-rose-600 text-rose-600 shrink-0" />
-                              <span>⚡ 7 AM Flash: -15% Applied</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[10px]">
-                              <span className="text-slate-400 line-through">₹{selectedRoom.baseRate}</span>
-                              <span className="text-rose-800 font-extrabold bg-white px-1.5 py-0.5 rounded border border-rose-200">
-                                ₹{roomId && roomRates[roomId]}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="w-full text-sm font-bold bg-teal-50 border border-teal-300 rounded-lg p-2 text-teal-950 flex items-center justify-between">
-                        <span>₹{totalRoomRatePerNight.toLocaleString()}/N</span>
-                        <span className="text-[10px] text-teal-700 font-medium">({selectedRoomIds.length} Rms Total)</span>
-                      </div>
-                    )}
+                        {days} Night{days > 1 ? 's' : ''}
+                      </button>
+                    ))}
                   </div>
                 </div>
-
-                {/* If multi-room, show individual room rate adjustments */}
-                {selectedRoomIds.length > 1 && (
-                  <div className="pt-2 border-t border-slate-200 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 uppercase">
-                        Individual Room Rates per Night:
-                      </span>
-                      <span className="text-[11px] text-teal-700 font-medium">
-                        Total {selectedRoomIds.length} Rooms Selected
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {selectedRoomIds.map((rId) => {
-                        const rm = rooms.find(r => r.id === rId);
-                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
-                        return (
-                          <div key={rId} className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-1 shadow-2xs">
-                            <span className="text-xs font-semibold text-slate-800 truncate">
-                              Room {rm?.number || rId}:
-                            </span>
-                            <div className="flex items-center gap-0.5">
-                              <span className="text-xs text-slate-400 font-bold">₹</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={rate}
-                                onChange={(e) => handleUpdateSpecificRoomRate(rId, Math.max(0, Number(e.target.value)))}
-                                className="w-20 text-xs font-bold p-1 border border-slate-300 focus:border-teal-500 rounded text-right font-mono"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* STEP 5: BOOKING SOURCE & OTA CHANNELS */}
-              <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Booking Source &amp; OTA Channel Integration
-                  </span>
-                  <span className="text-xs text-teal-700 font-medium">
-                    Two-way Channel Sync enabled
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {[
-                    { id: 'makemytrip', name: 'MakeMyTrip (MMT)', color: 'border-emerald-500 bg-emerald-50 text-emerald-900' },
-                    { id: 'cleartrip', name: 'Cleartrip', color: 'border-orange-500 bg-orange-50 text-orange-900' },
-                    { id: 'oyo', name: 'OYO Rooms', color: 'border-red-500 bg-red-50 text-red-900' },
-                    { id: 'easemytrip', name: 'EaseMyTrip', color: 'border-sky-500 bg-sky-50 text-sky-900' },
-                    { id: 'booking_com', name: 'Booking.com', color: 'border-blue-500 bg-blue-50 text-blue-900' },
-                    { id: 'agoda', name: 'Agoda', color: 'border-teal-500 bg-teal-50 text-teal-900' },
-                    { id: 'airbnb', name: 'Airbnb', color: 'border-rose-500 bg-rose-50 text-rose-900' },
-                    { id: 'goibibo', name: 'Goibibo', color: 'border-orange-500 bg-amber-50 text-amber-900' },
-                    { id: 'yatra', name: 'Yatra.com', color: 'border-rose-600 bg-rose-50 text-rose-900' },
-                    { id: 'expedia', name: 'Expedia Group', color: 'border-indigo-500 bg-indigo-50 text-indigo-900' },
-                    { id: 'walkin', name: 'Direct / Walk-in', color: 'border-amber-500 bg-amber-50 text-amber-900' },
-                    { id: 'phone', name: 'Phone Booking', color: 'border-slate-500 bg-slate-50 text-slate-900' },
-                  ].map((ch) => (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onClick={() => setChannel(ch.id as BookingChannel)}
-                      className={`p-2 rounded-lg text-xs font-semibold border text-left transition-all cursor-pointer ${
-                        channel === ch.id
-                          ? `${ch.color} ring-2 ring-teal-600 font-bold shadow-xs`
-                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      {ch.name}
-                    </button>
-                  ))}
-                </div>
-
-                {channel !== 'walkin' && channel !== 'phone' && (
-                  <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      OTA Confirmation Number / Booking Reference
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={`e.g. ${channel.toUpperCase()}-984120`}
-                      value={channelRefId}
-                      onChange={(e) => setChannelRefId(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2 focus:bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Special Requests */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Special Requests / Guest Notes
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Early check-in requested, high floor, vegetarian breakfast"
-                  value={specialRequests}
-                  onChange={(e) => setSpecialRequests(e.target.value)}
-                  className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:bg-white"
-                />
+              {/* Navigation */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(2)}
+                  className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <span>Continue to Select Rooms</span>
+                  <ArrowRight size={15} />
+                </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: GUEST KYC & CUSTOMER ID PROOF (KEY USER REQUIREMENT) */}
-          {activeTab === 'guest_id' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-150">
-              {/* Quick Fill Testing Assist */}
-              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs text-teal-900">
+          {/* STEP 2: ROOM SELECTION */}
+          {activeStep === 2 && (
+            <div className="space-y-4 animate-in fade-in-50 duration-150">
+              {/* Multi-Room Group Action Bar */}
+              <div className="bg-teal-50/80 border border-teal-200 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-teal-700 shrink-0" />
-                  <span className="font-semibold">Quick Sample ID Proofs for instant testing:</span>
+                  <span className="font-extrabold text-teal-950 flex items-center gap-1.5">
+                    <Building size={15} className="text-teal-800" />
+                    <span>Multi-Room Selection:</span>
+                  </span>
+                  <span className="text-teal-800 font-semibold">
+                    {bookingMode === 'multi' 
+                      ? 'Click on any available rooms to add or remove them from this group.'
+                      : 'Switch to Multi-Room to select 2 or more rooms.'}
+                  </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fillSampleAadhaar}
-                    className="px-2.5 py-1 bg-white border border-teal-300 rounded-md font-bold text-teal-800 hover:bg-teal-100 transition-colors shadow-2xs"
+                    onClick={handleSelectAllAvailableRooms}
+                    className="px-3 py-1 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-lg shadow-2xs transition-colors cursor-pointer"
                   >
-                    + Sample Aadhaar Card
+                    + Select All Available ({availableRooms.length} Rooms)
                   </button>
-                  <button
-                    type="button"
-                    onClick={fillSamplePassport}
-                    className="px-2.5 py-1 bg-white border border-teal-300 rounded-md font-bold text-teal-800 hover:bg-teal-100 transition-colors shadow-2xs"
-                  >
-                    + Sample Passport
-                  </button>
+
+                  {selectedRoomIds.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRoomIds([selectedRoomIds[0]])}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Reset to 1 Room
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Guest Personal Information */}
-              <div className="border border-slate-200 rounded-xl p-4 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <User size={14} className="text-teal-700" />
-                    Guest Profile &amp; Contact
+              {/* Room Type Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700">Filter Type:</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {roomTypes.map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setSelectedRoomTypeFilter(t)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
+                          selectedRoomTypeFilter === t
+                            ? 'bg-teal-700 text-white border-teal-700'
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        {t === 'all' ? 'All Types' : t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-xs font-semibold text-slate-600">
+                  <span>Available: </span>
+                  <strong className="text-emerald-700 font-bold">{availableRooms.length}</strong>
+                  <span> / {rooms.length} Rooms</span>
+                </div>
+              </div>
+
+              {/* Rooms Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 max-h-[50vh] overflow-y-auto p-1">
+                {rooms
+                  .filter(r => selectedRoomTypeFilter === 'all' || r.type === selectedRoomTypeFilter)
+                  .map(room => {
+                    const status = checkRoomAvailability(room.id, checkInDate, checkOutDate);
+                    const isSelected = selectedRoomIds.includes(room.id);
+                    const rate = roomRates[room.id] !== undefined ? roomRates[room.id] : room.baseRate;
+
+                    return (
+                      <div
+                        key={room.id}
+                        onClick={() => status.isAvailable && handleToggleRoom(room.id)}
+                        className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer relative ${
+                          isSelected
+                            ? 'border-teal-700 bg-teal-50/80 shadow-md ring-2 ring-teal-500/20'
+                            : status.isAvailable
+                            ? 'border-slate-200 bg-white hover:border-teal-400 hover:shadow-xs'
+                            : 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="font-mono text-base font-extrabold text-slate-900">
+                              Room {room.number}
+                            </span>
+                            <div className="text-xs text-slate-500 font-semibold">{room.type}</div>
+                          </div>
+                          {isSelected ? (
+                            <div className="w-6 h-6 rounded-full bg-teal-700 text-white flex items-center justify-center shadow-xs">
+                              <Check size={14} strokeWidth={3} />
+                            </div>
+                          ) : status.isAvailable ? (
+                            <div className="w-5 h-5 rounded-full border-2 border-slate-300 text-transparent flex items-center justify-center">
+                              +
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-3 pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                          <span className="font-extrabold text-slate-900">₹{rate}/N</span>
+                          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                            status.isAvailable 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {status.isAvailable ? (isSelected ? 'Selected' : 'Available') : 'Booked'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Selected Rooms Summary Tray */}
+              <div className="bg-slate-900 text-white p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-md">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-teal-300 flex items-center gap-1.5">
+                    <Building size={15} />
+                    <span>{selectedRoomIds.length} Room{selectedRoomIds.length > 1 ? 's' : ''} Selected:</span>
                   </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Nizamuddin Saifi"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:bg-white focus:ring-2 focus:ring-teal-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="+91 98112 44332"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:bg-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="guest@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:bg-white"
-                    />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {selectedRoomIds.map(rId => {
+                      const rm = rooms.find(r => r.id === rId);
+                      return (
+                        <span key={rId} className="px-2 py-0.5 bg-slate-800 border border-teal-500/40 text-teal-200 rounded-md font-mono font-bold text-[11px] flex items-center gap-1">
+                          Room {rm?.number || rId}
+                          {selectedRoomIds.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleRoom(rId);
+                              }}
+                              className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Residential Address
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. B-12 Jamia Nagar, Okhla Vihar"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2 focus:bg-white"
-                    />
-                  </div>
-
+                <div className="flex items-center gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      City / State
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="New Delhi"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2 focus:bg-white"
-                    />
+                    <span className="text-slate-400 mr-1">Rate:</span>
+                    <strong className="text-white">₹{totalRoomRatePerNight}/N</strong>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Nationality
-                    </label>
-                    <input
-                      type="text"
-                      value={nationality}
-                      onChange={(e) => setNationality(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2 focus:bg-white"
-                    />
+                  <div className="border-l border-slate-700 pl-3">
+                    <span className="text-slate-400 mr-1">Total ({nights}N):</span>
+                    <strong className="text-teal-300 font-extrabold text-sm">₹{subtotal}</strong>
                   </div>
                 </div>
               </div>
 
-              {/* Hotel Policy: ID Submitted at Check-In vs Immediate Walk-In */}
-              <div className="bg-white border-2 border-teal-600/60 rounded-xl p-4 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                    <ShieldCheck size={16} className="text-teal-700" />
-                    When will Customer ID be submitted?
+              {/* Navigation Bar with BACK button */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(1)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back to Dates</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedRoomIds.length === 0) {
+                      alert('Please select at least 1 room.');
+                      return;
+                    }
+                    setActiveStep(3);
+                  }}
+                  disabled={selectedRoomIds.length === 0}
+                  className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <span>Continue to Details &amp; Payment</span>
+                  <ArrowRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: BOOKING DETAILS */}
+          {activeStep === 3 && (
+            <div className="space-y-5 animate-in fade-in-50 duration-150">
+              {/* Summary Banner */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div>
+                  <div className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                    <span>{formatDisplayDate(checkInDate)}</span>
+                    <span className="text-slate-400">→</span>
+                    <span>{formatDisplayDate(checkOutDate)}</span>
+                  </div>
+                  <div className="text-slate-500 font-medium text-[11px] mt-0.5">
+                    {nights} night{nights > 1 ? 's' : ''} stay
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 bg-teal-100 text-teal-900 rounded-full font-bold text-xs flex items-center gap-1.5">
+                    <Building size={13} />
+                    <span>
+                      {selectedRoomIds.length} Room{selectedRoomIds.length > 1 ? 's' : ''} ({selectedRoomIds.map(id => rooms.find(r => r.id === id)?.number || id).join(', ')})
+                    </span>
                   </span>
-                  <span className="text-[11px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                    Hotel Check-in Policy
+                  <span className="text-slate-600 font-semibold text-xs">
+                    Total {totalAdults + totalChildren} guest(s)
                   </span>
+                </div>
+              </div>
+
+              {/* Lead Guest Card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <User size={15} className="text-teal-700" />
+                  <span>Primary / Lead Guest Details</span>
+                </h3>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Amit Sharma (Group Leader)"
+                    className="w-full px-3 py-2 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIdSubmissionPolicy('at_checkin');
-                      setDocuments(prev => prev.map(d => ({ ...d, isVerified: false })));
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      idSubmissionPolicy === 'at_checkin'
-                        ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/30 shadow-xs'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                        🏨 Submit ID at Check-In (Standard)
-                      </span>
-                      {idSubmissionPolicy === 'at_checkin' && (
-                        <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.2 rounded">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Standard hotel rule: Customer ID is submitted upon arrival at front desk check-in. Room will be reserved now; ID fields are optional.
-                    </p>
-                  </button>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Phone Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                      required
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIdSubmissionPolicy('submit_now');
-                      setDocuments(prev => prev.map(d => ({ ...d, isVerified: true })));
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      idSubmissionPolicy === 'submit_now'
-                        ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/30 shadow-xs'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                        🆔 Submit ID Now (Immediate Walk-In)
-                      </span>
-                      {idSubmissionPolicy === 'submit_now' && (
-                        <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.2 rounded">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Guest is standing at reception right now. Enter Aadhaar / Passport details &amp; upload photo proof now.
-                    </p>
-                  </button>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="guest@gmail.com"
+                      className="w-full px-3 py-2 text-xs font-medium text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    />
+                  </div>
                 </div>
 
-                {idSubmissionPolicy === 'at_checkin' && (
-                  <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-900 flex items-center gap-2">
-                    <AlertTriangle size={15} className="text-sky-700 shrink-0" />
-                    <span>
-                      <strong>Advance Reservation Active:</strong> Customer ID can be submitted upon arrival during front desk check-in. You do not need to enter ID details right now.
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Arriving From (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={arrivingFrom}
+                      onChange={(e) => setArrivingFrom(e.target.value)}
+                      placeholder="e.g. Jaipur"
+                      className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    />
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Remarks / Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Special requests or group notes"
+                      className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* ID Document KYC Section - Multi-Document Upload */}
-              <div className="border-2 border-teal-600/50 bg-teal-50/20 rounded-xl p-4 sm:p-5 space-y-4">
-                {/* Header with Title and Action Buttons */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal-200/70 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <ShieldCheck size={18} />
+              {/* DEDICATED MULTI-ROOM BREAKDOWN & CUSTOMIZATION (WHEN 2+ ROOMS) */}
+              {selectedRoomIds.length > 1 && (
+                <div className="bg-teal-50/60 border border-teal-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-teal-200/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Layers size={16} className="text-teal-800" />
+                      <h4 className="text-xs font-extrabold text-teal-950 uppercase tracking-wider">
+                        Multi-Room Breakdown &amp; Individual Room Rates ({selectedRoomIds.length} Rooms)
+                      </h4>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900">
-                          Guest KYC &amp; Multiple ID Proofs
-                        </h4>
-                        <span className="px-2 py-0.5 bg-teal-100 text-teal-800 font-bold text-xs rounded-full border border-teal-300">
-                          {documents.length} Document{documents.length > 1 ? 's' : ''} Attached
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Upload ID proofs for primary guest and co-guests (Aadhaar, Passport, DL, Family IDs) for Police Form C
-                      </p>
-                    </div>
+                    <span className="text-[11px] text-teal-800 font-semibold">
+                      You can customize occupant names and rates per room
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Multi-File Batch Upload Button */}
-                    <label className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors">
-                      <Upload size={14} />
-                      <span>Batch Upload Multiple Files</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*,.pdf"
-                        onChange={handleBatchFileUpload}
-                        className="hidden"
-                      />
-                    </label>
+                  <div className="space-y-2.5">
+                    {selectedRoomIds.map((rId, idx) => {
+                      const rm = rooms.find(r => r.id === rId);
+                      const alloc = roomAllocations[rId] || { roomId: rId, guestName: '', adults: 2, children: 0, ratePerNight: rm?.baseRate || 3500 };
+                      const isPrimary = idx === 0;
 
-                    {/* Add Another Document Button */}
-                    <button
-                      type="button"
-                      onClick={handleAddAnotherDoc}
-                      className="px-3 py-1.5 bg-white hover:bg-teal-50 text-teal-800 border border-teal-300 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                    >
-                      <Plus size={14} />
-                      <span>+ Add Co-Guest ID</span>
-                    </button>
-                  </div>
-                </div>
+                      return (
+                        <div 
+                          key={rId} 
+                          className="bg-white border border-teal-200/90 rounded-xl p-3 shadow-2xs grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-extrabold text-sm text-slate-900">
+                                Room {rm?.number || rId}
+                              </span>
+                              {isPrimary && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-teal-800 text-white rounded">
+                                  Lead
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-slate-500 text-[11px]">{rm?.type}</span>
+                          </div>
 
-                {/* Quick Auto-Fill Sample Buttons */}
-                <div className="flex items-center justify-between gap-2 flex-wrap bg-white/80 p-2.5 rounded-lg border border-teal-100 text-xs">
-                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                    <Sparkles size={13} className="text-amber-500" />
-                    Quick Sample ID:
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={fillSampleAadhaar}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-semibold rounded text-[11px] border border-slate-200"
-                    >
-                      Sample Aadhaar (Doc #1)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fillSamplePassport}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-semibold rounded text-[11px] border border-slate-200"
-                    >
-                      Sample Passport (Doc #1)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addSampleCoGuestDoc}
-                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold rounded text-[11px] border border-teal-200 flex items-center gap-1"
-                    >
-                      <Plus size={11} /> + Sample Co-Guest ID
-                    </button>
-                    {idSubmissionPolicy === 'submit_now' && (
-                      <button
-                        type="button"
-                        onClick={fillPendingCheckIn}
-                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] border border-amber-200"
-                      >
-                        Set Due at Check-in
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Camera Live Modal Stream if opened */}
-                {isCameraActive && (
-                  <div className="p-4 bg-slate-900 rounded-xl text-white space-y-3 border border-slate-700 shadow-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-teal-400 flex items-center gap-1.5">
-                        <Camera size={15} />
-                        Camera Capture: Snap {capturingSide.toUpperCase()} of Document #{capturingDocIndex + 1} ({documents[capturingDocIndex]?.documentTitle || 'Guest ID'})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={stopCamera}
-                        className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800"
-                      >
-                        Cancel Camera
-                      </button>
-                    </div>
-                    <div className="relative aspect-video max-h-56 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        onClick={capturePhoto}
-                        className="px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-2 cursor-pointer"
-                      >
-                        <Camera size={16} />
-                        Capture {capturingSide.toUpperCase()} Photo
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Multiple Documents List */}
-                <div className="space-y-4">
-                  {documents.map((doc, docIdx) => {
-                    const isPrimary = docIdx === 0;
-                    return (
-                      <div
-                        key={doc.id || `doc-${docIdx}`}
-                        className="bg-white border-2 border-teal-200/90 rounded-xl p-4 shadow-2xs space-y-3.5 transition-all"
-                      >
-                        {/* Document Top Bar */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                          <div className="flex items-center gap-2 flex-wrap flex-1">
-                            <span className={`px-2 py-0.5 text-xs font-bold rounded-md uppercase tracking-wider ${
-                              isPrimary ? 'bg-teal-800 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                            }`}>
-                              {isPrimary ? 'Document #1 (Primary)' : `Document #${docIdx + 1} (Co-Guest)`}
-                            </span>
-                            
-                            {/* Document Title / Tag */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                              Occupant / Guest Name
+                            </label>
                             <input
                               type="text"
-                              value={doc.documentTitle || ''}
-                              onChange={(e) => updateDocField(docIdx, 'documentTitle', e.target.value)}
-                              placeholder={isPrimary ? 'Primary Guest Aadhaar / Passport' : `Co-Guest ${docIdx} ID`}
-                              className="text-xs font-bold text-slate-900 border border-slate-300 rounded px-2.5 py-1 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-teal-500 min-w-[200px]"
+                              value={alloc.guestName}
+                              onChange={(e) => updateRoomAllocation(rId, 'guestName', e.target.value)}
+                              placeholder={isPrimary ? (fullName || 'Lead Guest') : `Guest for Room ${rm?.number}`}
+                              className="w-full px-2 py-1 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-300 rounded focus:bg-white focus:border-teal-600 outline-hidden"
                             />
+                          </div>
 
-                            {/* Preset Tag Chips */}
-                            <div className="hidden md:flex items-center gap-1 text-[10px]">
-                              {['Primary Aadhaar', 'Spouse ID', 'Co-Guest DL', 'Passport', 'Child ID'].map(tag => (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  onClick={() => updateDocField(docIdx, 'documentTitle', tag)}
-                                  className="px-1.5 py-0.5 bg-slate-50 hover:bg-slate-200 text-slate-600 rounded border border-slate-200"
-                                >
-                                  {tag}
-                                </button>
-                              ))}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Adults</label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={6}
+                                value={alloc.adults}
+                                onChange={(e) => updateRoomAllocation(rId, 'adults', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                className="w-full px-1.5 py-1 text-xs text-center font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded outline-hidden"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Kids</label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={4}
+                                value={alloc.children}
+                                onChange={(e) => updateRoomAllocation(rId, 'children', Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                className="w-full px-1.5 py-1 text-xs text-center font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded outline-hidden"
+                              />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            {/* Verification toggle */}
-                            <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-300 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(doc.isVerified)}
-                                onChange={(e) => updateDocField(docIdx, 'isVerified', e.target.checked)}
-                                className="rounded text-teal-600 focus:ring-teal-500"
-                              />
-                              <span>Verified</span>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                              Rate / Night (₹)
                             </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={50}
+                              value={alloc.ratePerNight}
+                              onChange={(e) => updateRoomAllocation(rId, 'ratePerNight', Math.max(0, parseInt(e.target.value, 10) || 0))}
+                              className="w-full px-2 py-1 text-xs font-extrabold text-teal-900 bg-slate-50 border border-slate-300 rounded focus:bg-white focus:border-teal-600 outline-hidden"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-                            {/* Remove Document button */}
+              {/* Booking Channel & Financials Card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <CreditCard size={15} className="text-teal-700" />
+                  <span>Channel &amp; Group Financials</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Channel</label>
+                    <select
+                      value={channel}
+                      onChange={(e) => setChannel(e.target.value as BookingChannel)}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    >
+                      <option value="walkin">Walk-in Direct</option>
+                      <option value="phone">Phone / WhatsApp Booking</option>
+                      <option value="makemytrip">MakeMyTrip</option>
+                      <option value="booking_com">Booking.com</option>
+                      <option value="agoda">Agoda</option>
+                      <option value="airbnb">Airbnb</option>
+                      <option value="goibibo">Goibibo</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">OTA / Reference ID</label>
+                    <input
+                      type="text"
+                      value={channelRefId}
+                      onChange={(e) => setChannelRefId(e.target.value)}
+                      placeholder="e.g. GRP-9102"
+                      className="w-full px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-teal-600 outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Group Discount (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={subtotal}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      placeholder="Optional group discount"
+                      className="w-full px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="block text-slate-500 font-semibold mb-0.5">Combined Rate / Night:</span>
+                    <span className="text-sm font-extrabold text-slate-900">₹{totalRoomRatePerNight}</span>
+                    <span className="text-[10px] text-slate-400 block">for {selectedRoomIds.length} room(s)</span>
+                  </div>
+
+                  <div>
+                    <span className="block text-slate-500 font-semibold mb-0.5">Total Amount ({nights}N):</span>
+                    <span className="text-sm font-extrabold text-teal-800">₹{totalAmount}</span>
+                    {discountAmount > 0 && (
+                      <span className="text-[10px] text-emerald-700 font-bold block">₹{discountAmount} discount applied</span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-0.5 flex items-center justify-between">
+                      <span>Advance Received:</span>
+                      <button
+                        type="button"
+                        onClick={() => setAdvanceAmount(totalAmount)}
+                        className="text-[10px] text-teal-700 hover:underline font-bold"
+                      >
+                        Full
+                      </button>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={totalAmount}
+                      value={advanceAmount}
+                      onChange={(e) => setAdvanceAmount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-md outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-0.5">Payment Mode:</label>
+                    <select
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value as any)}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-md outline-hidden"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI (GPay / PhonePe)</option>
+                      <option value="card">Card (POS)</option>
+                      <option value="ota_virtual_card">OTA Virtual Card</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Proof / KYC Collapsible Option */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setIsKycExpanded(!isKycExpanded)}
+                  className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-teal-700" />
+                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Guest ID &amp; KYC Proof (Front &amp; Back)
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {isKycExpanded ? 'Click to collapse' : 'Aadhaar / Passport / DL'}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-teal-800">
+                    {isKycExpanded ? '− Hide' : '+ Attach ID'}
+                  </span>
+                </button>
+
+                {isKycExpanded && (
+                  <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                    {/* Live Camera Stream */}
+                    {isCameraActive && (
+                      <div className="bg-slate-900 rounded-xl p-3 text-white space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-teal-400 flex items-center gap-1">
+                            <Camera size={14} /> Live Camera — Capturing {cameraTarget.toUpperCase()} of ID
+                          </span>
+                          <button type="button" onClick={stopCamera} className="text-slate-400 hover:text-white">
+                            <X size={15} />
+                          </button>
+                        </div>
+                        <div className="aspect-video max-h-48 bg-black rounded overflow-hidden flex items-center justify-center">
+                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={stopCamera} className="px-3 py-1 bg-slate-800 text-xs rounded">Cancel</button>
+                          <button type="button" onClick={capturePhoto} className="px-3 py-1 bg-teal-600 text-white font-bold text-xs rounded">Snap</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {documents.map((doc, docIdx) => (
+                      <div key={doc.id || `doc-${docIdx}`} className="border border-slate-200 rounded-xl p-3 bg-white space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">
+                            {docIdx === 0 ? 'Primary Guest ID' : `Co-Guest Document #${docIdx}`}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {docIdx === 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleFillSampleAadhaar(0)}
+                                className="px-2 py-0.5 bg-teal-50 text-teal-800 text-[10px] font-bold rounded border border-teal-200 cursor-pointer"
+                              >
+                                + Sample Aadhaar
+                              </button>
+                            )}
                             {documents.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => handleRemoveDoc(docIdx)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                title="Remove this document"
+                                className="text-rose-600 text-xs font-bold flex items-center gap-0.5 cursor-pointer"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={12} /> Remove
                               </button>
                             )}
                           </div>
                         </div>
 
-                        {/* Document Details Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                          {/* Person / Guest Name */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                              Document Holder Name
-                            </label>
-                            <input
-                              type="text"
-                              value={doc.guestName || (isPrimary ? fullName : '')}
-                              onChange={(e) => updateDocField(docIdx, 'guestName', e.target.value)}
-                              placeholder={isPrimary ? (fullName || 'Primary Guest') : `Co-Guest ${docIdx} Name`}
-                              className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
-                            />
-                          </div>
-
-                          {/* ID Type */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                              ID Document Type
-                            </label>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">ID Type</label>
                             <select
                               value={doc.idType}
-                              onChange={(e) => updateDocField(docIdx, 'idType', e.target.value as IdType)}
-                              className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
+                              onChange={(e) => {
+                                const val = e.target.value as IdType;
+                                setDocuments(prev => {
+                                  const c = [...prev];
+                                  c[docIdx] = { ...c[docIdx], idType: val };
+                                  return c;
+                                });
+                              }}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-hidden"
                             >
                               <option value="aadhaar">Aadhaar Card (UIDAI)</option>
                               <option value="passport">Passport</option>
                               <option value="driving_license">Driving License</option>
-                              <option value="voter_id">Voter ID (Election Card)</option>
+                              <option value="voter_id">Voter ID</option>
                               <option value="pan_card">PAN Card</option>
-                              <option value="national_id">Other Government ID</option>
+                              <option value="national_id">Government Photo ID</option>
                             </select>
                           </div>
 
-                          {/* ID Number */}
                           <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                              ID Number {isPrimary && idSubmissionPolicy === 'submit_now' ? '*' : '(Optional)'}
-                            </label>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">ID Number</label>
                             <input
                               type="text"
-                              placeholder={
-                                doc.idType === 'aadhaar' ? '5482 9104 3821' : 
-                                doc.idType === 'passport' ? 'Z9182304' : 
-                                doc.idType === 'driving_license' ? 'DL-042019008129' : 'ID Number'
-                              }
                               value={doc.idNumber}
-                              onChange={(e) => updateDocField(docIdx, 'idNumber', e.target.value)}
-                              className="w-full text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:ring-2 focus:ring-teal-500"
-                              required={isPrimary && idSubmissionPolicy === 'submit_now'}
-                            />
-                          </div>
-
-                          {/* Expiry Date */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                              Expiry Date (if applicable)
-                            </label>
-                            <input
-                              type="date"
-                              value={doc.expiryDate || ''}
-                              onChange={(e) => updateDocField(docIdx, 'expiryDate', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2 text-slate-700"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDocuments(prev => {
+                                  const c = [...prev];
+                                  c[docIdx] = { ...c[docIdx], idNumber: val };
+                                  return c;
+                                });
+                              }}
+                              placeholder="e.g. 5482 9104 3821"
+                              className="w-full px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white border border-slate-300 rounded-lg outline-hidden"
                             />
                           </div>
                         </div>
 
-                        {/* Front & Back Side Uploads for this document */}
+                        {/* Side-by-side Front & Back photo blocks */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                           {/* Front Side */}
-                          <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                <span>Front Side Image</span>
-                                {doc.frontImageUrl && (
-                                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">Attached</span>
-                                )}
-                              </span>
+                          <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                              <span>Front Side Photo</span>
                               {doc.frontImageUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateDocField(docIdx, 'frontImageUrl', '')}
-                                  className="text-slate-400 hover:text-rose-600 text-xs flex items-center gap-0.5"
-                                  title="Remove image"
-                                >
-                                  <Trash2 size={13} /> Remove
-                                </button>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">✓ Attached</span>
                               )}
                             </div>
-
                             {doc.frontImageUrl ? (
-                              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-white group aspect-4/3 max-h-36 flex items-center justify-center">
-                                <img
-                                  src={doc.frontImageUrl}
-                                  alt="Doc Front"
-                                  className="w-full h-full object-contain"
-                                />
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewDocImage({ url: doc.frontImageUrl!, title: `${doc.documentTitle || 'Document'} - Front` })}
-                                    className="p-1.5 bg-white text-slate-900 rounded text-xs font-bold flex items-center gap-1"
-                                  >
-                                    <Eye size={12} /> View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera(docIdx, 'front')}
-                                    className="p-1.5 bg-teal-600 text-white rounded text-xs font-bold flex items-center gap-1"
-                                  >
-                                    <Camera size={12} /> Retake
-                                  </button>
+                              <div className="relative h-28 bg-white rounded border border-slate-200 flex items-center justify-center p-1 group">
+                                <img src={doc.frontImageUrl} alt="Front ID" className="max-h-full max-w-full object-contain cursor-zoom-in" onClick={() => setPreviewImage(doc.frontImageUrl || null)} />
+                                <div className="absolute top-1 right-1 flex gap-1 bg-black/60 p-0.5 rounded">
+                                  <button type="button" onClick={() => setPreviewImage(doc.frontImageUrl || null)} className="p-1 text-white hover:text-teal-300"><Eye size={12} /></button>
+                                  <button type="button" onClick={() => setDocuments(prev => { const c = [...prev]; c[docIdx] = { ...c[docIdx], frontImageUrl: undefined }; return c; })} className="p-1 text-white hover:text-rose-400"><Trash2 size={12} /></button>
                                 </div>
                               </div>
                             ) : (
-                              <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center space-y-1.5 hover:border-teal-500 bg-white transition-colors">
-                                <Upload size={20} className="mx-auto text-slate-400" />
-                                <div className="text-[11px] text-slate-500 font-medium">
-                                  Upload Front Side of {doc.idType.toUpperCase()}
-                                </div>
-                                <div className="flex items-center justify-center gap-2 pt-1">
-                                  <label className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
-                                    Browse
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={(e) => handleDocFileUpload(e, docIdx, 'front')}
-                                      className="hidden"
-                                    />
+                              <div className="h-28 bg-white rounded border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 text-center">
+                                <span className="text-[11px] text-slate-400">Front side scan</span>
+                                <div className="flex gap-1.5 mt-2">
+                                  <label className="px-2 py-1 bg-teal-700 text-white text-[11px] font-bold rounded cursor-pointer">
+                                    <Upload size={11} className="inline mr-1" /> Browse
+                                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleDocFileUpload(e, docIdx, 'front')} />
                                   </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera(docIdx, 'front')}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300 cursor-pointer"
-                                  >
-                                    <Camera size={13} /> Camera
+                                  <button type="button" onClick={() => startCamera(docIdx, 'front')} className="px-2 py-1 bg-slate-100 text-slate-700 text-[11px] font-bold rounded border border-slate-300 cursor-pointer">
+                                    <Camera size={11} className="inline mr-1" /> Camera
                                   </button>
                                 </div>
                               </div>
@@ -2289,549 +1628,111 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                           </div>
 
                           {/* Back Side */}
-                          <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                <span>Back Side Image (Optional)</span>
-                                {doc.backImageUrl && (
-                                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">Attached</span>
-                                )}
-                              </span>
+                          <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                              <span>Back Side Photo</span>
                               {doc.backImageUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateDocField(docIdx, 'backImageUrl', '')}
-                                  className="text-slate-400 hover:text-rose-600 text-xs flex items-center gap-0.5"
-                                  title="Remove image"
-                                >
-                                  <Trash2 size={13} /> Remove
-                                </button>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">✓ Attached</span>
                               )}
                             </div>
-
                             {doc.backImageUrl ? (
-                              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-white group aspect-4/3 max-h-36 flex items-center justify-center">
-                                <img
-                                  src={doc.backImageUrl}
-                                  alt="Doc Back"
-                                  className="w-full h-full object-contain"
-                                />
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewDocImage({ url: doc.backImageUrl!, title: `${doc.documentTitle || 'Document'} - Back` })}
-                                    className="p-1.5 bg-white text-slate-900 rounded text-xs font-bold flex items-center gap-1"
-                                  >
-                                    <Eye size={12} /> View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera(docIdx, 'back')}
-                                    className="p-1.5 bg-teal-600 text-white rounded text-xs font-bold flex items-center gap-1"
-                                  >
-                                    <Camera size={12} /> Retake
-                                  </button>
+                              <div className="relative h-28 bg-white rounded border border-slate-200 flex items-center justify-center p-1 group">
+                                <img src={doc.backImageUrl} alt="Back ID" className="max-h-full max-w-full object-contain cursor-zoom-in" onClick={() => setPreviewImage(doc.backImageUrl || null)} />
+                                <div className="absolute top-1 right-1 flex gap-1 bg-black/60 p-0.5 rounded">
+                                  <button type="button" onClick={() => setPreviewImage(doc.backImageUrl || null)} className="p-1 text-white hover:text-teal-300"><Eye size={12} /></button>
+                                  <button type="button" onClick={() => setDocuments(prev => { const c = [...prev]; c[docIdx] = { ...c[docIdx], backImageUrl: undefined }; return c; })} className="p-1 text-white hover:text-rose-400"><Trash2 size={12} /></button>
                                 </div>
                               </div>
                             ) : (
-                              <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center space-y-1.5 hover:border-teal-500 bg-white transition-colors">
-                                <Upload size={20} className="mx-auto text-slate-400" />
-                                <div className="text-[11px] text-slate-500 font-medium">
-                                  Upload Back Side (Address / QR)
-                                </div>
-                                <div className="flex items-center justify-center gap-2 pt-1">
-                                  <label className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-md cursor-pointer border border-teal-200">
-                                    Browse
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={(e) => handleDocFileUpload(e, docIdx, 'back')}
-                                      className="hidden"
-                                    />
+                              <div className="h-28 bg-white rounded border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 text-center">
+                                <span className="text-[11px] text-slate-400">Back side scan</span>
+                                <div className="flex gap-1.5 mt-2">
+                                  <label className="px-2 py-1 bg-teal-700 text-white text-[11px] font-bold rounded cursor-pointer">
+                                    <Upload size={11} className="inline mr-1" /> Browse
+                                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleDocFileUpload(e, docIdx, 'back')} />
                                   </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera(docIdx, 'back')}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-md flex items-center gap-1 border border-slate-300 cursor-pointer"
-                                  >
-                                    <Camera size={13} /> Camera
+                                  <button type="button" onClick={() => startCamera(docIdx, 'back')} className="px-2 py-1 bg-slate-100 text-slate-700 text-[11px] font-bold rounded border border-slate-300 cursor-pointer">
+                                    <Camera size={11} className="inline mr-1" /> Camera
                                   </button>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
-
-                        {/* Document Notes */}
-                        <div>
-                          <input
-                            type="text"
-                            value={doc.notes || ''}
-                            onChange={(e) => updateDocField(docIdx, 'notes', e.target.value)}
-                            placeholder="Verification remarks / notes (e.g. Original physical ID verified at counter, UIDAI QR scanned)"
-                            className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:ring-1 focus:ring-teal-500"
-                          />
-                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
 
-                {/* Bottom Add Another Document Button */}
-                <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-teal-50/50 p-3 rounded-xl border border-teal-200/80">
-                  <div className="text-xs text-teal-900 font-medium flex items-center gap-1.5">
-                    <ShieldCheck size={16} className="text-teal-700" />
-                    <span>Total {documents.length} KYC document{documents.length > 1 ? 's' : ''} prepared for this booking.</span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={handleAddAnotherDoc}
-                      className="px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      className="w-full py-2 border border-dashed border-slate-300 hover:border-teal-600 text-slate-700 hover:text-teal-800 rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <Plus size={15} />
-                      <span>+ Add Another ID Document</span>
+                      <Plus size={13} />
+                      <span>+ Add Another Co-Guest Document</span>
                     </button>
                   </div>
-                </div>
-
-                {/* Additional KYC info */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Guest Vehicle Number (if parking used)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. DL 3C AB 9081"
-                      value={vehicleNumber}
-                      onChange={(e) => setVehicleNumber(e.target.value)}
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Emergency Contact / Relative
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. +91 98112 44330 (Brother)"
-                      value={emergencyContact}
-                      onChange={(e) => setEmergencyContact(e.target.value)}
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: BILLING, DISCOUNT & ADVANCE PAYMENTS */}
-          {activeTab === 'billing' && (
-            <div className="space-y-5 animate-in fade-in-50 duration-150">
-              
-              {/* Special Discount Option Card */}
-              <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-emerald-200/70 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                      <Tag size={15} />
-                    </div>
-                    <div>
-                      <span className="font-bold text-slate-900 text-sm block">Special Discount / Rate Concession</span>
-                      <span className="text-[11px] text-emerald-800">Apply promotional offer, walk-in discount, or corporate concession</span>
-                    </div>
-                  </div>
-                  {discountAmount > 0 ? (
-                    <span className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-full shadow-xs flex items-center gap-1">
-                      <Check size={12} />
-                      Save ₹{discountAmount.toLocaleString()}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-500 font-medium">No discount applied</span>
-                  )}
-                </div>
-
-                {/* Discount Type Toggle & Value Input */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  <div className="md:col-span-4">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Discount Mode</label>
-                    <div className="grid grid-cols-2 p-1 bg-white border border-slate-300 rounded-lg">
-                      <button
-                        type="button"
-                        onClick={() => setDiscountType('flat')}
-                        className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                          discountType === 'flat'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        ₹ Flat (Rupees)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDiscountType('percentage')}
-                        className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                          discountType === 'percentage'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        % Percentage
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-4">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {discountType === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        max={discountType === 'percentage' ? 100 : subtotal}
-                        value={discountValue || ''}
-                        onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
-                        placeholder={discountType === 'percentage' ? 'e.g. 10 for 10%' : 'e.g. 500'}
-                        className="w-full text-sm font-bold bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 pl-8 font-mono"
-                      />
-                      <span className="absolute left-2.5 top-2.5 text-slate-400 font-bold text-sm">
-                        {discountType === 'percentage' ? '%' : '₹'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-4">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Discount Reason / Note</label>
-                    <input
-                      type="text"
-                      value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                      placeholder="e.g. Direct Walk-in / Corporate"
-                      className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="pt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-[11px] font-bold text-slate-500 mr-1">Quick Presets:</span>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountValue(0); setDiscountReason(''); }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
-                      discountAmount === 0 
-                        ? 'bg-slate-200 border-slate-300 text-slate-800 font-bold' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    No Discount
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountType('percentage'); setDiscountValue(5); if (!discountReason) setDiscountReason('5% Direct Booking Discount'); }}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
-                  >
-                    5% Off
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountType('percentage'); setDiscountValue(10); if (!discountReason) setDiscountReason('10% Privilege Discount'); }}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
-                  >
-                    10% Off
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountType('flat'); setDiscountValue(200); if (!discountReason) setDiscountReason('₹200 Walk-in Discount'); }}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
-                  >
-                    ₹200 Off
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountType('flat'); setDiscountValue(500); if (!discountReason) setDiscountReason('₹500 Special Concession'); }}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
-                  >
-                    ₹500 Off
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDiscountType('flat'); setDiscountValue(1000); if (!discountReason) setDiscountReason('₹1,000 Corporate Deal'); }}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-xs font-semibold cursor-pointer"
-                  >
-                    ₹1,000 Off
-                  </button>
-                </div>
+                )}
               </div>
 
-              {/* Optional GST Selection Card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              {/* Bottom Actions with BACK to Rooms */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(2)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back to Rooms</span>
+                </button>
+
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-colors ${
-                    applyGst ? 'bg-teal-700 text-white shadow-xs' : 'bg-slate-100 text-slate-500 border border-slate-200'
-                  }`}>
-                    %
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">Goods &amp; Services Tax (GST)</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
-                        Optional
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-500 block">
-                      {applyGst 
-                        ? '5% GST applied (2.5% CGST + 2.5% SGST on net tariff)' 
-                        : 'GST disabled (0% Tax / Non-GST or Composition bill)'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0">
                   <button
                     type="button"
-                    onClick={() => setApplyGst(false)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      !applyGst
-                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    onClick={onClose}
+                    className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                   >
-                    No GST (0% Optional)
+                    Cancel
                   </button>
+
                   <button
-                    type="button"
-                    onClick={() => setApplyGst(true)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      applyGst
-                        ? 'bg-teal-700 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    type="submit"
+                    className="px-7 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-2"
                   >
-                    Apply 5% GST
-                  </button>
-                </div>
-              </div>
-
-              {/* Reservation Tariff Calculation */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-                <div className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 flex items-center justify-between">
-                  <span>Reservation Tariff Calculation</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                    applyGst ? 'text-teal-800 bg-teal-50 border-teal-200' : 'text-slate-600 bg-slate-100 border-slate-200'
-                  }`}>
-                    {applyGst ? '5% GST Applied' : '0% (Non-GST Bill)'}
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  {selectedRoomIds.length > 1 ? (
-                    <div className="space-y-1.5 pb-2 border-b border-slate-200">
-                      <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Rooms Tariff Breakdown ({selectedRoomIds.length} Rooms):
-                      </div>
-                      {selectedRoomIds.map(rId => {
-                        const rm = rooms.find(r => r.id === rId);
-                        const rate = roomRates[rId] !== undefined ? roomRates[rId] : (rm?.baseRate || 3000);
-                        return (
-                          <div key={rId} className="flex justify-between text-xs text-slate-600">
-                            <span>Room {rm?.number || rId} ({rm?.type}) — {nights}N × ₹{rate}:</span>
-                            <span className="font-semibold text-slate-800">₹{(nights * rate).toLocaleString()}</span>
-                          </div>
-                        );
-                      })}
-                      <div className="flex justify-between text-slate-800 font-bold text-xs pt-1">
-                        <span>Gross Combined Accommodation ({selectedRoomIds.length} Rooms):</span>
-                        <span>₹{subtotal.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Room Tariff ({nights} nights × ₹{roomRate}):</span>
-                      <span className="font-semibold text-slate-800">₹{subtotal.toLocaleString()}</span>
-                    </div>
-                  )}
-
-                  {/* Discount row if applied */}
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between items-center text-emerald-800 font-semibold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <Tag size={13} className="text-emerald-700" />
-                        <span>Discount Applied ({discountType === 'percentage' ? `${discountValue}%` : `₹${discountValue}`}{discountReason ? ` • ${discountReason}` : ''}):</span>
-                      </div>
-                      <span className="font-bold font-mono">- ₹{discountAmount.toLocaleString()}</span>
-                    </div>
-                  )}
-
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-slate-700 font-medium text-xs">
-                      <span>Net Taxable Tariff:</span>
-                      <span className="font-semibold text-slate-900">₹{taxableSubtotal.toLocaleString()}</span>
-                    </div>
-                  )}
-
-                  {/* GST (Optional: 5% or 0%) */}
-                  <div className="flex justify-between items-center text-slate-700 pt-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-800">GST:</span>
-                      {applyGst ? (
-                        <div className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-900 border border-teal-200 px-2.5 py-0.5 rounded text-xs font-semibold">
-                          <span>5% GST</span>
-                          <span className="text-[10px] text-teal-700 font-normal">(2.5% CGST + 2.5% SGST)</span>
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-semibold">
-                          <span>0% (Not Applied)</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {applyGst ? `₹${taxes.toLocaleString()}` : '₹0'}
+                    <Check size={16} />
+                    <span>
+                      {existingBooking 
+                        ? 'Save Changes' 
+                        : selectedRoomIds.length > 1 
+                        ? `Confirm ${selectedRoomIds.length} Rooms Booking` 
+                        : 'Confirm Booking'}
                     </span>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-bold text-slate-900">
-                    <span>Estimated Total Amount:</span>
-                    <span className="text-teal-900">₹{totalAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Advance Payment Section */}
-              <div className="border border-slate-200 rounded-xl p-5 space-y-4">
-                <div className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 flex items-center justify-between">
-                  <span>Advance Payment Received</span>
-                  <span className="text-xs font-normal text-slate-500">Record check-in deposit or OTA prepayment</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Advance Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={advanceAmount}
-                      onChange={(e) => setAdvanceAmount(Number(e.target.value))}
-                      className="w-full text-sm font-bold bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-emerald-900 focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Payment Mode
-                    </label>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value as any)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 focus:bg-white"
-                    >
-                      <option value="upi">UPI / QR (GPay, PhonePe, Paytm)</option>
-                      <option value="cash">Cash Payment</option>
-                      <option value="card">Credit / Debit Card (POS)</option>
-                      <option value="ota_virtual_card">OTA Virtual Card (MMT/Agoda VCC)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Transaction / UTR Reference
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. UPI/329482109 or AuthCode"
-                      value={paymentRef}
-                      onChange={(e) => setPaymentRef(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Balance Due Notification */}
-                <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-900">
-                  <span>Remaining Balance Due at Check-out:</span>
-                  <span className="text-sm font-bold text-amber-950">₹{balanceDue.toLocaleString()}</span>
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Modal Footer Controls */}
-          <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2">
-              {activeTab !== 'stay' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab(activeTab === 'billing' ? 'guest_id' : 'stay')}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-                >
-                  &larr; Back
-                </button>
-              )}
-              {activeTab !== 'billing' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab(activeTab === 'stay' ? 'guest_id' : 'billing')}
-                  className="px-4 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-lg transition-colors border border-teal-200"
-                >
-                  Next Step &rarr;
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                id="save-reservation-btn"
-                className="px-6 py-2.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <CheckCircle2 size={16} />
-                <span>{existingBooking ? 'Save Updates' : 'Confirm & Save Reservation'}</span>
-              </button>
-            </div>
-          </div>
         </form>
 
-        {/* Document Lightbox Preview Modal */}
-        {previewDocImage && (
-          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="relative max-w-3xl w-full max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
-              <div className="p-3 bg-slate-800 text-white flex items-center justify-between border-b border-slate-700">
-                <span className="text-xs font-bold truncate">{previewDocImage.title}</span>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDocImage(null)}
-                  className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/50">
-                <img
-                  src={previewDocImage.url}
-                  alt={previewDocImage.title}
-                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-lg"
-                />
-              </div>
-              <div className="p-2.5 bg-slate-800 text-center">
-                <button
-                  type="button"
-                  onClick={() => setPreviewDocImage(null)}
-                  className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg"
-                >
-                  Close Preview
-                </button>
-              </div>
+        {/* Lightbox Modal */}
+        {previewImage && (
+          <div 
+            className="fixed inset-0 z-70 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div className="max-w-2xl max-h-[85vh] bg-white rounded-xl p-2 relative shadow-2xl" onClick={e => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-3 right-3 p-1.5 bg-black/70 hover:bg-black text-white rounded-full z-10"
+              >
+                <X size={18} />
+              </button>
+              <img 
+                src={previewImage} 
+                alt="Document Preview" 
+                className="max-h-[80vh] max-w-full object-contain rounded-lg"
+              />
             </div>
           </div>
         )}

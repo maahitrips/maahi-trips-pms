@@ -343,7 +343,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                  placeholder={accountType === 'owner' ? "e.g. sadik.hotel" : "e.g. staff.rohit"}
+                  placeholder={accountType === 'owner' ? "e.g. hotel.owner" : "e.g. staff.rohit"}
                   className="w-full pl-8 pr-3 py-2 text-xs bg-white border-2 border-slate-300 rounded-lg focus:border-teal-700 font-mono font-bold text-slate-950 outline-hidden"
                   required
                 />

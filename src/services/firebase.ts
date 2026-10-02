@@ -309,12 +309,26 @@ export async function saveHotelsToCloud(hotels: Hotel[]): Promise<void> {
   }
   try {
     const docRef = doc(db, 'hotels', 'registry');
-    await setDoc(docRef, { list: JSON.parse(JSON.stringify(hotels)), updatedAt: new Date().toISOString() }, { merge: true });
+    await setDoc(docRef, { list: JSON.parse(JSON.stringify(hotels)), updatedAt: new Date().toISOString() }, { merge: false });
   } catch (error) {
     if (checkAndHandleQuotaError(error)) {
       return;
     }
     console.warn('Failed to sync hotels to cloud:', error);
+  }
+}
+
+// 7b. Delete Hotel Bundle from Cloud
+export async function deleteHotelBundleFromCloud(hotelId: string): Promise<void> {
+  if (isFirestoreQuotaExceeded) {
+    return;
+  }
+  try {
+    const docRef = doc(db, 'hotelBundles', hotelId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    if (checkAndHandleQuotaError(error)) return;
+    console.warn(`Failed to delete hotel bundle ${hotelId} from cloud:`, error);
   }
 }
 
@@ -349,7 +363,7 @@ export async function saveUsersToCloud(users: UserAccount[]): Promise<void> {
   }
   try {
     const docRef = doc(db, 'users', 'registry');
-    await setDoc(docRef, { list: JSON.parse(JSON.stringify(users)), updatedAt: new Date().toISOString() }, { merge: true });
+    await setDoc(docRef, { list: JSON.parse(JSON.stringify(users)), updatedAt: new Date().toISOString() }, { merge: false });
   } catch (error) {
     if (checkAndHandleQuotaError(error)) {
       return;

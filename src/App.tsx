@@ -71,6 +71,7 @@ import {
   subscribeToLiveBookings,
   subscribeToHotelBundle, 
   saveHotelsToCloud, 
+  deleteHotelBundleFromCloud,
   subscribeToHotels, 
   saveUsersToCloud, 
   subscribeToUsers, 
@@ -128,172 +129,39 @@ const migrateOldDates = (bundle: HotelDataBundle): HotelDataBundle => {
   return bundle;
 };
 
-// Helper to recover and merge all hotels from all possible sources (current, legacy, and bundle scan)
+// Helper to recover and merge hotels - keeps ONLY Big House Inn per user's explicit command
 const getInitialHotelsWithRecovery = (): Hotel[] => {
-  const hotelsMap = new Map<string, Hotel>();
-
-  // 1. Seed initial standard hotels
-  initialHotels.forEach(h => hotelsMap.set(h.id, { ...h }));
-
-  // 2. Check current storage key
-  const savedV2 = localStorage.getItem(STORAGE_KEY_HOTELS);
-  if (savedV2) {
+  // Purge any stored bundles/keys for other properties
+  const keysToRemove = [
+    'hotel-royalguesthouse',
+    'hotel-nikita',
+    'hotel-sairesidency',
+    'hotel-grandheritage'
+  ];
+  keysToRemove.forEach(id => {
     try {
-      const parsed: Hotel[] = JSON.parse(savedV2);
-      if (Array.isArray(parsed)) {
-        parsed.forEach(h => {
-          if (h && h.id) {
-            hotelsMap.set(h.id, { ...(hotelsMap.get(h.id) || {}), ...h });
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Error parsing hotels v2', e);
-    }
-  }
-
-  // 3. Check legacy storage keys
-  const legacyKeys = ['tripmakerz_hotels_v1', 'tripmakerz_hotels', 'tripmakerz_pms_hotels', 'tripmakerz_pms_hotels_v1'];
-  legacyKeys.forEach(k => {
-    const leg = localStorage.getItem(k);
-    if (leg) {
-      try {
-        const parsed = JSON.parse(leg);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((h: Hotel) => {
-            if (h && h.id) {
-              const existing = hotelsMap.get(h.id);
-              hotelsMap.set(h.id, existing ? { ...h, ...existing } : { ...h });
-            }
-          });
-        }
-      } catch {}
-    }
+      localStorage.removeItem(getHotelBundleKey(id));
+      localStorage.removeItem(`tripmakerz_bundle_${id}`);
+    } catch {}
   });
 
-  // 4. Scan localStorage for any saved hotel bundles to restore any lost properties & names
+  // Thorough scan to remove all other hotel bundles from localStorage
   try {
-    for (let i = 0; i < localStorage.length; i++) {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith('tripmakerz_pms_bundle_') || key.startsWith('tripmakerz_bundle_'))) {
-        const hotelId = key.replace('tripmakerz_pms_bundle_', '').replace('tripmakerz_bundle_', '');
-        if (hotelId) {
-          try {
-            const raw = localStorage.getItem(key);
-            if (raw) {
-              const bundle: HotelDataBundle = JSON.parse(raw);
-              if (bundle && bundle.profile && bundle.profile.name) {
-                const existing = hotelsMap.get(hotelId);
-                if (!existing) {
-                  // Reconstruct hotel from bundle profile
-                  hotelsMap.set(hotelId, {
-                    id: hotelId,
-                    name: bundle.profile.name,
-                    code: hotelId.replace('hotel-', '').slice(0, 4).toUpperCase() || 'HTL',
-                    tagline: bundle.profile.tagline || 'Boutique Hotel Stay',
-                    address: bundle.profile.address || 'India',
-                    city: bundle.profile.city || 'India',
-                    phone: bundle.profile.phone || '+91 96481 33671',
-                    email: bundle.profile.email || 'contact@hotel.com',
-                    gstin: bundle.profile.gstin || '',
-                    checkInTime: bundle.profile.checkInTime || '12:00 PM',
-                    checkOutTime: bundle.profile.checkOutTime || '11:00 AM',
-                    currencySymbol: bundle.profile.currencySymbol || '₹',
-                    starCategory: '3-Star',
-                    status: 'active',
-                    createdAt: new Date().toISOString().split('T')[0]
-                  });
-                } else if (
-                  (!existing.name || existing.name === 'Big House Inn' || existing.name.trim() === '') &&
-                  hotelId !== 'hotel-bighouse' &&
-                  bundle.profile.name &&
-                  bundle.profile.name !== 'Big House Inn'
-                ) {
-                  // Restore real custom name if it was accidentally overwritten
-                  existing.name = bundle.profile.name;
-                  if (bundle.profile.city) existing.city = bundle.profile.city;
-                  if (bundle.profile.address) existing.address = bundle.profile.address;
-                }
-              }
-            }
-          } catch {}
+      if (key && (key.startsWith('tripmakerz_hotel_bundle_') || key.startsWith('tripmakerz_bundle_'))) {
+        if (!key.includes('hotel-bighouse')) {
+          localStorage.removeItem(key);
         }
       }
     }
-  } catch (err) {
-    console.warn('Bundle scan error:', err);
-  }
+  } catch {}
 
-  // 5. Ensure core hotels like Royal Guest House are always present and accurate
-  const rgh = initialHotels.find(h => h.id === 'hotel-royalguesthouse');
-  if (rgh) {
-    const existingRgh = hotelsMap.get('hotel-royalguesthouse');
-    if (!existingRgh || existingRgh.name === 'Big House Inn' || !existingRgh.name) {
-      hotelsMap.set('hotel-royalguesthouse', { ...rgh });
-    } else {
-      hotelsMap.set('hotel-royalguesthouse', {
-        ...rgh,
-        ...existingRgh,
-        name: 'Royal Guest House',
-        code: 'RGH',
-        city: 'Calangute, Goa',
-        state: 'Goa',
-        address: existingRgh.address || 'Near Calangute Beach Circle, Tito Lane'
-      });
-    }
-  }
-
-  // Ensure Hotel Nikita (Rooms F1-F4 & S1-S4) is always present and accurate
-  const nikitaHotel = initialHotels.find(h => h.id === 'hotel-nikita');
-  if (nikitaHotel) {
-    const existingNikita = hotelsMap.get('hotel-nikita');
-    if (!existingNikita || existingNikita.name === 'Big House Inn' || !existingNikita.name) {
-      hotelsMap.set('hotel-nikita', { ...nikitaHotel });
-    } else {
-      hotelsMap.set('hotel-nikita', {
-        ...nikitaHotel,
-        ...existingNikita,
-        name: 'Hotel Nikita',
-        code: 'HNK',
-        city: existingNikita.city || 'Mumbai, Maharashtra'
-      });
-    }
-  }
-
-  // 6. Clean up any invalid or corrupted hotel entries where id !== 'hotel-bighouse' but name was overwritten with 'Big House Inn'
-  const finalHotels = Array.from(hotelsMap.values()).map(h => {
-    if (h.id === 'hotel-nikita') {
-      return {
-        ...h,
-        name: 'Hotel Nikita',
-        code: 'HNK',
-        city: h.city || 'Mumbai, Maharashtra'
-      };
-    }
-    if (h.id === 'hotel-royalguesthouse') {
-      return {
-        ...h,
-        name: 'Royal Guest House',
-        code: 'RGH',
-        city: 'Calangute, Goa',
-        state: 'Goa',
-        address: h.address || 'Near Calangute Beach Circle, Tito Lane'
-      };
-    }
-    if (h.id !== 'hotel-bighouse' && (h.name === 'Big House Inn' || !h.name || h.name.trim() === '')) {
-      const prettyName = h.code 
-        ? `Hotel ${h.code}` 
-        : `Hotel Property (${h.id.replace('hotel-', '')})`;
-      return {
-        ...h,
-        name: prettyName
-      };
-    }
-    return h;
-  });
-
+  const bigHouse = initialHotels[0];
+  const finalHotels = [bigHouse];
   try {
     localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(finalHotels));
+    localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-bighouse');
   } catch {}
 
   return finalHotels;
@@ -332,69 +200,7 @@ const loadHotelBundle = (hotelId: string, knownHotelsList?: Hotel[], forceRestor
         migrated.dynamicPricing.lastMinuteAutomation = defaultLastMinuteConfig;
       }
 
-      // Auto-heal Royal Guest House if it has wrong data (must have all 14 rooms: 101 to 114)
-      if (hotelId === 'hotel-royalguesthouse') {
-        const hasAllRooms101to114 = Array.isArray(migrated.rooms) &&
-          migrated.rooms.length === 14 &&
-          migrated.rooms.every((r: any) => {
-            const num = parseInt(r.number, 10);
-            return !isNaN(num) && num >= 101 && num <= 114;
-          });
-
-        const hasWrongRooms = !hasAllRooms101to114 || migrated.rooms.some((r: any) => 
-          (r.id && r.id.startsWith('rm-')) || 
-          (r.name && r.name.toLowerCase().includes('jambo')) ||
-          (r.id && r.id.startsWith('hotel-royalguesthouse-')) ||
-          r.number === '201' || r.number === '202' || r.number === '203' || r.number === '301' || r.number === '302'
-        );
-        const hasWrongProfile = migrated.profile && (
-          migrated.profile.name === 'Big House Inn' || 
-          (migrated.profile.city || '').toLowerCase().includes('udaipur')
-        );
-        const hasWrongBookings = !migrated.bookings || migrated.bookings.length === 0 || migrated.bookings.some((b: any) => 
-          (b.bookingCode && b.bookingCode.startsWith('BHI-')) ||
-          (b.guest && b.guest.fullName && b.guest.fullName.toLowerCase().includes('nizamuddin'))
-        );
-        const hasNikita = Array.isArray(migrated.bookings) && migrated.bookings.some((b: any) => 
-          (b.guest?.fullName || '').toLowerCase().includes('nikita') || 
-          (b.guest?.fullName || '').toLowerCase().includes('nikta')
-        );
-
-        if (hasWrongRooms || hasWrongProfile || hasWrongBookings || !hasNikita) {
-          console.log('Restoring authentic Royal Guest House data bundle with 14 rooms (101-114) and Nikita booking...');
-          const originalBundle = JSON.parse(JSON.stringify(initialHotelBundles['hotel-royalguesthouse']));
-          try {
-            localStorage.setItem(getHotelBundleKey('hotel-royalguesthouse'), JSON.stringify(originalBundle));
-          } catch {}
-          return originalBundle;
-        }
-      }
-
-      // Auto-heal Hotel Nikita if it has wrong data (must have 8 rooms: F1 to F4 and S1 to S4)
-      if (hotelId === 'hotel-nikita') {
-        const requiredRooms = ['F1', 'F2', 'F3', 'F4', 'S1', 'S2', 'S3', 'S4'];
-        const hasAllRoomsF1toS4 = Array.isArray(migrated.rooms) &&
-          migrated.rooms.length === 8 &&
-          requiredRooms.every(num => migrated.rooms.some((r: any) => (r.number || '').toUpperCase() === num));
-
-        const hasWrongProfile = migrated.profile && (
-          migrated.profile.name === 'Big House Inn' || 
-          (migrated.profile.city || '').toLowerCase().includes('udaipur')
-        );
-
-        const hasWrongBookings = !migrated.bookings || migrated.bookings.length === 0;
-
-        if (!hasAllRoomsF1toS4 || hasWrongProfile || hasWrongBookings) {
-          console.log('Restoring authentic Hotel Nikita data bundle with rooms F1-F4 and S1-S4...');
-          const originalBundle = JSON.parse(JSON.stringify(initialHotelBundles['hotel-nikita']));
-          try {
-            localStorage.setItem(getHotelBundleKey('hotel-nikita'), JSON.stringify(originalBundle));
-          } catch {}
-          return originalBundle;
-        }
-      }
-
-      // If Big House Inn, ensure Nikita booking (bk-009) is also present
+      // If Big House Inn, ensure Nikita booking (bk-009) is present
       if (hotelId === 'hotel-bighouse' && Array.isArray(migrated.bookings)) {
         const hasNikita = migrated.bookings.some((b: any) => 
           (b.guest?.fullName || '').toLowerCase().includes('nikita') || 
@@ -537,8 +343,7 @@ export default function App() {
     if (saved) {
       try {
         const parsed: UserAccount[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Keep all saved accounts, plus inject any initialUsers not already present
+        if (Array.isArray(parsed) && parsed.length > 0) {
           const existingUsernames = new Set(parsed.map(u => (u.username || '').toLowerCase()));
           const missingFromInitial = initialUsers.filter(u => !existingUsernames.has((u.username || '').toLowerCase()));
           combinedUsers = [...parsed, ...missingFromInitial];
@@ -547,7 +352,8 @@ export default function App() {
         console.error('Failed to parse users', e);
       }
     }
-    return combinedUsers.map(u => {
+
+    const finalUsers = combinedUsers.map(u => {
       if (u.role === 'super_admin' || u.id === 'user-admin') {
         return {
           ...u,
@@ -559,46 +365,14 @@ export default function App() {
           avatarText: '👑'
         };
       }
-      if ((u.username || '').toLowerCase() === 'royalguesthouse') {
-        return {
-          ...u,
-          username: 'royalguesthouse',
-          password: 'arshad7755',
-          phone: '+91 96481 33671',
-          name: u.name || 'Arshad (Royal Guest House)',
-          role: 'hotel_owner',
-          hotelId: 'hotel-royalguesthouse',
-          hotelName: 'Royal Guest House (Calangute, Goa)',
-          avatarText: 'RG'
-        };
-      }
-      if ((u.username || '').toLowerCase() === 'nikita') {
-        return {
-          ...u,
-          username: 'nikita',
-          password: 'password123',
-          phone: '+91 96481 33671',
-          name: u.name || 'Nikita Manager',
-          role: 'hotel_owner',
-          hotelId: 'hotel-nikita',
-          hotelName: 'Hotel Nikita (Rooms F1-F4, S1-S4)',
-          avatarText: 'NK'
-        };
-      }
-      if ((u.username || '').toLowerCase() === 'sadik8806') {
-        return {
-          ...u,
-          username: 'sadik8806',
-          password: '8806sadik',
-          phone: '+91 96481 33671',
-          name: u.name || 'Sadik',
-          role: 'hotel_owner',
-          hotelId: 'hotel-royalguesthouse',
-          hotelName: 'Royal Guest House (Calangute, Goa)'
-        };
-      }
       return u;
     });
+
+    try {
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(finalUsers));
+    } catch {}
+
+    return finalUsers;
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -608,6 +382,10 @@ export default function App() {
         const parsed: UserAccount = JSON.parse(saved);
         const uName = (parsed.username || '').toLowerCase().trim();
         const uEmail = (parsed.email || '').toLowerCase().trim();
+        // If user was previously partner sadik or gm, reset to Super Admin
+        if (uName === 'sadik8806' || uName === 'manager.udaipur' || parsed.id === 'user-sadik8806' || parsed.id === 'user-bighouse-mgr') {
+          return initialUsers[0];
+        }
         if (
           parsed.role === 'super_admin' || 
           parsed.id === 'user-admin' || 
@@ -635,13 +413,10 @@ export default function App() {
   });
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_HOTEL_ID);
-    // Prioritize Royal Guest House if not previously saved or if defaulted to Big House Inn
-    if (saved && saved !== 'hotel-bighouse') return saved;
     try {
-      localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-royalguesthouse');
+      localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-bighouse');
     } catch {}
-    return 'hotel-royalguesthouse';
+    return 'hotel-bighouse';
   });
 
   // Current Hotel Data State (isolated per hotel)
@@ -835,35 +610,52 @@ export default function App() {
 
   // Real-time Cloud Subscriptions across devices (hotels, users, deletion requests)
   useEffect(() => {
+    // Immediately persist and sync single Big House Inn property to Firestore
+    saveHotelsToCloud([initialHotels[0]]);
+
+    const deletedHotelIds = new Set([
+      'hotel-royalguesthouse',
+      'hotel-nikita',
+      'hotel-sairesidency',
+      'hotel-grandheritage'
+    ]);
+
+    deletedHotelIds.forEach(id => {
+      deleteHotelBundleFromCloud(id).catch(() => {});
+    });
+
     const unsubHotels = subscribeToHotels((cloudHotels) => {
       if (cloudHotels && cloudHotels.length > 0) {
-        setHotels(prev => {
-          const map = new Map<string, Hotel>();
-          // 1. Existing local hotels (includes user's newly created properties!)
-          prev.forEach(h => map.set(h.id, h));
-          // 2. Merge cloud hotels safely without wiping local names
-          cloudHotels.forEach(h => {
-            if (map.has(h.id)) {
-              const existing = map.get(h.id)!;
-              map.set(h.id, {
-                ...h,
-                name: (existing.name && existing.name !== 'Big House Inn' && h.name === 'Big House Inn' && h.id !== 'hotel-bighouse') ? existing.name : (h.name || existing.name)
-              });
-            } else {
-              map.set(h.id, h);
-            }
-          });
-          const merged = Array.from(map.values());
-          try {
-            localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
+        // Filter out any unwanted/deleted hotels so they never revive
+        const filteredCloud = cloudHotels.filter(h => 
+          h.id === 'hotel-bighouse' || (
+            !deletedHotelIds.has(h.id) &&
+            !h.name.toLowerCase().includes('nikita') &&
+            !h.name.toLowerCase().includes('royal guest')
+          )
+        );
+
+        // If cloud had deleted entries, write back the cleaned list to cloud
+        if (filteredCloud.length !== cloudHotels.length) {
+          saveHotelsToCloud(filteredCloud.length > 0 ? filteredCloud : [initialHotels[0]]);
+        }
+
+        const finalList = filteredCloud.length > 0 ? filteredCloud : [initialHotels[0]];
+        setHotels(finalList);
+        try {
+          localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(finalList));
+        } catch {}
       }
     });
+    // Persist and sync users to Firestore
+    saveUsersToCloud(initialUsers);
+
     const unsubUsers = subscribeToUsers((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
         setUsers(cloudUsers);
+        try {
+          localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(cloudUsers));
+        } catch {}
       }
     });
     const unsubRequests = subscribeToDeletionRequests((cloudReqs) => {
@@ -1178,30 +970,19 @@ export default function App() {
       handleSelectHotel(hotelId);
     }
 
-    const hotelName = pristineBundle.profile?.name || (hotelId === 'hotel-royalguesthouse' ? 'Royal Guest House' : 'Property');
+    const hotelName = pristineBundle.profile?.name || 'Property';
     showToast(
       `✅ ${hotelName} Data Restore Ho Gaya!`,
-      `${pristineBundle.rooms.length} Rooms (101-114) • ${pristineBundle.bookings.length} Bookings • Goa Address & Profile Restored`
+      `${pristineBundle.rooms.length} Rooms • ${pristineBundle.bookings.length} Bookings Restored`
     );
   };
 
-  // Ensure Royal Guest House room list is synced to 101-114 if currently active
+  // Ensure active hotel is valid; if current active property was deleted, default back to Big House Inn
   useEffect(() => {
-    if (activeHotelId === 'hotel-royalguesthouse') {
-      const hasOldRooms = rooms.some(r => r.number === '201' || r.number === '301' || parseInt(r.number, 10) > 114) || rooms.length !== 14;
-      if (hasOldRooms) {
-        const rghBundle = initialHotelBundles['hotel-royalguesthouse'];
-        if (rghBundle) {
-          setRooms(rghBundle.rooms);
-          setBookings(rghBundle.bookings);
-          try {
-            localStorage.setItem(getHotelBundleKey('hotel-royalguesthouse'), JSON.stringify(rghBundle));
-          } catch {}
-          saveHotelBundleToCloud('hotel-royalguesthouse', rghBundle, false);
-        }
-      }
+    if (activeHotelId !== 'hotel-bighouse' && !hotels.some(h => h.id === activeHotelId)) {
+      handleSelectHotel('hotel-bighouse');
     }
-  }, [activeHotelId, rooms]);
+  }, [activeHotelId, hotels]);
 
   // User Login Action
   const handleLogin = (user: UserAccount) => {
@@ -1454,6 +1235,7 @@ export default function App() {
       setHotels(remaining);
       localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(remaining));
       localStorage.removeItem(getHotelBundleKey(id));
+      saveHotelsToCloud(remaining);
       if (activeHotelId === id) {
         handleSelectHotel(remaining[0].id);
       }
@@ -1490,6 +1272,7 @@ export default function App() {
         setHotels(remaining);
         localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(remaining));
         localStorage.removeItem(getHotelBundleKey(req.targetId));
+        saveHotelsToCloud(remaining);
         if (activeHotelId === req.targetId) {
           handleSelectHotel(remaining[0].id);
         }
@@ -2531,6 +2314,7 @@ export default function App() {
           existingBooking={editingBooking}
           isLastMinuteFlashActive={lastMinuteStatus.isTriggered}
           lastMinuteDiscountPercent={lastMinuteStatus.discountPercent}
+          hotelName={hotelProfile?.name || 'Big House Inn'}
         />
       )}
 

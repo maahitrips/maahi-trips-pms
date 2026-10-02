@@ -37,7 +37,7 @@ import {
 interface HeaderProps {
   propertyName: string;
   hotelProfile?: HotelProfile;
-  onNewBookingClick: () => void;
+  onNewBookingClick: (mode?: 'single' | 'multi') => void;
   onSimulateOtaClick: () => void;
   onSyncAllOtas: () => void;
   onOpenSearch: () => void;
@@ -101,8 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
   const propertyAddCheck = canUserAddProperty(currentUser, hotels);
   const accessibleHotels = getAccessibleHotels(currentUser, hotels);
   const activeHotel = hotels.find(h => h.id === activeHotelId);
-  const isRoyalActive = activeHotelId === 'hotel-royalguesthouse';
-  const isNikitaActive = activeHotelId === 'hotel-nikita';
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -180,7 +178,6 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="max-h-64 overflow-y-auto py-1 scrollbar-thin">
                 {accessibleHotels.map(h => {
                   const isCurrent = h.id === activeHotelId;
-                  const isRoyal = h.id === 'hotel-royalguesthouse' || h.name.toLowerCase().includes('royal') || h.code === 'RGH';
 
                   return (
                     <div
@@ -192,8 +189,6 @@ export const Header: React.FC<HeaderProps> = ({
                       className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
                         isCurrent
                           ? 'bg-teal-50 text-teal-950 font-bold border-l-4 border-teal-600'
-                          : isRoyal
-                          ? 'bg-amber-50/60 hover:bg-amber-100/70 text-slate-900 border-l-4 border-amber-500'
                           : 'hover:bg-slate-50 text-slate-800'
                       }`}
                     >
@@ -201,8 +196,6 @@ export const Header: React.FC<HeaderProps> = ({
                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
                           isCurrent
                             ? 'bg-teal-700 text-white'
-                            : isRoyal
-                            ? 'bg-amber-500 text-slate-950'
                             : 'bg-slate-100 text-slate-700'
                         }`}>
                           {h.code || 'HTL'}
@@ -210,11 +203,6 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="truncate">
                           <div className="text-xs font-bold truncate flex items-center gap-1">
                             <span>{h.name}</span>
-                            {isRoyal && (
-                              <span className="text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-semibold">
-                                Goa • Rooms 101-114
-                              </span>
-                            )}
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">{h.city || 'India'}</div>
                         </div>
@@ -222,21 +210,6 @@ export const Header: React.FC<HeaderProps> = ({
 
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         {isCurrent && <Check size={14} className="text-teal-600 shrink-0" />}
-                        {isRoyal && onRestoreHotelData && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsPropertyMenuOpen(false);
-                              onRestoreHotelData(h.id);
-                            }}
-                            className="p-1 hover:bg-amber-200 text-amber-800 rounded transition-colors text-[10px] font-bold flex items-center gap-0.5"
-                            title="Restore Royal Guest House original Goa data"
-                          >
-                            <RefreshCw size={11} />
-                            <span className="hidden sm:inline">Restore</span>
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -262,68 +235,29 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* 🏖️ Quick Switch to Royal Guest House (Goa) Shortcut Button */}
-        {!isRoyalActive && (
+        {/* Primary "+ New Booking" & "Multi-Room" buttons */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            type="button"
-            onClick={() => onSelectHotel('hotel-royalguesthouse')}
-            className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-950 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
-            title="1-Click Switch to Royal Guest House (Calangute, Goa)"
+            id="btn-new-booking"
+            onClick={() => onNewBookingClick('single')}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer"
+            title="Single room reservation"
           >
-            <span>🏖️ Royal Guest House</span>
-            <span className="text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-black">Goa</span>
+            <Plus size={14} strokeWidth={2.5} />
+            <span className="hidden sm:inline">New Booking</span>
+            <span className="sm:hidden">Book</span>
           </button>
-        )}
 
-        {/* 🏢 Quick Switch to Hotel Nikita (Rooms F1-F4, S1-S4) Shortcut Button */}
-        {!isNikitaActive && (
           <button
-            type="button"
-            onClick={() => onSelectHotel('hotel-nikita')}
-            className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-950 border border-purple-300 rounded-lg text-xs font-bold shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
-            title="1-Click Switch to Hotel Nikita (Rooms F1-F4 & S1-S4)"
+            id="btn-multi-room-booking"
+            onClick={() => onNewBookingClick('multi')}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-teal-500/40 text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer"
+            title="Multi-Room Group Booking (2+ rooms)"
           >
-            <span>🏢 Hotel Nikita</span>
-            <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-black">F1-S4</span>
+            <Building size={13} className="text-teal-400" />
+            <span className="hidden sm:inline">Multi-Room</span>
           </button>
-        )}
-
-        {/* 🔄 Restore Royal Guest House Data Button (When Royal Guest House is active) */}
-        {isRoyalActive && onRestoreHotelData && (
-          <button
-            type="button"
-            onClick={() => onRestoreHotelData('hotel-royalguesthouse')}
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
-            title="Purana data restore karein (14 Rooms, Bookings & Goa Profile)"
-          >
-            <RefreshCw size={12} className="text-amber-700 animate-spin-hover" />
-            <span>Restore Old Data</span>
-          </button>
-        )}
-
-        {/* 🔄 Restore Hotel Nikita Data Button (When Hotel Nikita is active) */}
-        {isNikitaActive && onRestoreHotelData && (
-          <button
-            type="button"
-            onClick={() => onRestoreHotelData('hotel-nikita')}
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-300 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
-            title="Hotel Nikita purana data restore karein (Rooms F1-F4 & S1-S4)"
-          >
-            <RefreshCw size={12} className="text-purple-700 animate-spin-hover" />
-            <span>Restore Rooms F1-S4</span>
-          </button>
-        )}
-
-        {/* Primary "+ New Booking" button */}
-        <button
-          id="btn-new-booking"
-          onClick={onNewBookingClick}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
-        >
-          <Plus size={14} strokeWidth={2.5} />
-          <span className="hidden sm:inline">New Booking</span>
-          <span className="sm:hidden">Book</span>
-        </button>
+        </div>
 
         {/* OTA Channel Live Status pill */}
         <div 

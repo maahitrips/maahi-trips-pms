@@ -64,64 +64,52 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return userMatches && passMatches;
     });
 
-    // 2. Built-in fallback for royalguesthouse, sadik8806, and maahitrips (guarantees seamless login in Incognito, private mode & all devices)
+    // 2. Built-in fallback for sadik8806, maahitrips, and gm (guarantees seamless login in Incognito, private mode & all devices)
     if (!found) {
-      if (normUser === 'royalguesthouse' && (normPass === 'arshad7755' || normPass === '417905kpj' || normPass === 'password123')) {
-        found = {
-          id: 'user-royalguesthouse',
-          username: 'royalguesthouse',
-          password: 'arshad7755',
-          name: 'Arshad (Royal Guest House)',
-          designation: 'Property Owner & General Manager',
-          role: 'hotel_owner',
-          email: 'royalguesthouse@gmail.com',
-          phone: '+91 96481 33671',
-          hotelId: 'hotel-royalguesthouse',
-          hotelName: 'Royal Guest House (Calangute, Goa)',
-          avatarText: 'RG'
-        };
-      } else if (normUser === 'nikita' || normUser === 'hotelnikita') {
-        found = {
-          id: 'user-nikita',
-          username: 'nikita',
-          password: normPass || 'password123',
-          name: 'Nikita Manager',
-          designation: 'Property Owner & Manager',
-          role: 'hotel_owner',
-          email: 'hotelnikita@gmail.com',
-          phone: '+91 96481 33671',
-          hotelId: 'hotel-nikita',
-          hotelName: 'Hotel Nikita (Rooms F1-F4, S1-S4)',
-          avatarText: 'NK'
-        };
-      } else if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
+      if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
         found = {
           id: 'user-sadik8806',
           username: 'sadik8806',
           password: '8806sadik',
-          name: 'Sadik',
-          designation: 'Hotel Partner & Owner',
+          name: 'Partner Sadik',
+          designation: 'Partner & Co-Owner',
           role: 'hotel_owner',
-          email: 'sadik8806@gmail.com',
+          email: 'partner.sadik@gmail.com',
           phone: '+91 96481 33671',
           hotelId: 'hotel-bighouse',
           hotelName: 'Big House Inn (Udaipur)',
           avatarText: 'SK'
         };
-      } else if ((normUser === 'maahitrips' || normUser === 'admin') && (normPass === '417905kpj' || normPass === 'password123')) {
+      } else if (normUser === 'manager.udaipur' && (normPass === '417905kpj' || normPass === 'password123')) {
         found = {
-          id: 'user-admin',
-          username: 'maahitrips',
+          id: 'user-bighouse-mgr',
+          username: 'manager.udaipur',
           password: '417905kpj',
-          name: 'Maahi Trips',
-          designation: 'Super Admin • Group Managing Director',
-          role: 'super_admin',
-          email: 'shahidkpj@gmail.com',
+          name: 'GM Udaipur',
+          designation: 'General Manager',
+          role: 'hotel_manager',
+          email: 'gm.udaipur@bighouseinn.com',
           phone: '+91 96481 33671',
-          hotelId: 'all',
-          hotelName: 'All Properties (Super Admin)',
-          avatarText: '👑'
+          hotelId: 'hotel-bighouse',
+          hotelName: 'Big House Inn (Udaipur)',
+          avatarText: 'GM'
         };
+      } else if (normUser === 'maahitrips' || normUser === 'admin' || normUser === 'superadmin') {
+        if (normPass === '417905kpj' || normPass === 'password123') {
+          found = {
+            id: 'user-admin',
+            username: 'maahitrips',
+            password: '417905kpj',
+            name: 'Maahi Trips',
+            designation: 'Super Admin • Group Managing Director',
+            role: 'super_admin',
+            email: 'shahidkpj@gmail.com',
+            phone: '+91 96481 33671',
+            hotelId: 'all',
+            hotelName: 'All Properties (Super Admin)',
+            avatarText: '👑'
+          };
+        }
       }
     }
 
@@ -244,47 +232,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
               Quick Accounts:
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('nikita');
-                  setPassword('password123');
-                }}
-                className="p-2 text-left bg-purple-50 hover:bg-purple-100 border border-purple-300 hover:border-purple-400 rounded-lg transition-colors cursor-pointer ring-1 ring-purple-300/50"
-              >
-                <div className="font-bold text-xs text-purple-950 flex items-center gap-1">
-                  <span>🏢 Hotel Nikita</span>
-                </div>
-                <div className="text-[10px] text-purple-800 font-mono truncate">@nikita (F1-F4, S1-S4)</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('royalguesthouse');
-                  setPassword('arshad7755');
-                }}
-                className="p-2 text-left bg-teal-50/70 hover:bg-teal-100/70 border border-teal-300 hover:border-teal-400 rounded-lg transition-colors cursor-pointer ring-1 ring-teal-300/50"
-              >
-                <div className="font-bold text-xs text-teal-950 flex items-center gap-1">
-                  <span>🏖️ Royal Guest House</span>
-                </div>
-                <div className="text-[10px] text-teal-800 font-mono truncate">@royalguesthouse</div>
-              </button>
-
+            <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setUsername('maahitrips');
                   setPassword('417905kpj');
                 }}
-                className="p-2 text-left bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg transition-colors cursor-pointer"
+                className="w-full p-2 text-left bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
               >
-                <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
-                  <span>👑 Super Admin</span>
+                <div>
+                  <div className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                    <span>👑 Super Admin (Maahi Trips)</span>
+                  </div>
+                  <div className="text-[10px] text-amber-800 font-mono">Username: @maahitrips</div>
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono truncate">@maahitrips</div>
+                <span className="text-xs text-amber-900 font-bold bg-amber-200/80 px-2 py-0.5 rounded">Auto Fill</span>
               </button>
 
               <button
@@ -293,12 +256,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   setUsername('sadik8806');
                   setPassword('8806sadik');
                 }}
-                className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg transition-colors cursor-pointer"
+                className="w-full p-2 text-left bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
               >
-                <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
-                  <span>🏨 Partner Sadik</span>
+                <div>
+                  <div className="font-bold text-xs text-teal-950 flex items-center gap-1.5">
+                    <span>🏨 Partner Sadik (Big House Inn)</span>
+                  </div>
+                  <div className="text-[10px] text-teal-800 font-mono">Username: @sadik8806</div>
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono truncate">@sadik8806</div>
+                <span className="text-xs text-teal-900 font-bold bg-teal-200/80 px-2 py-0.5 rounded">Auto Fill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('manager.udaipur');
+                  setPassword('417905kpj');
+                }}
+                className="w-full p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
+              >
+                <div>
+                  <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                    <span>👔 GM Udaipur (Big House Inn)</span>
+                  </div>
+                  <div className="text-[10px] text-slate-600 font-mono">Username: @manager.udaipur</div>
+                </div>
+                <span className="text-xs text-slate-800 font-bold bg-slate-200 px-2 py-0.5 rounded">Auto Fill</span>
               </button>
             </div>
           </div>
@@ -314,7 +297,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                 <span>Username / Login ID</span>
-                <span className="text-[11px] font-semibold text-slate-400">e.g. sadik8806, maahitrips</span>
+                <span className="text-[11px] font-semibold text-slate-400">e.g. maahitrips</span>
               </label>
               <div className="relative">
                 <User size={18} className="absolute left-3.5 top-3 text-slate-500" />

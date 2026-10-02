@@ -7,7 +7,8 @@ import {
   formatIdTypeName,
   isIdVerifiedCheck,
   getAllBookingDocuments,
-  HotelProfile
+  HotelProfile,
+  IdDocument
 } from '../types';
 import { 
   X, 
@@ -70,6 +71,7 @@ interface BookingDetailsDrawerProps {
   onSelectBooking?: (booking: Booking) => void;
   hotelName?: string;
   hotelProfile?: HotelProfile;
+  onUpdateBookingDocs?: (bookingId: string, documents: IdDocument[]) => void;
 }
 
 type ActiveTabType = 'details' | 'guests' | 'rooms' | 'documents' | 'payments' | 'commission' | 'addons' | 'comments' | 'logs';
@@ -1436,11 +1438,14 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                       </div>
 
                       {/* Photo Proof Previews for this Document */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        {/* Front Image */}
+                      <div className={docItem.backImageUrl ? "grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1" : "pt-1"}>
+                        {/* Primary Document Scan */}
                         <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
                           <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                            <span>Front Document Scan</span>
+                            <span className="flex items-center gap-1.5">
+                              <FileText size={13} className="text-teal-700" />
+                              <span>Document Scan / Attachment</span>
+                            </span>
                             {docItem.frontImageUrl && (
                               <button
                                 type="button"
@@ -1458,23 +1463,23 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                             >
                               <img
                                 src={docItem.frontImageUrl}
-                                alt="ID Front"
+                                alt="ID Document"
                                 className="max-h-full max-w-full object-contain"
                               />
                             </div>
                           ) : (
                             <div className="h-36 bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center text-xs text-slate-400">
                               <FileText size={20} className="mb-1 text-slate-300" />
-                              <span>No front scan attached</span>
+                              <span>No document scan attached</span>
                             </div>
                           )}
                         </div>
 
-                        {/* Back Image */}
-                        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                            <span>Back Document Scan</span>
-                            {docItem.backImageUrl && (
+                        {/* Additional Document Scan if exists */}
+                        {docItem.backImageUrl && (
+                          <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                              <span>Additional Page Scan</span>
                               <button
                                 type="button"
                                 onClick={() => setLightboxImage(docItem.backImageUrl || null)}
@@ -1482,26 +1487,19 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                               >
                                 <Eye size={13} /> View Full
                               </button>
-                            )}
-                          </div>
-                          {docItem.backImageUrl ? (
+                            </div>
                             <div 
                               className="h-36 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-95 transition-opacity"
                               onClick={() => setLightboxImage(docItem.backImageUrl || null)}
                             >
                               <img
                                 src={docItem.backImageUrl}
-                                alt="ID Back"
+                                alt="ID Page 2"
                                 className="max-h-full max-w-full object-contain"
                               />
                             </div>
-                          ) : (
-                            <div className="h-36 bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center text-xs text-slate-400">
-                              <FileText size={20} className="mb-1 text-slate-300" />
-                              <span>No back scan attached</span>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Notes snippet */}

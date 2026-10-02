@@ -294,8 +294,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })
                     .map(h => {
                       const isCurrent = h.id === activeHotelId;
-                      const isRoyal = h.name.toLowerCase().includes('royal') || h.code === 'RGH';
-                      const isNikita = h.id === 'hotel-nikita' || h.name.toLowerCase().includes('nikita') || h.code === 'HNK';
                       return (
                         <div
                           key={h.id}
@@ -308,10 +306,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           className={`p-2 rounded-lg flex items-center justify-between text-left cursor-pointer transition-colors ${
                             isCurrent 
                               ? 'bg-teal-900/60 border border-teal-700/80 text-white' 
-                              : isRoyal
-                              ? 'bg-amber-950/30 hover:bg-amber-900/40 text-amber-200 border border-amber-800/40'
-                              : isNikita
-                              ? 'bg-purple-950/30 hover:bg-purple-900/40 text-purple-200 border border-purple-800/40'
                               : 'hover:bg-slate-800 text-slate-300 hover:text-white border border-transparent'
                           }`}
                         >
@@ -319,10 +313,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
                               isCurrent 
                                 ? 'bg-teal-600 text-white' 
-                                : isRoyal 
-                                ? 'bg-amber-500 text-slate-950 font-bold' 
-                                : isNikita
-                                ? 'bg-purple-600 text-white font-bold'
                                 : 'bg-slate-800 text-slate-400'
                             }`}>
                               {h.code || 'HTL'}
@@ -330,8 +320,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="truncate">
                               <div className="font-bold text-xs truncate flex items-center gap-1">
                                 <span>{h.name}</span>
-                                {isRoyal && <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded font-normal">Goa • Rooms 101-114</span>}
-                                {isNikita && <span className="text-[9px] bg-purple-400/20 text-purple-300 px-1 py-0.2 rounded font-normal">Rooms F1-F4 & S1-S4</span>}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate">{h.city}</div>
                             </div>
@@ -339,36 +327,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                           <div className="flex items-center gap-1 shrink-0 ml-1.5">
                             {isCurrent && <Check size={14} className="text-teal-400" />}
-                            {isRoyal && onRestoreHotelData && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsPropertyMenuOpen(false);
-                                  onRestoreHotelData(h.id);
-                                }}
-                                className="p-1 hover:text-amber-200 text-amber-400 rounded transition-colors text-[10px] flex items-center gap-0.5 bg-amber-950/60 hover:bg-amber-900/80 px-1.5 py-0.5 border border-amber-700/50"
-                                title="Restore Royal Guest House original Goa data (पुरानी डेटा रिस्टोर करें)"
-                              >
-                                <RefreshCw size={10} />
-                                <span>Restore</span>
-                              </button>
-                            )}
-                            {isNikita && onRestoreHotelData && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsPropertyMenuOpen(false);
-                                  onRestoreHotelData(h.id);
-                                }}
-                                className="p-1 hover:text-purple-200 text-purple-300 rounded transition-colors text-[10px] flex items-center gap-0.5 bg-purple-950/60 hover:bg-purple-900/80 px-1.5 py-0.5 border border-purple-700/50"
-                                title="Restore Hotel Nikita data (Rooms F1-F4 & S1-S4)"
-                              >
-                                <RefreshCw size={10} />
-                                <span>Restore</span>
-                              </button>
-                            )}
                             {isSuper && onRequestDeleteHotel && (
                               <button
                                 type="button"

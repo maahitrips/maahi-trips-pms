@@ -24,8 +24,7 @@ export const isSuperAdminUser = (user: UserAccount | null | undefined): boolean 
 export const isPropertyOwnerUser = (user: UserAccount | null | undefined): boolean => {
   if (!user) return false;
   if (isSuperAdminUser(user)) return false;
-  const username = (user.username || '').toLowerCase().trim();
-  return user.role === 'hotel_owner' || username === 'sadik8806';
+  return user.role === 'hotel_owner';
 };
 
 /**

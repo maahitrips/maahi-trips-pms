@@ -298,46 +298,42 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
                     Attached ID Scans ({currentDoc.idType.toUpperCase()}):
                   </span>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={hasBack ? "grid grid-cols-2 gap-2" : "w-full"}>
                     {hasFront ? (
                       <div
-                        onClick={() => setLightboxImage({ url: currentDoc.frontImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Front` })}
+                        onClick={() => setLightboxImage({ url: currentDoc.frontImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Document` })}
                         className="aspect-4/3 bg-slate-100 rounded border border-slate-200 overflow-hidden cursor-zoom-in group relative"
-                        title="Click to zoom Front ID"
+                        title="Click to zoom ID Document"
                       >
                         <img
                           src={currentDoc.frontImageUrl}
-                          alt="Front"
+                          alt="ID Document"
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                          <Eye size={12} className="mr-1" /> Zoom Front
+                          <Eye size={12} className="mr-1" /> Zoom Document
                         </div>
                       </div>
                     ) : (
                       <div className="aspect-4/3 bg-slate-50 rounded border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400">
-                        No Front ID
+                        Physical ID Verified (No digital file)
                       </div>
                     )}
 
-                    {hasBack ? (
+                    {hasBack && (
                       <div
-                        onClick={() => setLightboxImage({ url: currentDoc.backImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Back` })}
+                        onClick={() => setLightboxImage({ url: currentDoc.backImageUrl!, title: `${currentDoc.guestName || g.fullName} - ${currentDoc.idType.toUpperCase()} Page 2` })}
                         className="aspect-4/3 bg-slate-100 rounded border border-slate-200 overflow-hidden cursor-zoom-in group relative"
-                        title="Click to zoom Back ID"
+                        title="Click to zoom Page 2"
                       >
                         <img
                           src={currentDoc.backImageUrl}
-                          alt="Back"
+                          alt="Page 2"
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                          <Eye size={12} className="mr-1" /> Zoom Back
+                          <Eye size={12} className="mr-1" /> Zoom Page 2
                         </div>
-                      </div>
-                    ) : (
-                      <div className="aspect-4/3 bg-slate-50 rounded border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400">
-                        No Back ID
                       </div>
                     )}
                   </div>

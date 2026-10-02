@@ -68,6 +68,8 @@ export interface IdDocument {
   issuedBy?: string;
   documentTitle?: string; // e.g. "Primary Guest Aadhaar", "Co-Guest DL", "Passport"
   guestName?: string;     // e.g. "Primary Guest", "Co-Guest 1"
+  fileName?: string;      // e.g. "IMG_20261002_154044.jpg"
+  imageUrl?: string;      // Direct single-image URL
 }
 
 export interface Guest {
@@ -81,6 +83,8 @@ export interface Guest {
   country: string;
   nationality: string;
   purposeOfVisit?: string;
+  arrivingFrom?: string;
+  departingTo?: string;
   vehicleNumber?: string;
   emergencyContact?: string;
   idDocument: IdDocument;
