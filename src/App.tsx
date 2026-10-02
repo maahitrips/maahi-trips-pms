@@ -63,7 +63,7 @@ import {
 } from './utils/pricingHelper';
 import { CheckCircle2, Zap, X } from 'lucide-react';
 import { canUserAddProperty, isSuperAdminUser } from './utils/permissionHelper';
-import { getTodayDateStr } from './utils/dateHelper';
+import { getTodayDateStr, addDaysToStr } from './utils/dateHelper';
 import { 
   saveHotelBundleToCloud, 
   fetchHotelBundleFromCloud,
@@ -243,8 +243,33 @@ const getInitialHotelsWithRecovery = (): Hotel[] => {
     }
   }
 
+  // Ensure Hotel Nikita (Rooms F1-F4 & S1-S4) is always present and accurate
+  const nikitaHotel = initialHotels.find(h => h.id === 'hotel-nikita');
+  if (nikitaHotel) {
+    const existingNikita = hotelsMap.get('hotel-nikita');
+    if (!existingNikita || existingNikita.name === 'Big House Inn' || !existingNikita.name) {
+      hotelsMap.set('hotel-nikita', { ...nikitaHotel });
+    } else {
+      hotelsMap.set('hotel-nikita', {
+        ...nikitaHotel,
+        ...existingNikita,
+        name: 'Hotel Nikita',
+        code: 'HNK',
+        city: existingNikita.city || 'Mumbai, Maharashtra'
+      });
+    }
+  }
+
   // 6. Clean up any invalid or corrupted hotel entries where id !== 'hotel-bighouse' but name was overwritten with 'Big House Inn'
   const finalHotels = Array.from(hotelsMap.values()).map(h => {
+    if (h.id === 'hotel-nikita') {
+      return {
+        ...h,
+        name: 'Hotel Nikita',
+        code: 'HNK',
+        city: h.city || 'Mumbai, Maharashtra'
+      };
+    }
     if (h.id === 'hotel-royalguesthouse') {
       return {
         ...h,
@@ -330,14 +355,59 @@ const loadHotelBundle = (hotelId: string, knownHotelsList?: Hotel[], forceRestor
           (b.bookingCode && b.bookingCode.startsWith('BHI-')) ||
           (b.guest && b.guest.fullName && b.guest.fullName.toLowerCase().includes('nizamuddin'))
         );
+        const hasNikita = Array.isArray(migrated.bookings) && migrated.bookings.some((b: any) => 
+          (b.guest?.fullName || '').toLowerCase().includes('nikita') || 
+          (b.guest?.fullName || '').toLowerCase().includes('nikta')
+        );
 
-        if (hasWrongRooms || hasWrongProfile || hasWrongBookings) {
-          console.log('Restoring authentic Royal Guest House data bundle with 14 rooms (101-114)...');
+        if (hasWrongRooms || hasWrongProfile || hasWrongBookings || !hasNikita) {
+          console.log('Restoring authentic Royal Guest House data bundle with 14 rooms (101-114) and Nikita booking...');
           const originalBundle = JSON.parse(JSON.stringify(initialHotelBundles['hotel-royalguesthouse']));
           try {
             localStorage.setItem(getHotelBundleKey('hotel-royalguesthouse'), JSON.stringify(originalBundle));
           } catch {}
           return originalBundle;
+        }
+      }
+
+      // Auto-heal Hotel Nikita if it has wrong data (must have 8 rooms: F1 to F4 and S1 to S4)
+      if (hotelId === 'hotel-nikita') {
+        const requiredRooms = ['F1', 'F2', 'F3', 'F4', 'S1', 'S2', 'S3', 'S4'];
+        const hasAllRoomsF1toS4 = Array.isArray(migrated.rooms) &&
+          migrated.rooms.length === 8 &&
+          requiredRooms.every(num => migrated.rooms.some((r: any) => (r.number || '').toUpperCase() === num));
+
+        const hasWrongProfile = migrated.profile && (
+          migrated.profile.name === 'Big House Inn' || 
+          (migrated.profile.city || '').toLowerCase().includes('udaipur')
+        );
+
+        const hasWrongBookings = !migrated.bookings || migrated.bookings.length === 0;
+
+        if (!hasAllRoomsF1toS4 || hasWrongProfile || hasWrongBookings) {
+          console.log('Restoring authentic Hotel Nikita data bundle with rooms F1-F4 and S1-S4...');
+          const originalBundle = JSON.parse(JSON.stringify(initialHotelBundles['hotel-nikita']));
+          try {
+            localStorage.setItem(getHotelBundleKey('hotel-nikita'), JSON.stringify(originalBundle));
+          } catch {}
+          return originalBundle;
+        }
+      }
+
+      // If Big House Inn, ensure Nikita booking (bk-009) is also present
+      if (hotelId === 'hotel-bighouse' && Array.isArray(migrated.bookings)) {
+        const hasNikita = migrated.bookings.some((b: any) => 
+          (b.guest?.fullName || '').toLowerCase().includes('nikita') || 
+          (b.guest?.fullName || '').toLowerCase().includes('nikta')
+        );
+        if (!hasNikita) {
+          const nikitaBooking = initialBookings.find(b => b.id === 'bk-009');
+          if (nikitaBooking) {
+            migrated.bookings.push(nikitaBooking);
+            try {
+              localStorage.setItem(getHotelBundleKey('hotel-bighouse'), JSON.stringify(migrated));
+            } catch {}
+          }
         }
       }
 
@@ -487,6 +557,32 @@ export default function App() {
           password: '417905kpj',
           phone: '+91 96481 33671',
           avatarText: '👑'
+        };
+      }
+      if ((u.username || '').toLowerCase() === 'royalguesthouse') {
+        return {
+          ...u,
+          username: 'royalguesthouse',
+          password: 'arshad7755',
+          phone: '+91 96481 33671',
+          name: u.name || 'Arshad (Royal Guest House)',
+          role: 'hotel_owner',
+          hotelId: 'hotel-royalguesthouse',
+          hotelName: 'Royal Guest House (Calangute, Goa)',
+          avatarText: 'RG'
+        };
+      }
+      if ((u.username || '').toLowerCase() === 'nikita') {
+        return {
+          ...u,
+          username: 'nikita',
+          password: 'password123',
+          phone: '+91 96481 33671',
+          name: u.name || 'Nikita Manager',
+          role: 'hotel_owner',
+          hotelId: 'hotel-nikita',
+          hotelName: 'Hotel Nikita (Rooms F1-F4, S1-S4)',
+          avatarText: 'NK'
         };
       }
       if ((u.username || '').toLowerCase() === 'sadik8806') {
@@ -2200,8 +2296,8 @@ export default function App() {
             <DeskCalendar
               rooms={rooms}
               bookings={bookings}
-              startDateStr={getTodayDateStr()}
-              daysToShow={20}
+              startDateStr={addDaysToStr(getTodayDateStr(), -3)}
+              daysToShow={21}
               onSelectBooking={handleSelectBooking}
               onCellClick={handleCellClick}
               onRefresh={() => {

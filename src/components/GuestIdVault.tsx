@@ -60,15 +60,22 @@ export const GuestIdVault: React.FC<GuestIdVaultProps> = ({
   const [activeDocIndices, setActiveDocIndices] = useState<Record<string, number>>({});
 
   const filteredGuests = guests.filter(g => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
+    const normalizedQ = q.replace(/nikta/g, 'nikita');
+    const guestName = g.fullName.toLowerCase();
+    const nameMatches = 
+      guestName.includes(q) || 
+      guestName.includes(normalizedQ) || 
+      (q.includes('nikta') && guestName.includes('nikita'));
+
     const anyDocMatches = g.allDocs.some(d => 
       (d.idNumber && d.idNumber.toLowerCase().includes(q)) ||
       (d.documentTitle && d.documentTitle.toLowerCase().includes(q)) ||
-      (d.guestName && d.guestName.toLowerCase().includes(q))
+      (d.guestName && (d.guestName.toLowerCase().includes(q) || d.guestName.toLowerCase().includes(normalizedQ)))
     );
 
     const matchesQuery = 
-      g.fullName.toLowerCase().includes(q) ||
+      nameMatches ||
       g.phone.toLowerCase().includes(q) ||
       g.idDocument.idNumber.toLowerCase().includes(q) ||
       anyDocMatches ||

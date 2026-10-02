@@ -525,7 +525,7 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
             </label>
 
             {/* Quick Navigation Buttons */}
-            <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
+            <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs gap-0.5">
               <button
                 type="button"
                 onClick={() => setCurrentStartOffset(prev => prev - 7)}
@@ -533,6 +533,36 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
                 title="Previous 7 days"
               >
                 <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCalendarBaseDate('2026-09-29');
+                  setCurrentStartOffset(0);
+                }}
+                className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold rounded transition-colors cursor-pointer ${
+                  dates[0]?.dateStr === '2026-09-29'
+                    ? 'bg-amber-700 text-white shadow-2xs font-bold'
+                    : 'text-amber-900 bg-amber-50 hover:bg-amber-100'
+                }`}
+                title="29 Sep (पुरानी तारीख / Historical View)"
+              >
+                29 Sep
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCalendarBaseDate(addDaysToStr(todayStr, -1));
+                  setCurrentStartOffset(0);
+                }}
+                className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold rounded transition-colors cursor-pointer ${
+                  dates[0]?.dateStr === addDaysToStr(todayStr, -1)
+                    ? 'bg-teal-800 text-white shadow-2xs font-bold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title={`Jump to Yesterday (${formatDisplayDate(addDaysToStr(todayStr, -1))})`}
+              >
+                Yesterday
               </button>
               <button
                 type="button"
@@ -852,13 +882,19 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
               }
 
               if (agendaSearch.trim()) {
-                const q = agendaSearch.toLowerCase();
-                list = list.filter(b => 
-                  b.guest.fullName.toLowerCase().includes(q) ||
-                  b.roomNumber.toLowerCase().includes(q) ||
-                  b.bookingCode.toLowerCase().includes(q) ||
-                  b.channel.toLowerCase().includes(q)
-                );
+                const q = agendaSearch.toLowerCase().trim();
+                const normalizedQ = q.replace(/nikta/g, 'nikita');
+                list = list.filter(b => {
+                  const name = b.guest.fullName.toLowerCase();
+                  return (
+                    name.includes(q) ||
+                    name.includes(normalizedQ) ||
+                    (q.includes('nikta') && name.includes('nikita')) ||
+                    b.roomNumber.toLowerCase().includes(q) ||
+                    b.bookingCode.toLowerCase().includes(q) ||
+                    b.channel.toLowerCase().includes(q)
+                  );
+                });
               }
 
               if (list.length === 0) {

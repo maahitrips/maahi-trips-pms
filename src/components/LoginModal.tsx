@@ -64,9 +64,37 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return userMatches && passMatches;
     });
 
-    // 2. Built-in fallback for sadik8806 and maahitrips (guarantees seamless login in Incognito, private mode & all devices)
+    // 2. Built-in fallback for royalguesthouse, sadik8806, and maahitrips (guarantees seamless login in Incognito, private mode & all devices)
     if (!found) {
-      if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
+      if (normUser === 'royalguesthouse' && (normPass === 'arshad7755' || normPass === '417905kpj' || normPass === 'password123')) {
+        found = {
+          id: 'user-royalguesthouse',
+          username: 'royalguesthouse',
+          password: 'arshad7755',
+          name: 'Arshad (Royal Guest House)',
+          designation: 'Property Owner & General Manager',
+          role: 'hotel_owner',
+          email: 'royalguesthouse@gmail.com',
+          phone: '+91 96481 33671',
+          hotelId: 'hotel-royalguesthouse',
+          hotelName: 'Royal Guest House (Calangute, Goa)',
+          avatarText: 'RG'
+        };
+      } else if (normUser === 'nikita' || normUser === 'hotelnikita') {
+        found = {
+          id: 'user-nikita',
+          username: 'nikita',
+          password: normPass || 'password123',
+          name: 'Nikita Manager',
+          designation: 'Property Owner & Manager',
+          role: 'hotel_owner',
+          email: 'hotelnikita@gmail.com',
+          phone: '+91 96481 33671',
+          hotelId: 'hotel-nikita',
+          hotelName: 'Hotel Nikita (Rooms F1-F4, S1-S4)',
+          avatarText: 'NK'
+        };
+      } else if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
         found = {
           id: 'user-sadik8806',
           username: 'sadik8806',
@@ -220,6 +248,34 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  setUsername('nikita');
+                  setPassword('password123');
+                }}
+                className="p-2 text-left bg-purple-50 hover:bg-purple-100 border border-purple-300 hover:border-purple-400 rounded-lg transition-colors cursor-pointer ring-1 ring-purple-300/50"
+              >
+                <div className="font-bold text-xs text-purple-950 flex items-center gap-1">
+                  <span>🏢 Hotel Nikita</span>
+                </div>
+                <div className="text-[10px] text-purple-800 font-mono truncate">@nikita (F1-F4, S1-S4)</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('royalguesthouse');
+                  setPassword('arshad7755');
+                }}
+                className="p-2 text-left bg-teal-50/70 hover:bg-teal-100/70 border border-teal-300 hover:border-teal-400 rounded-lg transition-colors cursor-pointer ring-1 ring-teal-300/50"
+              >
+                <div className="font-bold text-xs text-teal-950 flex items-center gap-1">
+                  <span>🏖️ Royal Guest House</span>
+                </div>
+                <div className="text-[10px] text-teal-800 font-mono truncate">@royalguesthouse</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   setUsername('maahitrips');
                   setPassword('417905kpj');
                 }}
@@ -237,7 +293,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   setUsername('sadik8806');
                   setPassword('8806sadik');
                 }}
-                className="p-2 text-left bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-lg transition-colors cursor-pointer"
+                className="p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg transition-colors cursor-pointer"
               >
                 <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
                   <span>🏨 Partner Sadik</span>

@@ -102,6 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
   const accessibleHotels = getAccessibleHotels(currentUser, hotels);
   const activeHotel = hotels.find(h => h.id === activeHotelId);
   const isRoyalActive = activeHotelId === 'hotel-royalguesthouse';
+  const isNikitaActive = activeHotelId === 'hotel-nikita';
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -274,16 +275,42 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
+        {/* 🏢 Quick Switch to Hotel Nikita (Rooms F1-F4, S1-S4) Shortcut Button */}
+        {!isNikitaActive && (
+          <button
+            type="button"
+            onClick={() => onSelectHotel('hotel-nikita')}
+            className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-950 border border-purple-300 rounded-lg text-xs font-bold shadow-2xs transition-all hover:shadow cursor-pointer shrink-0"
+            title="1-Click Switch to Hotel Nikita (Rooms F1-F4 & S1-S4)"
+          >
+            <span>🏢 Hotel Nikita</span>
+            <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-black">F1-S4</span>
+          </button>
+        )}
+
         {/* 🔄 Restore Royal Guest House Data Button (When Royal Guest House is active) */}
         {isRoyalActive && onRestoreHotelData && (
           <button
             type="button"
             onClick={() => onRestoreHotelData('hotel-royalguesthouse')}
             className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
-            title="Purana data restore karein (8 Rooms, Bookings & Goa Profile)"
+            title="Purana data restore karein (14 Rooms, Bookings & Goa Profile)"
           >
             <RefreshCw size={12} className="text-amber-700 animate-spin-hover" />
             <span>Restore Old Data</span>
+          </button>
+        )}
+
+        {/* 🔄 Restore Hotel Nikita Data Button (When Hotel Nikita is active) */}
+        {isNikitaActive && onRestoreHotelData && (
+          <button
+            type="button"
+            onClick={() => onRestoreHotelData('hotel-nikita')}
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-300 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
+            title="Hotel Nikita purana data restore karein (Rooms F1-F4 & S1-S4)"
+          >
+            <RefreshCw size={12} className="text-purple-700 animate-spin-hover" />
+            <span>Restore Rooms F1-S4</span>
           </button>
         )}
 

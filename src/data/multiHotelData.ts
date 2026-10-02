@@ -101,6 +101,26 @@ export const initialHotels: Hotel[] = [
     createdAt: '2024-02-15',
     ownerId: 'user-admin',
     ownerUsername: 'maahitrips'
+  },
+  {
+    id: 'hotel-nikita',
+    name: 'Hotel Nikita',
+    code: 'HNK',
+    tagline: 'Comfort & Hospitality • Rooms F1-F4 & S1-S4',
+    address: 'Station Road, Near Central Plaza',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    phone: '+91 96481 33671',
+    email: 'contact@hotelnikita.com',
+    gstin: '27AABCN8812K1Z9',
+    checkInTime: '12:00 PM',
+    checkOutTime: '11:00 AM',
+    currencySymbol: '₹',
+    starCategory: '3-Star Premium',
+    status: 'active',
+    createdAt: '2024-03-01',
+    ownerId: 'user-admin',
+    ownerUsername: 'maahitrips'
   }
 ];
 
@@ -117,6 +137,32 @@ export const initialUsers: UserAccount[] = [
     hotelId: 'all',
     hotelName: 'All Properties (Super Admin)',
     avatarText: '👑'
+  },
+  {
+    id: 'user-nikita',
+    username: 'nikita',
+    password: 'password123',
+    name: 'Nikita Manager',
+    designation: 'Property Owner & Manager',
+    role: 'hotel_owner',
+    email: 'hotelnikita@gmail.com',
+    phone: '+91 96481 33671',
+    hotelId: 'hotel-nikita',
+    hotelName: 'Hotel Nikita (Rooms F1-F4, S1-S4)',
+    avatarText: 'NK'
+  },
+  {
+    id: 'user-royalguesthouse',
+    username: 'royalguesthouse',
+    password: 'arshad7755',
+    name: 'Arshad (Royal Guest House)',
+    designation: 'Property Owner & General Manager',
+    role: 'hotel_owner',
+    email: 'royalguesthouse@gmail.com',
+    phone: '+91 96481 33671',
+    hotelId: 'hotel-royalguesthouse',
+    hotelName: 'Royal Guest House (Calangute, Goa)',
+    avatarText: 'RG'
   },
   {
     id: 'user-sadik8806',
@@ -569,10 +615,358 @@ const royalGuestHouseBookings: Booking[] = [
     status: 'checked_in',
     specialRequests: 'Quiet room with balcony',
     createdAt: '2026-09-30T12:00:00Z'
+  },
+  {
+    id: 'bk-rgh-5',
+    bookingCode: 'MMT-RGH-9205',
+    roomId: 'rgh-105',
+    guest: {
+      id: 'g-rgh-5',
+      fullName: 'Nikita Sharma (Nikta)',
+      phone: '+91 98205 66712',
+      email: 'nikita.sharma@gmail.com',
+      address: 'Plot 44, Sea Breeze Apt, Bandra West',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      nationality: 'Indian',
+      purposeOfVisit: 'Holiday & Beach Vacation',
+      previousStaysCount: 2,
+      totalSpent: 16800,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '4829 1048 7721',
+        frontImageUrl: sampleAadhaarFront,
+        backImageUrl: sampleAadhaarBack,
+        isVerified: true,
+        uploadedAt: '2026-09-29T10:15:00Z',
+        issuedBy: 'UIDAI Govt of India',
+        notes: 'Aadhaar QR verified at front desk • Arrived 29 Sep'
+      }
+    },
+    checkInDate: '2026-09-29',
+    checkOutDate: '2026-10-02',
+    nights: 3,
+    adults: 2,
+    children: 0,
+    channel: 'makemytrip',
+    channelRefId: 'MMT-GOA-55910',
+    roomRatePerNight: 2400,
+    taxRatePercent: 5,
+    extraCharges: [
+      { id: 'ext-rgh-5', description: 'Breakfast & Poolside Snacks', amount: 650, date: '2026-09-30' }
+    ],
+    payments: [
+      { id: 'pm-rgh-5', amount: 8210, mode: 'upi', reference: 'UPI/ICICI/994012', date: '2026-09-29', notes: 'Full advance payment received' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Near pool side, 29 September arrival',
+    createdAt: '2026-09-27T18:00:00Z'
+  }
+];
+
+// Hotel 5: Hotel Nikita Data (Rooms F1 to F4 & S1 to S4)
+const hotelNikitaProfile: HotelProfile = {
+  name: 'Hotel Nikita',
+  tagline: 'Comfort & Hospitality • Rooms F1-F4 & S1-S4',
+  address: 'Station Road, Near Central Plaza',
+  city: 'Mumbai, Maharashtra',
+  phone: '+91 96481 33671',
+  email: 'contact@hotelnikita.com',
+  gstin: '27AABCN8812K1Z9',
+  checkInTime: '12:00 PM',
+  checkOutTime: '11:00 AM',
+  currencySymbol: '₹'
+};
+
+const hotelNikitaRooms: Room[] = [
+  // First Floor (F1 to F4)
+  { id: 'nk-f1', number: 'F1', name: 'F1 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2200, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser', 'Attached Bath'] },
+  { id: 'nk-f2', number: 'F2', name: 'F2 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2200, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser', 'Attached Bath'] },
+  { id: 'nk-f3', number: 'F3', name: 'F3 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2200, status: 'clean', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser', 'Attached Bath'] },
+  { id: 'nk-f4', number: 'F4', name: 'F4 - Deluxe AC Room', type: 'Deluxe AC Room', floor: 1, baseRate: 2200, status: 'dirty', maxOccupancy: 2, amenities: ['AC', 'Wi-Fi', 'Smart TV', 'Geyser', 'Attached Bath'] },
+
+  // Second Floor (S1 to S4)
+  { id: 'nk-s1', number: 'S1', name: 'S1 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 2800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'Wi-Fi', 'Smart TV', 'Tea/Coffee Maker'] },
+  { id: 'nk-s2', number: 'S2', name: 'S2 - Executive Balcony', type: 'Executive Balcony', floor: 2, baseRate: 2800, status: 'clean', maxOccupancy: 3, amenities: ['AC', 'Balcony', 'Wi-Fi', 'Smart TV', 'Tea/Coffee Maker'] },
+  { id: 'nk-s3', number: 'S3', name: 'S3 - Super Suite', type: 'Super Suite', floor: 2, baseRate: 3500, status: 'clean', maxOccupancy: 4, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Smart TV', 'Mini Bar', 'Sofa'] },
+  { id: 'nk-s4', number: 'S4', name: 'S4 - Super Suite', type: 'Super Suite', floor: 2, baseRate: 3500, status: 'clean', maxOccupancy: 4, amenities: ['AC', 'Balcony', 'King Bed', 'Wi-Fi', 'Smart TV', 'Mini Bar', 'Sofa'] }
+];
+
+const hotelNikitaBookings: Booking[] = [
+  {
+    id: 'bk-nk-1',
+    bookingCode: 'MMT-NK-101',
+    roomId: 'nk-f1',
+    guest: {
+      id: 'g-nk-1',
+      fullName: 'Aarav Mehta',
+      phone: '+91 98210 44321',
+      email: 'aarav.mehta@gmail.com',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 2,
+      totalSpent: 11000,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '7821 9012 3341',
+        frontImageUrl: sampleAadhaarFront,
+        backImageUrl: sampleAadhaarBack,
+        isVerified: true,
+        uploadedAt: '2026-09-28T10:00:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-09-28',
+    checkOutDate: '2026-10-02',
+    nights: 4,
+    adults: 2,
+    children: 0,
+    channel: 'makemytrip',
+    channelRefId: 'MMT-NK-7819',
+    roomRatePerNight: 2200,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-nk-1', amount: 9240, mode: 'ota_virtual_card', reference: 'MMT-VC-7819', date: '2026-09-28' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'First floor room F1',
+    createdAt: '2026-09-26T14:00:00Z'
+  },
+  {
+    id: 'bk-nk-2',
+    bookingCode: 'BDC-NK-202',
+    roomId: 'nk-f2',
+    guest: {
+      id: 'g-nk-2',
+      fullName: 'Sunil & Sunita Verma',
+      phone: '+91 98112 55901',
+      email: 'sunil.verma@outlook.com',
+      city: 'Delhi',
+      state: 'Delhi',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 1,
+      totalSpent: 6600,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '5412 8890 1204',
+        frontImageUrl: sampleAadhaarFront,
+        isVerified: true,
+        uploadedAt: '2026-09-29T11:00:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-09-29',
+    checkOutDate: '2026-10-03',
+    nights: 4,
+    adults: 2,
+    children: 0,
+    channel: 'booking_com',
+    channelRefId: 'BDC-RES-55910',
+    roomRatePerNight: 2200,
+    taxRatePercent: 5,
+    extraCharges: [
+      { id: 'ext-nk-2', description: 'Early Check-in Breakfast', amount: 450, date: '2026-09-29' }
+    ],
+    payments: [
+      { id: 'pm-nk-2', amount: 9690, mode: 'card', reference: 'POS-HDFC-9912', date: '2026-09-29' }
+    ],
+    status: 'checked_in',
+    specialRequests: '29 September check-in in Room F2',
+    createdAt: '2026-09-27T16:00:00Z'
+  },
+  {
+    id: 'bk-nk-3',
+    bookingCode: 'WALK-NK-303',
+    roomId: 'nk-s1',
+    guest: {
+      id: 'g-nk-3',
+      fullName: 'Rajesh Singhania',
+      phone: '+91 94500 77123',
+      email: 'rajesh.singh@travel.in',
+      city: 'Lucknow',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 3,
+      totalSpent: 19800,
+      idDocument: {
+        idType: 'driving_license',
+        idNumber: 'UP-32-2019-88192',
+        isVerified: true,
+        uploadedAt: '2026-09-29T14:00:00Z',
+        issuedBy: 'RTO Lucknow'
+      }
+    },
+    checkInDate: '2026-09-29',
+    checkOutDate: '2026-10-02',
+    nights: 3,
+    adults: 2,
+    children: 1,
+    channel: 'walkin',
+    channelRefId: 'WALK-NK-0929',
+    roomRatePerNight: 2800,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-nk-3', amount: 8820, mode: 'upi', reference: 'UPI/GPAY/771920', date: '2026-09-29', notes: 'Full advance paid' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Room S1 with balcony on second floor',
+    createdAt: '2026-09-29T12:00:00Z'
+  },
+  {
+    id: 'bk-nk-4',
+    bookingCode: 'MMT-NK-404',
+    roomId: 'nk-s2',
+    guest: {
+      id: 'g-nk-4',
+      fullName: 'Pooja Kulkarni',
+      phone: '+91 98200 88210',
+      email: 'pooja.kulkarni@gmail.com',
+      city: 'Pune',
+      state: 'Maharashtra',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 2,
+      totalSpent: 12500,
+      idDocument: {
+        idType: 'passport',
+        idNumber: 'Z9182304',
+        frontImageUrl: samplePassportFront,
+        isVerified: true,
+        uploadedAt: '2026-09-30T10:00:00Z',
+        issuedBy: 'Passport Office'
+      }
+    },
+    checkInDate: '2026-09-30',
+    checkOutDate: '2026-10-04',
+    nights: 4,
+    adults: 2,
+    children: 0,
+    channel: 'makemytrip',
+    channelRefId: 'MMT-CONF-9921',
+    roomRatePerNight: 2800,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-nk-4', amount: 11760, mode: 'ota_virtual_card', reference: 'MMT-VCC-9921', date: '2026-09-30' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Room S2, upper floor',
+    createdAt: '2026-09-28T09:00:00Z'
+  },
+  {
+    id: 'bk-nk-5',
+    bookingCode: 'GO-NK-505',
+    roomId: 'nk-s3',
+    guest: {
+      id: 'g-nk-5',
+      fullName: 'Vikram & Ananya Sen',
+      phone: '+91 98300 99412',
+      email: 'vikram.sen@gmail.com',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 1,
+      totalSpent: 7000,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '3341 9021 8812',
+        isVerified: true,
+        uploadedAt: '2026-10-01T15:00:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-10-01',
+    checkOutDate: '2026-10-04',
+    nights: 3,
+    adults: 3,
+    children: 0,
+    channel: 'goibibo',
+    channelRefId: 'GO-RES-88192',
+    roomRatePerNight: 3500,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-nk-5', amount: 11025, mode: 'ota_virtual_card', reference: 'GO-VCC-8819', date: '2026-10-01' }
+    ],
+    status: 'checked_in',
+    specialRequests: 'Super suite S3',
+    createdAt: '2026-09-29T18:00:00Z'
+  },
+  {
+    id: 'bk-nk-6',
+    bookingCode: 'WALK-NK-606',
+    roomId: 'nk-f4',
+    guest: {
+      id: 'g-nk-6',
+      fullName: 'Mohammad Farhan',
+      phone: '+91 97110 33219',
+      email: 'farhan.m@yahoo.com',
+      city: 'Agra',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      nationality: 'Indian',
+      previousStaysCount: 4,
+      totalSpent: 22000,
+      idDocument: {
+        idType: 'aadhaar',
+        idNumber: '9120 4410 8821',
+        isVerified: true,
+        uploadedAt: '2026-09-29T10:00:00Z',
+        issuedBy: 'UIDAI Govt of India'
+      }
+    },
+    checkInDate: '2026-09-29',
+    checkOutDate: '2026-10-01',
+    nights: 2,
+    adults: 1,
+    children: 0,
+    channel: 'walkin',
+    channelRefId: 'WALK-NK-606',
+    roomRatePerNight: 2200,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: 'pm-nk-6', amount: 4620, mode: 'cash', reference: 'CASH-REC-102', date: '2026-09-29' }
+    ],
+    status: 'checked_out',
+    specialRequests: 'First floor room F4',
+    createdAt: '2026-09-29T09:30:00Z'
   }
 ];
 
 export const initialHotelDataMap: Record<string, HotelDataBundle> = {
+  'hotel-nikita': {
+    hotelId: 'hotel-nikita',
+    rooms: hotelNikitaRooms,
+    bookings: hotelNikitaBookings,
+    channels: initialOTAChannels.map(ch => ({
+      ...ch,
+      mappedRoomsCount: 8,
+      totalRoomsCount: 8,
+      activeReservationsCount: 5
+    })),
+    roomMappings: initialRoomMappings,
+    syncLogs: [
+      {
+        id: 'log-nk-1',
+        timestamp: '11:30 AM',
+        channel: 'makemytrip',
+        channelName: 'MakeMyTrip',
+        eventType: 'rate_update',
+        status: 'success',
+        message: 'Hotel Nikita rates & inventory for Rooms F1-F4, S1-S4 live'
+      }
+    ],
+    profile: hotelNikitaProfile
+  },
   'hotel-bighouse': {
     hotelId: 'hotel-bighouse',
     rooms: initialRooms,

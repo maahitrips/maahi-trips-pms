@@ -37,11 +37,18 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   if (!isOpen) return null;
 
   const q = query.toLowerCase().trim();
+  const normalizedQ = q.replace(/nikta/g, 'nikita');
 
   const results = q ? bookings.filter(b => {
     const room = rooms.find(r => r.id === b.roomId);
+    const guestName = b.guest.fullName.toLowerCase();
+    const guestMatch = 
+      guestName.includes(q) || 
+      guestName.includes(normalizedQ) || 
+      (q.includes('nikta') && guestName.includes('nikita'));
+
     return (
-      b.guest.fullName.toLowerCase().includes(q) ||
+      guestMatch ||
       b.guest.phone.toLowerCase().includes(q) ||
       b.bookingCode.toLowerCase().includes(q) ||
       (b.channelRefId && b.channelRefId.toLowerCase().includes(q)) ||

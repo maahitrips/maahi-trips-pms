@@ -531,6 +531,51 @@ export const initialBookings: Booking[] = [
     ],
     status: "checked_in",
     createdAt: "2026-09-22 05:30 PM"
+  },
+  {
+    id: "bk-009",
+    bookingCode: "MMT-7729",
+    roomId: "rm-102",
+    guest: {
+      id: "gst-009",
+      fullName: "Nikita Sharma (Nikta)",
+      phone: "+91 98205 66712",
+      email: "nikita.sharma@gmail.com",
+      address: "702 Sea Pearl, Bandra West",
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+      nationality: "Indian",
+      purposeOfVisit: "Vacation & Heritage Tour",
+      idDocument: {
+        idType: "aadhaar",
+        idNumber: "4829 1048 7721",
+        frontImageUrl: sampleAadhaarFront,
+        backImageUrl: sampleAadhaarBack,
+        isVerified: true,
+        uploadedAt: "2026-09-29 10:15 AM",
+        notes: "Biometric Aadhaar verified at front desk • Check-in 29 Sep"
+      },
+      vipTag: true,
+      previousStaysCount: 3,
+      totalSpent: 22400
+    },
+    checkInDate: "2026-09-29",
+    checkOutDate: "2026-10-02",
+    nights: 3,
+    adults: 2,
+    children: 0,
+    channel: "makemytrip",
+    channelRefId: "MMT-CONF-55910",
+    roomRatePerNight: 2800,
+    taxRatePercent: 5,
+    extraCharges: [],
+    payments: [
+      { id: "pay-9", amount: 8820, mode: "upi", reference: "UPI/994012/ICICI", date: "2026-09-29 11:30 AM" }
+    ],
+    status: "checked_in",
+    specialRequests: "29 September check-in, quiet room",
+    createdAt: "2026-09-27 06:00 PM"
   }
 ];
 
