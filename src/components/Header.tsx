@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
+  Building,
   Plus, 
   Search, 
   RefreshCw, 
@@ -235,27 +236,16 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Primary "+ New Booking" & "Multi-Room" buttons */}
+        {/* Primary "+ Add Booking" button */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            id="btn-new-booking"
+            id="btn-add-booking"
             onClick={() => onNewBookingClick('single')}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer"
-            title="Single room reservation"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-bold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer"
+            title="Create Reservation / Add Booking"
           >
-            <Plus size={14} strokeWidth={2.5} />
-            <span className="hidden sm:inline">New Booking</span>
-            <span className="sm:hidden">Book</span>
-          </button>
-
-          <button
-            id="btn-multi-room-booking"
-            onClick={() => onNewBookingClick('multi')}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-teal-500/40 text-xs font-semibold rounded-lg shadow-2xs transition-all hover:shadow cursor-pointer"
-            title="Multi-Room Group Booking (2+ rooms)"
-          >
-            <Building size={13} className="text-teal-400" />
-            <span className="hidden sm:inline">Multi-Room</span>
+            <Plus size={15} strokeWidth={2.5} />
+            <span>Add Booking</span>
           </button>
         </div>
 

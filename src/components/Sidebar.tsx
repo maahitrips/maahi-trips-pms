@@ -8,6 +8,7 @@ import {
   Receipt, 
   Settings, 
   Building2, 
+  Building,
   ChevronDown, 
   ChevronsLeft,
   ChevronsRight,
@@ -52,7 +53,7 @@ interface SidebarProps {
   onOpenAddHotel?: () => void;
   onRequestDeleteHotel?: (hotel: Hotel) => void;
   onNavigateToSettingsHotels?: () => void;
-  onNewBookingClick?: () => void;
+  onNewBookingClick?: (mode?: 'single' | 'multi') => void;
   onOpenLogin?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -385,26 +386,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Prominent "+ New Booking" Primary Action Button in Sidebar */}
-      {onNewBookingClick && (
-        <div className="px-3 pt-2 pb-1 shrink-0">
-          <button
-            type="button"
-            id="sidebar-btn-new-booking"
-            onClick={() => {
-              onNewBookingClick();
-              if (isMobileView && onCloseMobile) onCloseMobile();
-            }}
-            className={`w-full bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm ${
-              collapsed && !isMobileView ? 'p-2.5' : 'py-2.5 px-3 text-xs'
-            }`}
-            title="Create New Front Desk or Walk-in Booking"
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            {(!collapsed || isMobileView) && <span>New Booking</span>}
-          </button>
-        </div>
-      )}
+
 
       {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4 scrollbar-thin">

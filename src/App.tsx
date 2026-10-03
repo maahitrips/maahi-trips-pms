@@ -481,9 +481,18 @@ export default function App() {
   // Modals & Drawers state
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
+  const [bookingModalMode, setBookingModalMode] = useState<'single' | 'multi'>('single');
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [preSelectedRoomId, setPreSelectedRoomId] = useState<string | undefined>();
   const [preSelectedDate, setPreSelectedDate] = useState<string | undefined>();
+
+  const handleOpenNewBooking = (mode: 'single' | 'multi' = 'single') => {
+    setBookingModalMode(mode);
+    setEditingBooking(null);
+    setPreSelectedRoomId(undefined);
+    setPreSelectedDate(getTodayDateStr());
+    setIsBookingModalOpen(true);
+  };
 
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState<boolean>(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState<boolean>(false);
@@ -1683,6 +1692,7 @@ export default function App() {
 
   // Cell click on Tape Chart
   const handleCellClick = (roomId: string, dateStr: string) => {
+    setBookingModalMode('single');
     setEditingBooking(null);
     setPreSelectedRoomId(roomId);
     setPreSelectedDate(dateStr);
@@ -1966,12 +1976,7 @@ export default function App() {
           setSettingsInitialSubTab('hotels');
           setActiveTab('settings');
         }}
-        onNewBookingClick={() => {
-          setEditingBooking(null);
-          setPreSelectedRoomId(undefined);
-          setPreSelectedDate(getTodayDateStr());
-          setIsBookingModalOpen(true);
-        }}
+        onNewBookingClick={(mode = 'single') => handleOpenNewBooking(mode)}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
@@ -1985,12 +1990,7 @@ export default function App() {
         <Header
           propertyName={hotelProfile.name}
           hotelProfile={hotelProfile}
-          onNewBookingClick={() => {
-            setEditingBooking(null);
-            setPreSelectedRoomId(undefined);
-            setPreSelectedDate(getTodayDateStr());
-            setIsBookingModalOpen(true);
-          }}
+          onNewBookingClick={(mode = 'single') => handleOpenNewBooking(mode)}
           onSimulateOtaClick={() => setIsSimulateModalOpen(true)}
           onSyncAllOtas={handleSyncAllOtas}
           onOpenSearch={() => setIsGlobalSearchOpen(true)}
@@ -2135,10 +2135,7 @@ export default function App() {
             <GuestIdVault
               bookings={bookings}
               onOpenBooking={handleSelectBooking}
-              onNewBookingClick={() => {
-                setEditingBooking(null);
-                setIsBookingModalOpen(true);
-              }}
+              onNewBookingClick={() => handleOpenNewBooking('single')}
             />
           )}
 
@@ -2173,10 +2170,7 @@ export default function App() {
             <GuestIdVault
               bookings={bookings}
               onOpenBooking={handleSelectBooking}
-              onNewBookingClick={() => {
-                setEditingBooking(null);
-                setIsBookingModalOpen(true);
-              }}
+              onNewBookingClick={() => handleOpenNewBooking('single')}
               onOpenCheckInIdModal={(b) => setCheckInIdModalBooking(b)}
             />
           )}
@@ -2250,12 +2244,7 @@ export default function App() {
             setActiveTab(tab);
             setIsMobileMenuOpen(false);
           }}
-          onOpenNewBooking={() => {
-            setEditingBooking(null);
-            setPreSelectedRoomId(undefined);
-            setPreSelectedDate(getTodayDateStr());
-            setIsBookingModalOpen(true);
-          }}
+          onOpenNewBooking={() => handleOpenNewBooking('single')}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           activeChannelsCount={channels.filter(c => c.isConnected).length}
           unverifiedGuestsCount={bookings.filter(b => b.status === 'checked_in' && (!b.guest.idDocument?.isVerified || b.guest.idDocument?.idNumber === 'Pending at Check-in')).length}
@@ -2315,6 +2304,7 @@ export default function App() {
           isLastMinuteFlashActive={lastMinuteStatus.isTriggered}
           lastMinuteDiscountPercent={lastMinuteStatus.discountPercent}
           hotelName={hotelProfile?.name || 'Big House Inn'}
+          initialBookingMode={bookingModalMode}
         />
       )}
 
