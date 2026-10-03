@@ -102,7 +102,6 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!permission.allowed) return;
     if (!name.trim()) return;
 
     const newHotelId = `hotel-${Date.now()}`;

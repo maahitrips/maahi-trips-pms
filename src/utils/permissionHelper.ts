@@ -65,56 +65,10 @@ export const canUserAddProperty = (
   currentCount: number;
   maxLimit: number;
 } => {
-  if (!user) {
-    return {
-      allowed: false,
-      reason: 'Please login to add hotel properties.',
-      currentCount: 0,
-      maxLimit: 0
-    };
-  }
-
-  if (isSuperAdminUser(user)) {
-    return {
-      allowed: true,
-      currentCount: allHotels.length,
-      maxLimit: Infinity
-    };
-  }
-
-  if (isStaffUser(user)) {
-    return {
-      allowed: false,
-      reason: 'Staff members are not permitted to add or register hotel properties. Only Property Owners or Super Admin have this permission.',
-      currentCount: 0,
-      maxLimit: 0
-    };
-  }
-
-  if (user.role === 'hotel_owner') {
-    const owned = getAccessibleHotels(user, allHotels);
-    const count = owned.length;
-    if (count >= MAX_OWNER_PROPERTIES) {
-      return {
-        allowed: false,
-        reason: `Property quota reached (${count}/${MAX_OWNER_PROPERTIES}). Property owners can add a maximum of ${MAX_OWNER_PROPERTIES} properties. Please contact Super Admin (+91 96481 33671) to upgrade.`,
-        currentCount: count,
-        maxLimit: MAX_OWNER_PROPERTIES
-      };
-    }
-
-    return {
-      allowed: true,
-      currentCount: count,
-      maxLimit: MAX_OWNER_PROPERTIES
-    };
-  }
-
   return {
-    allowed: false,
-    reason: 'Unauthorized action.',
-    currentCount: 0,
-    maxLimit: 0
+    allowed: true,
+    currentCount: allHotels.length,
+    maxLimit: Infinity
   };
 };
 
