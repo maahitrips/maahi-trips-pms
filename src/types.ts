@@ -247,6 +247,7 @@ export interface HotelProfile {
   checkInTime: string;
   checkOutTime: string;
   currencySymbol: string;
+  photos?: string[];
 }
 
 export type UserRole = 'super_admin' | 'hotel_owner' | 'hotel_manager' | 'front_desk';

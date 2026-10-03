@@ -11,6 +11,12 @@ export const initialHotelProfile: HotelProfile = {
   checkInTime: "12:00 PM",
   checkOutTime: "11:00 AM",
   currencySymbol: "₹",
+  photos: [
+    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800",
+    "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800",
+    "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&q=80&w=800",
+    "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800"
+  ]
 };
 
 // SVG ID Data URIs for realistic document rendering

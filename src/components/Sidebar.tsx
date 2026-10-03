@@ -36,7 +36,7 @@ import {
   isStaffUser 
 } from '../utils/permissionHelper';
 
-export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'gemini_assistant' | 'settings' | 'booking_engine' | 'google_hotels';
+export type ActiveTab = 'desk' | 'analytics' | 'channels' | 'kyc_vault' | 'housekeeping' | 'invoices' | 'gmail' | 'gemini_assistant' | 'settings' | 'booking_engine' | 'google_hotels' | 'photo_gallery';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -113,6 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'desk', label: 'Desk', sublabel: 'Front desk booking calendar', icon: Calendar },
         { id: 'booking_engine', label: 'Booking Engine Website', sublabel: 'Direct B2C Guest Website & Photos', icon: Globe2, badge: 'Live' },
+        { id: 'photo_gallery', label: 'Photo Gallery', sublabel: 'Property images & website photos', icon: Sparkles, badge: 'Gallery' },
         { id: 'google_hotels', label: 'Google Hotels & SEO', sublabel: 'Official site badge & price feed', icon: Search, badge: 'Google' },
         { id: 'channels', label: 'OTA Channels', sublabel: '2-way Channel Manager', icon: Globe, badge: '5 Active' },
         { id: 'kyc_vault', label: 'Guest ID Vault', sublabel: 'ID Proofs & KYC Police Form', icon: ShieldCheck, badge: 'KYC' },

@@ -55,6 +55,7 @@ import { GmailView } from './components/GmailView';
 import { GeminiChatView } from './components/GeminiChatView';
 import { BookingEngineView } from './components/BookingEngineView';
 import { GoogleHotelsView } from './components/GoogleHotelsView';
+import { PhotoGalleryView } from './components/PhotoGalleryView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
 import { InstallAppModal } from './components/InstallAppModal';
@@ -131,42 +132,20 @@ const migrateOldDates = (bundle: HotelDataBundle): HotelDataBundle => {
   return bundle;
 };
 
-// Helper to recover and merge hotels - keeps ONLY Big House Inn per user's explicit command
+// Helper to recover and load hotels from localStorage
 const getInitialHotelsWithRecovery = (): Hotel[] => {
-  // Purge any stored bundles/keys for other properties
-  const keysToRemove = [
-    'hotel-royalguesthouse',
-    'hotel-nikita',
-    'hotel-sairesidency',
-    'hotel-grandheritage'
-  ];
-  keysToRemove.forEach(id => {
+  const saved = localStorage.getItem(STORAGE_KEY_HOTELS);
+  if (saved) {
     try {
-      localStorage.removeItem(getHotelBundleKey(id));
-      localStorage.removeItem(`tripmakerz_bundle_${id}`);
-    } catch {}
-  });
-
-  // Thorough scan to remove all other hotel bundles from localStorage
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('tripmakerz_hotel_bundle_') || key.startsWith('tripmakerz_bundle_'))) {
-        if (!key.includes('hotel-bighouse')) {
-          localStorage.removeItem(key);
-        }
+      const parsed: Hotel[] = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
       }
+    } catch (e) {
+      console.error('Failed to parse saved hotels', e);
     }
-  } catch {}
-
-  const bigHouse = initialHotels[0];
-  const finalHotels = [bigHouse];
-  try {
-    localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(finalHotels));
-    localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-bighouse');
-  } catch {}
-
-  return finalHotels;
+  }
+  return initialHotels;
 };
 
 // Helper to load hotel data bundle with legacy data preservation, wrong data auto-healing, and safe name retention
@@ -2127,6 +2106,14 @@ export default function App() {
               hotelProfile={hotelProfile}
               rooms={rooms}
               bookings={bookings}
+              showToast={showToast}
+            />
+          )}
+
+          {activeTab === 'photo_gallery' && (
+            <PhotoGalleryView
+              hotelProfile={hotelProfile}
+              onUpdateProfile={handleUpdateHotelProfile}
               showToast={showToast}
             />
           )}

@@ -125,7 +125,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   lastMinuteStatus,
   onToggleSimulate7am
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect' | 'pricing'>(initialSubTab || 'profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect' | 'pricing' | 'gallery'>(initialSubTab || 'profile');
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -366,6 +366,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <Building2 size={15} />
           <span>Active Hotel Profile</span>
+        </button>
+
+        <button
+          id="btn-subtab-gallery"
+          onClick={() => setActiveSubTab('gallery')}
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSubTab === 'gallery'
+              ? 'bg-teal-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Sparkles size={15} className="text-amber-500" />
+          <span>🖼️ Photo Gallery ({hotelProfile.photos?.length || 0})</span>
         </button>
 
         <button
@@ -2062,6 +2075,123 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 Got It / Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {activeSubTab === 'gallery' && (
+        <div className="space-y-6 max-w-4xl text-xs">
+          <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center font-bold text-xl border border-teal-500/30 shrink-0 text-teal-300">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">Hotel Photo Gallery Management</h3>
+                <p className="text-xs text-slate-300">Add or manage property photos displayed on your Direct Booking Engine website and Google Hotels profile.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Add New Photo Form */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">Add New Photo URL</h4>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="url"
+                id="input-new-photo-url"
+                placeholder="Paste Image URL (e.g. https://images.unsplash.com/...)"
+                className="flex-1 px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-teal-600 outline-hidden font-medium text-slate-900"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      const currentPhotos = profile.photos || [];
+                      const updated = { ...profile, photos: [...currentPhotos, val] };
+                      setProfile(updated);
+                      onUpdateProfile(updated);
+                      if (onShowToast) onShowToast('Photo Added!', 'Gallery updated successfully.');
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('input-new-photo-url') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    const val = input.value.trim();
+                    const currentPhotos = profile.photos || [];
+                    const updated = { ...profile, photos: [...currentPhotos, val] };
+                    setProfile(updated);
+                    onUpdateProfile(updated);
+                    if (onShowToast) onShowToast('Photo Added!', 'Gallery updated successfully.');
+                    input.value = '';
+                  }
+                }}
+                className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer"
+              >
+                + Add Photo
+              </button>
+            </div>
+
+            {/* Quick Preset Photo Suggestions */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 block mb-2">Or click to add professional hotel presets:</span>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: '🏨 Luxury Lobby', url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800' },
+                  { label: '🛏️ Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800' },
+                  { label: '🏊 Swimming Pool', url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&q=80&w=800' },
+                  { label: '🍽️ Fine Dining', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800' },
+                  { label: '🌿 Spa & Wellness', url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=800' }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      const currentPhotos = profile.photos || [];
+                      if (!currentPhotos.includes(preset.url)) {
+                        const updated = { ...profile, photos: [...currentPhotos, preset.url] };
+                        setProfile(updated);
+                        onUpdateProfile(updated);
+                        if (onShowToast) onShowToast('Preset Photo Added!', preset.label);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Current Gallery Grid */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">Current Property Gallery Photos ({profile.photos?.length || 0})</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {(profile.photos || []).map((photoUrl, idx) => (
+                <div key={idx} className="relative group h-44 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                  <img src={photoUrl} alt={`Property Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedPhotos = (profile.photos || []).filter((_, i) => i !== idx);
+                        const updated = { ...profile, photos: updatedPhotos };
+                        setProfile(updated);
+                        onUpdateProfile(updated);
+                        if (onShowToast) onShowToast('Photo Deleted', 'Gallery updated.');
+                      }}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
+                    >
+                      Delete Photo
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
