@@ -643,70 +643,54 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
         </div>
       </div>
 
-      {/* ⚡ Morning 7:00 AM Last-Minute Booking Automation Banner */}
+      {/* ⚡ Morning 7:00 AM Last-Minute Booking Automation Compact Bottom-Left Widget */}
       {lastMinuteStatus && (
-        <div className={`mx-2 sm:mx-3 mt-1.5 p-2 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-2 transition-all shrink-0 ${
-          lastMinuteStatus.isTriggered
-            ? 'bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 border-rose-300 text-rose-950 shadow-2xs'
-            : lastMinuteStatus.isPast7Am
-            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-950'
-            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
-        }`}>
-          <div className="flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-              lastMinuteStatus.isTriggered ? 'bg-rose-600 text-white animate-pulse' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
-            }`}>
-              <Clock size={12} />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-semibold text-xs">
-                  {lastMinuteStatus.isTriggered
-                    ? `⚡ 7:00 AM Last-Minute Flash Sale Active: Base Rates -${lastMinuteStatus.discountPercent}% Reduced`
-                    : lastMinuteStatus.isPast7Am
-                    ? `🎯 60% Booking Target Met (${lastMinuteStatus.currentOccupancyPercent}% Occupancy)`
-                    : `⏳ Pending 7:00 AM Last-Minute Cutoff (${lastMinuteStatus.currentOccupancyPercent}% Booked)`}
-                </span>
-                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full border ${
-                  lastMinuteStatus.isTriggered 
-                    ? 'bg-rose-100 text-rose-900 border-rose-300'
-                    : lastMinuteStatus.isPast7Am 
-                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                }`}>
-                  Today: {lastMinuteStatus.currentOccupancyPercent}% Occupied ({lastMinuteStatus.occupiedRoomsCount}/{lastMinuteStatus.totalRoomsCount} Rooms)
-                </span>
+        <div className="fixed bottom-3 left-3 z-30 max-w-xs bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3 shadow-xl space-y-2 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                lastMinuteStatus.isTriggered ? 'bg-rose-600 text-white animate-pulse' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+              }`}>
+                <Clock size={11} />
               </div>
-              <p className="text-[10px] opacity-80 mt-0.5">
+              <span className="font-bold text-[11px] text-slate-900">
                 {lastMinuteStatus.isTriggered
-                  ? `Same-date occupancy is under 60% after 7:00 AM cutoff. 15% discount is automatically applied to today's walk-in bookings and OTA channels.`
-                  : lastMinuteStatus.isPast7Am
-                  ? `Today's booking reached or exceeded 60% target. Normal standard base rates remain in effect.`
-                  : `Automated rule runs every morning at 7:00 AM. If today's booking is under 60%, rates will automatically reduce by 15%.`}
-              </p>
+                  ? `⚡ 7 AM Flash Sale (-${lastMinuteStatus.discountPercent}%)`
+                  : `⏳ 7 AM Last-Minute Rule`}
+              </span>
             </div>
+            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+              lastMinuteStatus.isTriggered ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {lastMinuteStatus.currentOccupancyPercent}% Occ
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+          <p className="text-[10px] text-slate-600 leading-tight">
+            {lastMinuteStatus.isTriggered
+              ? `Occupancy <60% after 7 AM. 15% discount active on walk-ins & OTA channels.`
+              : `Runs daily at 7 AM. Auto-reduces rates 15% if occupancy is below 60%.`}
+          </p>
+
+          <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
             {onToggleSimulate7am && (
               <button
                 type="button"
                 onClick={onToggleSimulate7am}
-                className="px-2 py-0.5 text-[11px] font-semibold rounded-lg border bg-white hover:bg-slate-50 text-slate-700 shadow-2xs flex items-center gap-1 cursor-pointer"
-                title="Toggle 7:00 AM Cutoff Simulation to test 15% discount immediately"
+                className="flex-1 py-1 px-2 text-[10px] font-bold rounded-lg border bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-1 cursor-pointer"
               >
-                <Zap size={11} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
-                <span>{lastMinuteStatus.isPast7Am ? 'Simulation (ON)' : 'Test 7 AM'}</span>
+                <Zap size={10} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
+                <span>{lastMinuteStatus.isPast7Am ? 'Sim (ON)' : 'Test 7AM'}</span>
               </button>
             )}
             {onOpenLastMinuteModal && (
               <button
                 type="button"
                 onClick={onOpenLastMinuteModal}
-                className="px-2 py-0.5 text-[11px] font-semibold rounded-lg bg-teal-800 hover:bg-teal-900 text-white shadow-2xs flex items-center gap-1 cursor-pointer"
+                className="flex-1 py-1 px-2 text-[10px] font-bold rounded-lg bg-teal-800 hover:bg-teal-900 text-white flex items-center justify-center gap-1 cursor-pointer"
               >
-                <SlidersHorizontal size={11} />
-                <span>Rule Settings</span>
+                <SlidersHorizontal size={10} />
+                <span>Settings</span>
               </button>
             )}
           </div>
