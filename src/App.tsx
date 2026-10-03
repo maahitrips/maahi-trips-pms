@@ -53,6 +53,8 @@ import { CreateUserModal } from './components/CreateUserModal';
 import { SuperAdminDeleteModal } from './components/SuperAdminDeleteModal';
 import { GmailView } from './components/GmailView';
 import { GeminiChatView } from './components/GeminiChatView';
+import { BookingEngineView } from './components/BookingEngineView';
+import { GoogleHotelsView } from './components/GoogleHotelsView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
 import { InstallAppModal } from './components/InstallAppModal';
@@ -2104,6 +2106,28 @@ export default function App() {
               }}
               onToggleSimulate7am={handleToggleSimulate7am}
               onUpdateDailyRate={handleUpdateDailyRate}
+            />
+          )}
+
+          {activeTab === 'booking_engine' && (
+            <BookingEngineView
+              hotelProfile={hotelProfile}
+              rooms={rooms}
+              bookings={bookings}
+              onSaveBooking={(newBooking) => handleSaveBooking(newBooking)}
+              showToast={showToast}
+              hotels={hotels}
+              activeHotelId={activeHotelId}
+              onSelectHotel={handleSelectHotel}
+            />
+          )}
+
+          {activeTab === 'google_hotels' && (
+            <GoogleHotelsView
+              hotelProfile={hotelProfile}
+              rooms={rooms}
+              bookings={bookings}
+              showToast={showToast}
             />
           )}
 
