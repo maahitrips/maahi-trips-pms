@@ -357,39 +357,9 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER);
-    if (saved) {
-      try {
-        const parsed: UserAccount = JSON.parse(saved);
-        const uName = (parsed.username || '').toLowerCase().trim();
-        const uEmail = (parsed.email || '').toLowerCase().trim();
-        // If user was previously partner sadik or gm, reset to Super Admin
-        if (uName === 'sadik8806' || uName === 'manager.udaipur' || parsed.id === 'user-sadik8806' || parsed.id === 'user-bighouse-mgr') {
-          return initialUsers[0];
-        }
-        if (
-          parsed.role === 'super_admin' || 
-          parsed.id === 'user-admin' || 
-          uName === 'maahitrips' || 
-          uName === 'admin' ||
-          uEmail === 'shahidkpj@gmail.com'
-        ) {
-          return {
-            ...parsed,
-            role: 'super_admin',
-            name: 'Maahi Trips',
-            designation: 'Super Admin • Group Managing Director',
-            username: 'maahitrips',
-            password: '417905kpj',
-            avatarText: '👑'
-          };
-        }
-        return parsed;
-      } catch (e) {
-        console.error('Failed to parse current user', e);
-      }
-    }
-    // Default to null so user must login or choose account
+    try {
+      localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
+    } catch {}
     return null;
   });
 

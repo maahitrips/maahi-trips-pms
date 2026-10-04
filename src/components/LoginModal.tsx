@@ -64,7 +64,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return userMatches && passMatches;
     });
 
-    // 2. Built-in fallback for sadik8806, maahitrips, and gm (guarantees seamless login in Incognito, private mode & all devices)
+    // 2. Built-in fallback for sadik8806, maahitrips, and gm
     if (!found) {
       if (normUser === 'sadik8806' && (normPass === '8806sadik' || normPass === '417905kpj' || normPass === 'password123')) {
         found = {
@@ -114,7 +114,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
 
     if (found) {
-      // If logging in as super_admin, make sure object has latest maahitrips username, name & password
       const activeUser = (found.role === 'super_admin' || found.id === 'user-admin') ? {
         ...found,
         name: 'Maahi Trips',
@@ -177,115 +176,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           )}
         </div>
 
-        {/* Single Login Form */}
+        {/* Clean Login Form (Username & Password Only) */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-          {/* 👑 Prominent Super Admin Portal Fast-Access Card */}
-          <div className="p-3.5 mb-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-teal-500/15 border-2 border-amber-400 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
-                  👑
-                </div>
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-950 text-xs sm:text-sm flex items-center gap-1.5">
-                    <span>Super Admin Portal</span>
-                    <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded border border-amber-300">
-                      MASTER
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-600 truncate">
-                    Maahi Trips • All Properties Master Access
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                id="btn-quick-login-super-admin"
-                onClick={() => {
-                  const superAdminAcc: UserAccount = {
-                    id: 'user-admin',
-                    username: 'maahitrips',
-                    password: '417905kpj',
-                    name: 'Maahi Trips',
-                    designation: 'Super Admin • Group Managing Director',
-                    role: 'super_admin',
-                    email: 'shahidkpj@gmail.com',
-                    phone: '+91 96481 33671',
-                    hotelId: 'all',
-                    hotelName: 'All Properties (Super Admin)',
-                    avatarText: '👑'
-                  };
-                  onLogin(superAdminAcc);
-                  if (onClose) onClose();
-                }}
-                className="shrink-0 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-amber-800 text-slate-950 font-bold text-xs rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
-                title="1-Click Login directly as Super Admin (Maahi Trips)"
-              >
-                <span>👑 1-Click Login</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Preset Selector Chips */}
-          <div className="mb-4">
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Quick Accounts:
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('maahitrips');
-                  setPassword('417905kpj');
-                }}
-                className="w-full p-2 text-left bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
-                    <span>👑 Super Admin (Maahi Trips)</span>
-                  </div>
-                  <div className="text-[10px] text-amber-800 font-mono">Username: @maahitrips</div>
-                </div>
-                <span className="text-xs text-amber-900 font-bold bg-amber-200/80 px-2 py-0.5 rounded">Auto Fill</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('sadik8806');
-                  setPassword('8806sadik');
-                }}
-                className="w-full p-2 text-left bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-xs text-teal-950 flex items-center gap-1.5">
-                    <span>🏨 Partner Sadik (Big House Inn)</span>
-                  </div>
-                  <div className="text-[10px] text-teal-800 font-mono">Username: @sadik8806</div>
-                </div>
-                <span className="text-xs text-teal-900 font-bold bg-teal-200/80 px-2 py-0.5 rounded">Auto Fill</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('manager.udaipur');
-                  setPassword('417905kpj');
-                }}
-                className="w-full p-2 text-left bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                    <span>👔 GM Udaipur (Big House Inn)</span>
-                  </div>
-                  <div className="text-[10px] text-slate-600 font-mono">Username: @manager.udaipur</div>
-                </div>
-                <span className="text-xs text-slate-800 font-bold bg-slate-200 px-2 py-0.5 rounded">Auto Fill</span>
-              </button>
-            </div>
-          </div>
-
           <form onSubmit={handleManualLogin} className="space-y-4">
             {error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs flex items-center gap-2">
@@ -297,7 +189,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                 <span>Username / Login ID</span>
-                <span className="text-[11px] font-semibold text-slate-400">e.g. maahitrips</span>
               </label>
               <div className="relative">
                 <User size={18} className="absolute left-3.5 top-3 text-slate-500" />
@@ -317,7 +208,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                 <span>Password</span>
-                <span className="text-[11px] font-semibold text-slate-400">Enter password</span>
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-3 text-slate-500" />
@@ -352,54 +242,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </button>
           </form>
 
-          {/* List Your Property / Call Us Section */}
-          <div className="mt-5 p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 via-slate-50 to-teal-50/70 border border-teal-200/80 shadow-2xs">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-teal-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                  <Building2 size={16} className="text-teal-200" />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                    <span>List Your Property?</span>
-                    <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.2 rounded border border-teal-200">
-                      Partner
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">Want to connect your hotel to Maahi Trips?</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mt-2.5 pt-2.5 border-t border-slate-200/70">
-              <a
-                id="link-login-call-us"
-                href="tel:+919648133671"
-                className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-teal-50 border border-slate-300 hover:border-teal-400 text-slate-800 hover:text-teal-900 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
-              >
-                <PhoneCall size={14} className="text-teal-700" />
-                <span>Call Us</span>
-              </a>
-
-              <a
-                id="link-login-whatsapp-us"
-                href="https://api.whatsapp.com/send?phone=919648133671&text=Hello%20Maahi%20Trips%20Team%2C%20I%20want%20to%20list%20my%20hotel%20property%20on%20Maahi%20Trips%20PMS."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
-              >
-                <MessageCircle size={14} />
-                <span>WhatsApp Us</span>
-              </a>
-            </div>
-
-            <div className="text-center mt-2 text-[10px] text-slate-500 font-medium">
-              Helpline: <a href="tel:+919648133671" className="font-mono text-teal-800 font-bold hover:underline">+91 96481 33671</a>
-            </div>
-          </div>
-
           {/* Security Note */}
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-slate-400 text-xs justify-center">
+          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-400 text-xs justify-center">
             <ShieldCheck size={14} className="text-teal-600" />
             <span>Secure Hotel Access Portal • Maahi Trips PMS</span>
           </div>
