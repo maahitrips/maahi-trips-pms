@@ -389,8 +389,8 @@ export default function App() {
         console.error('Failed to parse current user', e);
       }
     }
-    // Default to Super Admin (Maahi Trips)
-    return initialUsers[0];
+    // Default to null so user must login or choose account
+    return null;
   });
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {

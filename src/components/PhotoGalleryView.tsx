@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { HotelProfile, Room } from '../types';
-import { Sparkles, Trash2, Plus, Image as ImageIcon, CheckCircle2, Globe, ExternalLink, RefreshCw } from 'lucide-react';
+import { HotelProfile } from '../types';
+import { Sparkles, Trash2, Plus, Upload, CheckCircle2 } from 'lucide-react';
 
 interface PhotoGalleryViewProps {
   hotelProfile: HotelProfile;
@@ -22,6 +22,24 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
     onUpdateProfile(updated);
     setNewUrl('');
     showToast('Photo Added Successfully!', 'Gallery updated and synced with website.');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64String = event.target?.result as string;
+      if (base64String) {
+        const currentPhotos = hotelProfile.photos || [];
+        const updated = { ...hotelProfile, photos: [...currentPhotos, base64String] };
+        onUpdateProfile(updated);
+        showToast('Photo Uploaded Successfully!', file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleAddPreset = (url: string, label: string) => {
@@ -73,33 +91,56 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
       <div className="max-w-6xl mx-auto w-full p-4 sm:p-8 space-y-6">
         
         {/* Add Photo Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-5">
           <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
             <Plus size={18} className="text-teal-700" />
             <span>Add New Property Photo</span>
           </h2>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="url"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Paste Image URL (e.g. https://images.unsplash.com/...)"
-              className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-teal-600 outline-hidden font-medium text-slate-900"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAddPhoto(); }}
-            />
-            <button
-              type="button"
-              onClick={handleAddPhoto}
-              className="px-6 py-3 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Plus size={16} />
-              <span>Add Photo</span>
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Option 1: Direct File Upload */}
+            <div className="p-4 bg-teal-50/60 rounded-2xl border-2 border-dashed border-teal-300 flex flex-col items-center justify-center text-center space-y-2 hover:bg-teal-50 transition-colors relative cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                title="Click to upload image from device"
+              />
+              <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm">
+                <Upload size={20} />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-teal-950 block">Upload Image from Device / Phone</span>
+                <span className="text-[11px] text-teal-800">Click to browse JPG, PNG, WEBP</span>
+              </div>
+            </div>
+
+            {/* Option 2: Image URL */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5 flex flex-col justify-center">
+              <span className="font-bold text-xs text-slate-800 block">Or Paste Image URL</span>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-teal-600 outline-hidden font-medium text-slate-900"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddPhoto(); }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPhoto}
+                  className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer shrink-0"
+                >
+                  Add URL
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Quick Presets */}
-          <div className="pt-2">
+          <div className="pt-2 border-t border-slate-100">
             <span className="text-xs font-bold text-slate-500 block mb-2">Or click to add professional hotel presets:</span>
             <div className="flex flex-wrap gap-2">
               {[
