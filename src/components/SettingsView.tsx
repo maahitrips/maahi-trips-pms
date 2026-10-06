@@ -228,7 +228,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(profile);
+    const amenitiesArr = typeof profile.amenities === 'string'
+      ? profile.amenities.split(',').map(s => s.trim()).filter(Boolean)
+      : profile.amenities;
+    const updatedProfile = { ...profile, amenities: amenitiesArr };
+    onUpdateProfile(updatedProfile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -706,8 +710,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="block font-bold text-slate-700 mb-1">Amenities (Comma separated)</label>
               <input
                 type="text"
-                value={Array.isArray(profile.amenities) ? profile.amenities.join(', ') : (profile.amenities || '')}
-                onChange={(e) => setProfile({ ...profile, amenities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                value={typeof profile.amenities === 'string' ? profile.amenities : (Array.isArray(profile.amenities) ? profile.amenities.join(', ') : '')}
+                onChange={(e) => setProfile({ ...profile, amenities: e.target.value })}
                 className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
                 placeholder="Free Wi-Fi, Swimming Pool, AC, Parking, Restaurant"
               />
