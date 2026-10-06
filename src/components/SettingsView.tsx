@@ -626,39 +626,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Live URL Card */}
-            <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mb-0.5">
-                  Public Booking Page URL
-                </span>
-                <span className="text-xs font-mono text-slate-200 break-all select-all font-semibold">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/h/${profile.slug || 'hotel'}` : `/h/${profile.slug || 'hotel'}`}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = typeof window !== 'undefined' ? `${window.location.origin}/h/${profile.slug || 'hotel'}` : '';
-                    navigator.clipboard.writeText(url);
-                    alert('Public page link copied to clipboard!');
-                  }}
-                  className="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Copy size={13} />
-                  <span>Copy Link</span>
-                </button>
-                <a
-                  href={`/h/${profile.slug || 'hotel'}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <ExternalLink size={13} />
-                  <span>Open Page</span>
-                </a>
-              </div>
-            </div>
+            {(() => {
+              const getAppBaseUrl = () => {
+                if (typeof window === 'undefined') return '';
+                const origin = window.location.origin;
+                if (origin.includes('maahitrips.in')) {
+                  return 'https://ais-dev-pibjniodpjsmsyf4yqpbry-941942044826.asia-east1.run.app';
+                }
+                return origin;
+              };
+              const fullPublicUrl = `${getAppBaseUrl()}/h/${profile.slug || 'hotel'}`;
+
+              return (
+                <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mb-0.5">
+                      Public Booking Page URL
+                    </span>
+                    <span className="text-xs font-mono text-slate-200 break-all select-all font-semibold">
+                      {fullPublicUrl}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(fullPublicUrl);
+                        alert('Public page link copied to clipboard!');
+                      }}
+                      className="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Copy size={13} />
+                      <span>Copy Link</span>
+                    </button>
+                    <a
+                      href={fullPublicUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    >
+                      <ExternalLink size={13} />
+                      <span>Open Page</span>
+                    </a>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
