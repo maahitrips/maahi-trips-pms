@@ -6,17 +6,24 @@ export const initialHotelProfile: HotelProfile = {
   address: "Plot 42, Lake Palace Road, Near City Center",
   city: "Udaipur, Rajasthan 313001",
   phone: "+91 96481 33671",
+  whatsapp: "+919648133671",
   email: "frontdesk@bighouseinn.com",
   gstin: "08AABCB1234F1Z8",
   checkInTime: "12:00 PM",
   checkOutTime: "11:00 AM",
   currencySymbol: "₹",
+  slug: "big-house-inn",
+  isPublished: true,
+  description: "Experience royal Rajasthani heritage and modern luxury at Big House Inn, located near the picturesque Lake Palace Road in Udaipur. Enjoy spacious rooms, world-class amenities, rooftop dining, and exceptional hospitality.",
+  heroPhotoUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200",
   photos: [
     "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800",
     "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800",
     "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&q=80&w=800",
     "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800"
-  ]
+  ],
+  amenities: ["Free Wi-Fi", "Air Conditioning", "Swimming Pool", "Rooftop Restaurant", "Free Parking", "Room Service", "Power Backup", "24/7 Front Desk"],
+  policies: "Check-in from 12:00 PM, Check-out by 11:00 AM. Valid ID required for all adult guests at check-in. Cancellation allowed up to 24 hours before check-in without charges."
 };
 
 // SVG ID Data URIs for realistic document rendering

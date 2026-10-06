@@ -247,7 +247,14 @@ export interface HotelProfile {
   checkInTime: string;
   checkOutTime: string;
   currencySymbol: string;
+  slug?: string;
+  isPublished?: boolean;
+  description?: string;
+  heroPhotoUrl?: string;
   photos?: string[];
+  whatsapp?: string;
+  amenities?: string[];
+  policies?: string;
 }
 
 export type UserRole = 'super_admin' | 'hotel_owner' | 'hotel_manager' | 'front_desk';
@@ -285,6 +292,14 @@ export interface Hotel {
   createdAt: string;
   ownerId?: string;
   ownerUsername?: string;
+  slug?: string;
+  isPublished?: boolean;
+  description?: string;
+  heroPhotoUrl?: string;
+  photos?: string[];
+  whatsapp?: string;
+  amenities?: string[];
+  policies?: string;
 }
 
 export interface HotelDataBundle {

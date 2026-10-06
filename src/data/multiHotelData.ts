@@ -9,6 +9,7 @@ import {
   ChannelSyncLog, 
   HotelProfile 
 } from '../types';
+import { generateSlug } from '../utils/slugHelper';
 import { 
   initialHotelProfile, 
   initialRooms, 
@@ -31,6 +32,7 @@ export const initialHotels: Hotel[] = [
     city: 'Udaipur',
     state: 'Rajasthan',
     phone: '+91 96481 33671',
+    whatsapp: '+919648133671',
     email: 'frontdesk@bighouseinn.com',
     gstin: '08AABCB1234F1Z8',
     checkInTime: '12:00 PM',
@@ -40,7 +42,14 @@ export const initialHotels: Hotel[] = [
     status: 'active',
     createdAt: '2024-01-10',
     ownerId: 'user-admin',
-    ownerUsername: 'maahitrips'
+    ownerUsername: 'maahitrips',
+    slug: 'big-house-inn',
+    isPublished: true,
+    description: 'Experience royal Rajasthani heritage and modern luxury at Big House Inn, located near the picturesque Lake Palace Road in Udaipur.',
+    heroPhotoUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200',
+    photos: initialHotelProfile.photos,
+    amenities: ['Free Wi-Fi', 'Air Conditioning', 'Swimming Pool', 'Rooftop Restaurant', 'Free Parking', 'Room Service'],
+    policies: 'Check-in 12:00 PM, Check-out 11:00 AM. Valid ID required.'
   }
 ];
 
@@ -118,17 +127,29 @@ export function createDefaultHotelBundle(hotel: Hotel, roomCountTemplate: number
     defaultRooms = samplePool.slice(0, Math.min(roomCountTemplate, samplePool.length));
   }
 
+  const hotelSlug = hotel.slug || generateSlug(hotel.name);
   const profile: HotelProfile = {
     name: hotel.name,
     tagline: hotel.tagline,
     address: hotel.address,
     city: hotel.city + (hotel.state ? `, ${hotel.state}` : ''),
     phone: hotel.phone,
+    whatsapp: hotel.phone,
     email: hotel.email,
     gstin: hotel.gstin,
     checkInTime: hotel.checkInTime || '12:00 PM',
     checkOutTime: hotel.checkOutTime || '11:00 AM',
-    currencySymbol: hotel.currencySymbol || '₹'
+    currencySymbol: hotel.currencySymbol || '₹',
+    slug: hotelSlug,
+    isPublished: true,
+    description: hotel.description || `Welcome to ${hotel.name}, offering exceptional hospitality, comfortable rooms, and premium amenities in ${hotel.city}.`,
+    heroPhotoUrl: hotel.heroPhotoUrl || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200',
+    photos: hotel.photos || [
+      'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800'
+    ],
+    amenities: hotel.amenities || ['Free Wi-Fi', 'Air Conditioning', 'Room Service', 'Power Backup'],
+    policies: hotel.policies || 'Check-in 12:00 PM, Check-out 11:00 AM. ID proof required.'
   };
 
   return {

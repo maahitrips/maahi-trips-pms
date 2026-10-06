@@ -1,9 +1,12 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 
 dotenv.config();
 
@@ -15,6 +18,21 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+// Initialize Firebase for server API endpoints
+let db: any = null;
+try {
+  const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const fbApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+      ? getFirestore(fbApp, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(fbApp);
+  }
+} catch (e) {
+  console.warn('Firebase server initialization warning:', e);
+}
+
 // Initialize GoogleGenAI SDK per SKILL.md guidelines
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -22,6 +40,277 @@ const ai = new GoogleGenAI({
     headers: {
       'User-Agent': 'aistudio-build',
     }
+  }
+});
+
+// --- Public Booking API Endpoints ---
+
+// 1. Get Hotel Public Page Data
+app.get('/api/public/hotel/:slug', async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not initialized' });
+    const { slug } = req.params;
+    if (!slug) return res.status(400).json({ error: 'Slug is required' });
+
+    let hotelId = '';
+    const slugDocRef = doc(db, 'hotelSlugs', slug);
+    const slugSnap = await getDoc(slugDocRef);
+    if (slugSnap.exists()) {
+      hotelId = slugSnap.data()?.hotelId;
+    }
+
+    if (!hotelId) {
+      const bundlesSnap = await getDocs(collection(db, 'hotelBundles'));
+      for (const d of bundlesSnap.docs) {
+        const data = d.data();
+        const pSlug = data?.profile?.slug || data?.slug;
+        if (pSlug === slug) {
+          hotelId = d.id;
+          break;
+        }
+      }
+    }
+
+    if (!hotelId) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    const bundleDocRef = doc(db, 'hotelBundles', hotelId);
+    const bundleSnap = await getDoc(bundleDocRef);
+    if (!bundleSnap.exists()) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    const bundle = bundleSnap.data();
+    const profile = bundle.profile || {};
+    const isPublished = profile.isPublished !== false;
+
+    if (!isPublished) {
+      return res.status(404).json({ error: 'This property is not available for public booking.' });
+    }
+
+    const rooms = bundle.rooms || [];
+    const hasRates = rooms.some((r: any) => Number(r.baseRate) > 0);
+
+    if (!hasRates) {
+      return res.json({ comingSoon: true, profile: { name: profile.name } });
+    }
+
+    return res.json({
+      hotelId,
+      profile: {
+        name: profile.name || 'Hotel',
+        tagline: profile.tagline || '',
+        address: profile.address || '',
+        city: profile.city || '',
+        phone: profile.phone || '',
+        whatsapp: profile.whatsapp || profile.phone || '',
+        email: profile.email || '',
+        currencySymbol: profile.currencySymbol || '₹',
+        checkInTime: profile.checkInTime || '12:00 PM',
+        checkOutTime: profile.checkOutTime || '11:00 AM',
+        slug: profile.slug || slug,
+        description: profile.description || '',
+        heroPhotoUrl: profile.heroPhotoUrl || '',
+        photos: profile.photos || [],
+        amenities: profile.amenities || [],
+        policies: profile.policies || ''
+      },
+      rooms: rooms.map((r: any) => ({
+        id: r.id,
+        number: r.number,
+        name: r.name,
+        type: r.type || 'Standard Room',
+        baseRate: Number(r.baseRate) || 0,
+        maxOccupancy: Number(r.maxOccupancy) || 2,
+        amenities: r.amenities || [],
+        photoUrl: r.photoUrl || ''
+      }))
+    });
+  } catch (err: any) {
+    console.error('Public hotel fetch error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+// 2. Check Availability
+app.post('/api/public/availability', async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not initialized' });
+    const { slug, checkIn, checkOut, adults, children } = req.body;
+    if (!slug || !checkIn || !checkOut) {
+      return res.status(400).json({ error: 'Slug, checkIn and checkOut are required' });
+    }
+
+    let hotelId = '';
+    const slugDocRef = doc(db, 'hotelSlugs', slug);
+    const slugSnap = await getDoc(slugDocRef);
+    if (slugSnap.exists()) hotelId = slugSnap.data()?.hotelId;
+
+    if (!hotelId) {
+      const bundlesSnap = await getDocs(collection(db, 'hotelBundles'));
+      for (const d of bundlesSnap.docs) {
+        if (d.data()?.profile?.slug === slug) {
+          hotelId = d.id;
+          break;
+        }
+      }
+    }
+
+    if (!hotelId) return res.status(404).json({ error: 'Property not found' });
+
+    const bundleDocRef = doc(db, 'hotelBundles', hotelId);
+    const bundleSnap = await getDoc(bundleDocRef);
+    if (!bundleSnap.exists()) return res.status(404).json({ error: 'Property not found' });
+
+    const bundle = bundleSnap.data();
+    const rooms = bundle.rooms || [];
+    const bookings = bundle.bookings || [];
+
+    const inDate = new Date(checkIn);
+    const outDate = new Date(checkOut);
+    const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+    const roomTypesMap: Record<string, { type: string; baseRate: number; maxOccupancy: number; totalCount: number; availableCount: number; photoUrl: string }> = {};
+
+    rooms.forEach((r: any) => {
+      const rType = r.type || 'Standard Room';
+      if (!roomTypesMap[rType]) {
+        roomTypesMap[rType] = {
+          type: rType,
+          baseRate: Number(r.baseRate) || 0,
+          maxOccupancy: Number(r.maxOccupancy) || 2,
+          totalCount: 0,
+          availableCount: 0,
+          photoUrl: r.photoUrl || ''
+        };
+      }
+      roomTypesMap[rType].totalCount += 1;
+    });
+
+    const bookedRoomNumbers = new Set<string>();
+    bookings.forEach((b: any) => {
+      if (b.status === 'Cancelled' || b.status === 'Rejected') return;
+      const bIn = b.checkIn;
+      const bOut = b.checkOut;
+      if (!(bIn >= checkOut || bOut <= checkIn)) {
+        if (b.roomNumber) bookedRoomNumbers.add(b.roomNumber);
+      }
+    });
+
+    rooms.forEach((r: any) => {
+      const rType = r.type || 'Standard Room';
+      if (!bookedRoomNumbers.has(r.number)) {
+        if (roomTypesMap[rType]) {
+          roomTypesMap[rType].availableCount += 1;
+        }
+      }
+    });
+
+    const availableRooms = Object.values(roomTypesMap).filter(rt => rt.availableCount > 0 && rt.baseRate > 0);
+
+    return res.json({ availableRooms, nights });
+  } catch (err: any) {
+    console.error('Availability check error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+// 3. Create Public Booking
+app.post('/api/public/booking', async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not initialized' });
+    const { slug, guestName, phone, email, checkIn, checkOut, adults, children, roomTypeId, specialRequest, honeypot } = req.body;
+    
+    if (honeypot) {
+      return res.status(400).json({ error: 'Invalid submission' });
+    }
+
+    if (!slug || !guestName || !phone || !checkIn || !checkOut || !roomTypeId) {
+      return res.status(400).json({ error: 'Missing required booking fields' });
+    }
+
+    let hotelId = '';
+    const slugDocRef = doc(db, 'hotelSlugs', slug);
+    const slugSnap = await getDoc(slugDocRef);
+    if (slugSnap.exists()) hotelId = slugSnap.data()?.hotelId;
+
+    if (!hotelId) {
+      const bundlesSnap = await getDocs(collection(db, 'hotelBundles'));
+      for (const d of bundlesSnap.docs) {
+        if (d.data()?.profile?.slug === slug) {
+          hotelId = d.id;
+          break;
+        }
+      }
+    }
+
+    if (!hotelId) return res.status(404).json({ error: 'Property not found' });
+
+    const bundleDocRef = doc(db, 'hotelBundles', hotelId);
+    const bundleSnap = await getDoc(bundleDocRef);
+    if (!bundleSnap.exists()) return res.status(404).json({ error: 'Property not found' });
+
+    const bundle = bundleSnap.data();
+    const rooms = bundle.rooms || [];
+    const bookings = bundle.bookings || [];
+
+    const matchingRoom = rooms.find((r: any) => (r.type || 'Standard Room') === roomTypeId && Number(r.baseRate) > 0);
+    if (!matchingRoom) {
+      return res.status(400).json({ error: 'Selected room type is not available' });
+    }
+
+    const inDate = new Date(checkIn);
+    const outDate = new Date(checkOut);
+    const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const baseRate = Number(matchingRoom.baseRate) || 0;
+    const totalAmount = baseRate * nights;
+
+    const bookingId = `bk-web-${Date.now()}`;
+    const bookingRef = `WEB-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const newBooking = {
+      id: bookingId,
+      bookingRef,
+      guestName: String(guestName).trim(),
+      phone: String(phone).trim(),
+      email: email ? String(email).trim() : '',
+      checkIn,
+      checkOut,
+      adults: Number(adults) || 1,
+      children: Number(children) || 0,
+      roomTypeId: matchingRoom.type || roomTypeId,
+      roomNumber: matchingRoom.number || '',
+      status: 'Pending',
+      source: 'Direct (Website)',
+      totalAmount,
+      paidAmount: 0,
+      balanceAmount: totalAmount,
+      specialRequest: specialRequest ? String(specialRequest).trim() : '',
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedBookings = [newBooking, ...(bookings || [])];
+
+    await setDoc(bundleDocRef, {
+      ...bundle,
+      bookings: updatedBookings,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    const bRef = doc(db, 'hotelBundles', hotelId, 'liveBookings', bookingId);
+    await setDoc(bRef, newBooking, { merge: true });
+
+    return res.json({
+      success: true,
+      bookingRef,
+      totalAmount,
+      hotelName: bundle.profile?.name || 'Hotel',
+      whatsapp: bundle.profile?.whatsapp || bundle.profile?.phone || ''
+    });
+  } catch (err: any) {
+    console.error('Booking creation error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create booking' });
   }
 });
 

@@ -600,6 +600,131 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          {/* Public Booking Page & SEO Settings */}
+          <div className="pt-4 border-t border-slate-200 space-y-4">
+            <div className="flex items-center justify-between bg-teal-50 border border-teal-200 p-4 rounded-2xl">
+              <div>
+                <span className="font-extrabold text-teal-950 text-xs block flex items-center gap-1.5">
+                  <Globe size={15} className="text-teal-700" />
+                  <span>Auto-Live Public Booking Page (/h/:slug)</span>
+                </span>
+                <span className="text-[11px] text-slate-600">Your hotel public page is automatically generated and published live.</span>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-teal-300 font-bold text-teal-900 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={profile.isPublished !== false}
+                  onChange={(e) => setProfile({ ...profile, isPublished: e.target.checked })}
+                  className="rounded border-teal-300 text-teal-700 focus:ring-teal-700 cursor-pointer"
+                />
+                <span>Public Page Live</span>
+              </label>
+            </div>
+
+            {/* Live URL Card */}
+            <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mb-0.5">
+                  Public Booking Page URL
+                </span>
+                <span className="text-xs font-mono text-slate-200 break-all select-all font-semibold">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/h/${profile.slug || 'hotel'}` : `/h/${profile.slug || 'hotel'}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = typeof window !== 'undefined' ? `${window.location.origin}/h/${profile.slug || 'hotel'}` : '';
+                    navigator.clipboard.writeText(url);
+                    alert('Public page link copied to clipboard!');
+                  }}
+                  className="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Copy size={13} />
+                  <span>Copy Link</span>
+                </button>
+                <a
+                  href={`/h/${profile.slug || 'hotel'}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink size={13} />
+                  <span>Open Page</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">URL Slug (e.g. big-house-inn)</label>
+                <input
+                  type="text"
+                  value={profile.slug || ''}
+                  onChange={(e) => setProfile({ ...profile, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                  className="w-full text-sm font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                  placeholder="hotel-slug"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">WhatsApp Number for Bookings</label>
+                <input
+                  type="text"
+                  value={profile.whatsapp || ''}
+                  onChange={(e) => setProfile({ ...profile, whatsapp: e.target.value })}
+                  className="w-full text-sm font-mono bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                  placeholder="+919648133671"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Hero Photo URL</label>
+              <input
+                type="url"
+                value={profile.heroPhotoUrl || ''}
+                onChange={(e) => setProfile({ ...profile, heroPhotoUrl: e.target.value })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                placeholder="https://images.unsplash.com/..."
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Property Description (For Public Page &amp; SEO)</label>
+              <textarea
+                value={profile.description || ''}
+                onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+                rows={3}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                placeholder="Describe your property, highlights, location..."
+              ></textarea>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Amenities (Comma separated)</label>
+              <input
+                type="text"
+                value={Array.isArray(profile.amenities) ? profile.amenities.join(', ') : (profile.amenities || '')}
+                onChange={(e) => setProfile({ ...profile, amenities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                placeholder="Free Wi-Fi, Swimming Pool, AC, Parking, Restaurant"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Hotel Policies &amp; Terms</label>
+              <textarea
+                value={profile.policies || ''}
+                onChange={(e) => setProfile({ ...profile, policies: e.target.value })}
+                rows={2}
+                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+                placeholder="Check-in/out rules, cancellation policy, ID proof requirement..."
+              ></textarea>
+            </div>
+          </div>
+
           <div className="pt-4 border-t border-slate-200 flex justify-end">
             <button
               type="submit"

@@ -56,6 +56,7 @@ import { GeminiChatView } from './components/GeminiChatView';
 import { BookingEngineView } from './components/BookingEngineView';
 import { GoogleHotelsView } from './components/GoogleHotelsView';
 import { PhotoGalleryView } from './components/PhotoGalleryView';
+import { PublicHotelBookingView } from './components/PublicHotelBookingView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
 import { InstallAppModal } from './components/InstallAppModal';
@@ -1889,6 +1890,13 @@ export default function App() {
         : `7 AM Cutoff Rule: ${lmConfig.isEnabled ? 'Active' : 'Disabled'} | Target: ${lmConfig.targetOccupancyPercent}% | Discount: ${lmConfig.discountPercent}%`
     );
   };
+
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const publicMatch = pathname.match(/^\/h\/([a-zA-Z0-9\-_]+)$/);
+  if (publicMatch) {
+    const slug = publicMatch[1];
+    return <PublicHotelBookingView slug={slug} />;
+  }
 
   if (!currentUser) {
     return (
