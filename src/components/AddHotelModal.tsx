@@ -24,6 +24,7 @@ import {
   isPropertyOwnerUser, 
   MAX_OWNER_PROPERTIES 
 } from '../utils/permissionHelper';
+import { generateSlug } from '../utils/slugHelper';
 
 interface AddHotelModalProps {
   isOpen: boolean;
@@ -105,6 +106,7 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
     if (!name.trim()) return;
 
     const newHotelId = `hotel-${Date.now()}`;
+    const hotelSlug = generateSlug(name.trim());
     const newHotel: Hotel = {
       id: newHotelId,
       name: name.trim(),
@@ -114,6 +116,7 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
       city: city.trim() || 'City Center',
       state: state.trim(),
       phone: phone.trim(),
+      whatsapp: phone.trim(),
       email: email.trim() || `frontdesk@${newHotelId}.com`,
       gstin: gstin.trim() || '09AAAAA0000A1Z5',
       checkInTime,
@@ -123,7 +126,17 @@ export const AddHotelModal: React.FC<AddHotelModalProps> = ({
       status: 'active',
       createdAt: new Date().toISOString().split('T')[0],
       ownerId: currentUser?.role === 'hotel_owner' ? currentUser.id : (currentUser?.id || 'user-admin'),
-      ownerUsername: currentUser?.role === 'hotel_owner' ? currentUser.username : (currentUser?.username || 'maahitrips')
+      ownerUsername: currentUser?.role === 'hotel_owner' ? currentUser.username : (currentUser?.username || 'maahitrips'),
+      slug: hotelSlug,
+      isPublished: true,
+      description: `Welcome to ${name.trim()}, offering exceptional hospitality and luxury stay in ${city.trim() || 'City Center'}.`,
+      heroPhotoUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200',
+      photos: [
+        'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800',
+        'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800'
+      ],
+      amenities: ['Free Wi-Fi', 'Air Conditioning', 'Room Service', 'Power Backup'],
+      policies: 'Check-in 12:00 PM, Check-out 11:00 AM. ID proof required.'
     };
 
     let newManager: UserAccount | undefined;
