@@ -590,11 +590,7 @@ export default function App() {
       if (cloudHotels && cloudHotels.length > 0) {
         // Filter out any unwanted/deleted hotels so they never revive
         const filteredCloud = cloudHotels.filter(h => 
-          h.id === 'hotel-bighouse' || (
-            !deletedHotelIds.has(h.id) &&
-            !h.name.toLowerCase().includes('nikita') &&
-            !h.name.toLowerCase().includes('royal guest')
-          )
+          h.id === 'hotel-bighouse' || !deletedHotelIds.has(h.id)
         );
 
         // If cloud had deleted entries, write back the cleaned list to cloud
