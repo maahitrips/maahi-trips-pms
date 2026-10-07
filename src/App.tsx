@@ -85,7 +85,8 @@ import {
   isQuotaLimitReached,
   onQuotaExceededChange,
   getDatabaseUpgradeUrl,
-  retryCloudConnection
+  retryCloudConnection,
+  syncHotelSlugToCloud
 } from './services/firebase';
 
 const STORAGE_KEY_HOTELS = 'tripmakerz_hotels_v2';
@@ -994,17 +995,30 @@ export default function App() {
 
     const updatedHotels = [...hotels, hotelToSave];
     setHotels(updatedHotels);
-    localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(updatedHotels));
+    try {
+      localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(updatedHotels));
+    } catch {}
+    saveHotelsToCloud(updatedHotels);
 
     if (initialManager) {
       const updatedUsers = [...users, initialManager];
       setUsers(updatedUsers);
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+      try {
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+      } catch {}
+      saveUsersToCloud(updatedUsers);
     }
 
     // Initialize new bundle
     const newBundle = createDefaultHotelBundle(hotelToSave, roomCountTemplate);
-    localStorage.setItem(getHotelBundleKey(hotelToSave.id), JSON.stringify(newBundle));
+    try {
+      localStorage.setItem(getHotelBundleKey(hotelToSave.id), JSON.stringify(newBundle));
+    } catch {}
+    saveHotelBundleToCloud(hotelToSave.id, newBundle);
+
+    if (hotelToSave.slug) {
+      syncHotelSlugToCloud(hotelToSave.id, hotelToSave.slug);
+    }
 
     // Switch to new hotel
     handleSelectHotel(hotelToSave.id);

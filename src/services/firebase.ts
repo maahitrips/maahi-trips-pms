@@ -435,3 +435,15 @@ export function subscribeToDeletionRequests(onData: (requests: DeletionRequest[]
     return () => {};
   }
 }
+
+// 13. Sync Hotel Slug Index to Cloud
+export async function syncHotelSlugToCloud(hotelId: string, slug: string): Promise<void> {
+  if (isFirestoreQuotaExceeded || !slug) return;
+  try {
+    const slugRef = doc(db, 'hotelSlugs', slug);
+    await setDoc(slugRef, { hotelId, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (e) {
+    if (checkAndHandleQuotaError(e)) return;
+    console.warn('Failed to sync hotel slug index:', e);
+  }
+}
