@@ -7,19 +7,23 @@ service cloud.firestore {
       allow write: if true;
     }
 
-    // Hotels registry
+    // Hotels registry metadata
     match /hotels/{hotelId} {
-      allow read, write: if true;
-    }
-
-    // Hotel bundles: public availability & public hotel info read, bookings managed by backend API & staff
-    match /hotelBundles/{hotelId} {
       allow read: if true;
       allow write: if true;
     }
 
+    // Hotel bundles: public read allowed ONLY if isPublished == true
+    match /hotelBundles/{hotelId} {
+      allow read: if resource.data.profile.isPublished == true || resource.data.isPublished == true;
+      allow update, create, delete: if true;
+    }
+
+    // Live bookings subcollection: public create allowed ONLY with status 'Pending' and source 'Direct' or 'Direct (Website)'
     match /hotelBundles/{hotelId}/liveBookings/{bookingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if request.resource.data.status == 'Pending' && (request.resource.data.source == 'Direct' || request.resource.data.source == 'Direct (Website)');
+      allow update, delete: if true;
     }
 
     // User accounts

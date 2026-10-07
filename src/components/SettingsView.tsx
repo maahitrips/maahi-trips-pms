@@ -639,13 +639,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               return (
                 <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mb-0.5">
                       Public Booking Page URL
                     </span>
-                    <span className="text-xs font-mono text-slate-200 break-all select-all font-semibold">
+                    <div className="text-xs font-mono text-teal-300 overflow-x-auto whitespace-nowrap py-1 select-all font-semibold">
                       {fullPublicUrl}
-                    </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button

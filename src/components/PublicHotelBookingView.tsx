@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { 
   Building2, 
   MapPin, 
@@ -23,6 +24,8 @@ import {
   Check,
   AlertCircle
 } from 'lucide-react';
+import { db } from '../services/firebase';
+import { doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
 
 interface PublicHotelBookingViewProps {
   slug: string;
@@ -33,6 +36,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [error, setError] = useState<string | null>(null);
   const [hotelData, setHotelData] = useState<any>(null);
   const [comingSoon, setComingSoon] = useState(false);
+  const [hotelId, setHotelId] = useState<string>('');
 
   // Search state
   const [checkIn, setCheckIn] = useState(() => {
@@ -63,37 +67,117 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [bookingResult, setBookingResult] = useState<any | null>(null);
 
   useEffect(() => {
-    fetchHotel();
+    fetchHotelFromFirestore();
   }, [slug]);
 
-  const fetchHotel = async () => {
+  const fetchHotelFromFirestore = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/public/hotel/${slug}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Property not available');
+
+      let foundHotelId = '';
+      
+      // 1. Try slug index
+      try {
+        const slugDocRef = doc(db, 'hotelSlugs', slug);
+        const slugSnap = await getDoc(slugDocRef);
+        if (slugSnap.exists()) {
+          foundHotelId = slugSnap.data()?.hotelId;
+        }
+      } catch (e) {
+        console.warn('Slug index lookup error:', e);
       }
-      if (data.comingSoon) {
+
+      // 2. Fallback: scan all hotel bundles
+      if (!foundHotelId) {
+        const bundlesSnap = await getDocs(collection(db, 'hotelBundles'));
+        for (const d of bundlesSnap.docs) {
+          const data = d.data();
+          const pSlug = data?.profile?.slug || data?.slug;
+          if (pSlug === slug) {
+            foundHotelId = d.id;
+            break;
+          }
+        }
+      }
+
+      if (!foundHotelId) {
+        throw new Error('Property not found or slug does not exist.');
+      }
+
+      setHotelId(foundHotelId);
+
+      const bundleDocRef = doc(db, 'hotelBundles', foundHotelId);
+      const bundleSnap = await getDoc(bundleDocRef);
+      if (!bundleSnap.exists()) {
+        throw new Error('Property bundle data not found.');
+      }
+
+      const bundle = bundleSnap.data();
+      const profile = bundle.profile || {};
+      const isPublished = profile.isPublished !== false;
+
+      if (!isPublished) {
+        throw new Error('This property is not available for public booking.');
+      }
+
+      const rooms = bundle.rooms || [];
+      const hasRates = rooms.some((r: any) => Number(r.baseRate) > 0);
+
+      if (!hasRates) {
         setComingSoon(true);
+        setHotelData({ profile });
+        return;
       }
-      setHotelData(data);
+
+      const dataFormatted = {
+        hotelId: foundHotelId,
+        profile: {
+          name: profile.name || 'Hotel',
+          tagline: profile.tagline || '',
+          address: profile.address || '',
+          city: profile.city || '',
+          phone: profile.phone || '',
+          whatsapp: profile.whatsapp || profile.phone || '',
+          email: profile.email || '',
+          currencySymbol: profile.currencySymbol || '₹',
+          checkInTime: profile.checkInTime || '12:00 PM',
+          checkOutTime: profile.checkOutTime || '11:00 AM',
+          slug: profile.slug || slug,
+          description: profile.description || '',
+          heroPhotoUrl: profile.heroPhotoUrl || '',
+          photos: profile.photos || [],
+          amenities: profile.amenities || [],
+          policies: profile.policies || ''
+        },
+        rooms: rooms.map((r: any) => ({
+          id: r.id,
+          number: r.number,
+          name: r.name,
+          type: r.type || 'Standard Room',
+          baseRate: Number(r.baseRate) || 0,
+          maxOccupancy: Number(r.maxOccupancy) || 2,
+          amenities: r.amenities || [],
+          photoUrl: r.photoUrl || ''
+        })),
+        rawBundle: bundle
+      };
+
+      setHotelData(dataFormatted);
 
       // Set SEO meta tags & JSON-LD
-      if (data.profile) {
-        document.title = `${data.profile.name} - Direct Booking`;
+      if (dataFormatted.profile) {
+        document.title = `${dataFormatted.profile.name} - Direct Booking`;
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc) {
-          metaDesc.setAttribute('content', data.profile.description || data.profile.tagline);
+          metaDesc.setAttribute('content', dataFormatted.profile.description || dataFormatted.profile.tagline);
         } else {
           const meta = document.createElement('meta');
           meta.name = 'description';
-          meta.content = data.profile.description || data.profile.tagline;
+          meta.content = dataFormatted.profile.description || dataFormatted.profile.tagline;
           document.head.appendChild(meta);
         }
 
-        // Inject JSON-LD Hotel schema
         const scriptId = 'json-ld-hotel-schema';
         let script = document.getElementById(scriptId) as HTMLScriptElement;
         if (!script) {
@@ -105,14 +189,14 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         script.textContent = JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Hotel",
-          "name": data.profile.name,
-          "description": data.profile.description,
+          "name": dataFormatted.profile.name,
+          "description": dataFormatted.profile.description,
           "address": {
             "@type": "PostalAddress",
-            "streetAddress": data.profile.address,
-            "addressLocality": data.profile.city
+            "streetAddress": dataFormatted.profile.address,
+            "addressLocality": dataFormatted.profile.city
           },
-          "telephone": data.profile.phone,
+          "telephone": dataFormatted.profile.phone,
           "priceRange": "₹₹"
         });
       }
@@ -125,17 +209,58 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hotelId || !hotelData) return;
     try {
       setSearching(true);
-      const res = await fetch('/api/public/availability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, checkIn, checkOut, adults, children })
+      // Fetch latest bundle snapshot directly from Firestore
+      const bundleSnap = await getDoc(doc(db, 'hotelBundles', hotelId));
+      if (!bundleSnap.exists()) throw new Error('Property data not found');
+      const bundle = bundleSnap.data();
+      const rooms = bundle.rooms || [];
+      const bookings = bundle.bookings || [];
+
+      const inDate = new Date(checkIn);
+      const outDate = new Date(checkOut);
+      const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+      setNightsCount(nights);
+
+      const roomTypesMap: Record<string, any> = {};
+      rooms.forEach((r: any) => {
+        const rType = r.type || 'Standard Room';
+        if (!roomTypesMap[rType]) {
+          roomTypesMap[rType] = {
+            type: rType,
+            baseRate: Number(r.baseRate) || 0,
+            maxOccupancy: Number(r.maxOccupancy) || 2,
+            totalCount: 0,
+            availableCount: 0,
+            photoUrl: r.photoUrl || ''
+          };
+        }
+        roomTypesMap[rType].totalCount += 1;
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to check availability');
-      setAvailableRooms(data.availableRooms || []);
-      setNightsCount(data.nights || 1);
+
+      const bookedRoomNumbers = new Set<string>();
+      bookings.forEach((b: any) => {
+        if (b.status === 'Cancelled' || b.status === 'Rejected') return;
+        const bIn = b.checkIn;
+        const bOut = b.checkOut;
+        if (!(bIn >= checkOut || bOut <= checkIn)) {
+          if (b.roomNumber) bookedRoomNumbers.add(b.roomNumber);
+        }
+      });
+
+      rooms.forEach((r: any) => {
+        const rType = r.type || 'Standard Room';
+        if (!bookedRoomNumbers.has(r.number)) {
+          if (roomTypesMap[rType]) {
+            roomTypesMap[rType].availableCount += 1;
+          }
+        }
+      });
+
+      const available = Object.values(roomTypesMap).filter((rt: any) => rt.availableCount > 0 && rt.baseRate > 0);
+      setAvailableRooms(available);
     } catch (err: any) {
       alert(err.message || 'Search failed');
     } finally {
@@ -145,31 +270,74 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRoom) return;
+    if (!selectedRoom || !hotelId) return;
+
+    if (honeypot) {
+      alert('Spam detected');
+      return;
+    }
 
     try {
       setSubmitting(true);
-      const res = await fetch('/api/public/booking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          guestName,
-          phone,
-          email,
-          checkIn,
-          checkOut,
-          adults,
-          children,
-          roomTypeId: selectedRoom.type || selectedRoom.id,
-          roomNumber: selectedRoom.number,
-          specialRequest,
-          honeypot
-        })
+      const bundleSnap = await getDoc(doc(db, 'hotelBundles', hotelId));
+      if (!bundleSnap.exists()) throw new Error('Property not found');
+      const bundle = bundleSnap.data();
+      const rooms = bundle.rooms || [];
+      const bookings = bundle.bookings || [];
+
+      const matchingRoom = rooms.find((r: any) => (r.type || 'Standard Room') === selectedRoom.type && Number(r.baseRate) > 0);
+      if (!matchingRoom) {
+        throw new Error('Selected room type is no longer available');
+      }
+
+      const inDate = new Date(checkIn);
+      const outDate = new Date(checkOut);
+      const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const baseRate = Number(matchingRoom.baseRate) || 0;
+      const totalAmount = baseRate * nights;
+
+      const bookingId = `bk-web-${Date.now()}`;
+      const bookingRef = `WEB-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const newBooking = {
+        id: bookingId,
+        bookingRef,
+        guestName: String(guestName).trim(),
+        phone: String(phone).trim(),
+        email: email ? String(email).trim() : '',
+        checkIn,
+        checkOut,
+        adults: Number(adults) || 1,
+        children: Number(children) || 0,
+        roomTypeId: matchingRoom.type || selectedRoom.type,
+        roomNumber: matchingRoom.number || '',
+        status: 'Pending',
+        source: 'Direct (Website)',
+        totalAmount,
+        paidAmount: 0,
+        balanceAmount: totalAmount,
+        specialRequest: specialRequest ? String(specialRequest).trim() : '',
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedBookings = [newBooking, ...(bookings || [])];
+
+      // Write to Firestore bundle doc
+      await setDoc(doc(db, 'hotelBundles', hotelId), {
+        ...bundle,
+        bookings: updatedBookings,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Write to liveBookings subcollection for instant PMS sync
+      await setDoc(doc(db, 'hotelBundles', hotelId, 'liveBookings', bookingId), newBooking, { merge: true });
+
+      setBookingResult({
+        bookingRef,
+        totalAmount,
+        hotelName: bundle.profile?.name || 'Hotel',
+        whatsapp: bundle.profile?.whatsapp || bundle.profile?.phone || ''
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Booking failed');
-      setBookingResult(data);
     } catch (err: any) {
       alert(err.message || 'Failed to create booking');
     } finally {
@@ -182,7 +350,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
       <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-white font-sans">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs font-semibold text-slate-300">Loading live booking page...</p>
+          <p className="text-xs font-semibold text-slate-300">Loading public booking page...</p>
         </div>
       </div>
     );
@@ -358,7 +526,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         {/* Thumbnails Gallery */}
         {profile.photos && profile.photos.length > 1 && (
           <div className="grid grid-cols-4 gap-2.5 mt-3">
-            {profile.photos.slice(0, 4).map((pUrl, idx) => (
+            {profile.photos.slice(0, 4).map((pUrl: string, idx: number) => (
               <div key={idx} className="h-20 sm:h-24 rounded-2xl overflow-hidden shadow-xs border border-slate-200 bg-white">
                 <img src={pUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
               </div>
@@ -373,12 +541,12 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         {/* Left / Main Details */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* About / Description */}
+          {/* About / Description rendered via ReactMarkdown */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
             <h3 className="text-base font-black text-slate-900">About {profile.name}</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              {profile.description || profile.tagline}
-            </p>
+            <div className="text-xs sm:text-sm text-slate-600 leading-relaxed prose prose-slate max-w-none">
+              <ReactMarkdown>{profile.description || profile.tagline}</ReactMarkdown>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs">
               <div className="flex items-center gap-2 text-slate-700">
                 <Clock size={16} className="text-teal-700" />
@@ -396,7 +564,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
               <h3 className="text-base font-black text-slate-900">Popular Amenities</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {profile.amenities.map((amenity, idx) => (
+                {profile.amenities.map((amenity: string, idx: number) => (
                   <div key={idx} className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-bold text-slate-800">
                     <CheckCircle2 size={16} className="text-teal-700 shrink-0" />
                     <span>{amenity}</span>
@@ -463,7 +631,9 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           {profile.policies && (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-2">
               <h3 className="text-sm font-black text-slate-900">Hotel Policies</h3>
-              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{profile.policies}</p>
+              <div className="text-xs text-slate-600 leading-relaxed prose prose-slate max-w-none">
+                <ReactMarkdown>{profile.policies}</ReactMarkdown>
+              </div>
             </div>
           )}
 
@@ -564,7 +734,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+91 98765 43210"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
                       required
                     />
                   </div>
@@ -576,7 +746,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="rahul@example.com"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
                     />
                   </div>
 
@@ -587,7 +757,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       onChange={(e) => setSpecialRequest(e.target.value)}
                       placeholder="Early check-in, quiet room, etc."
                       rows={2}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 font-medium"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 font-medium"
                     ></textarea>
                   </div>
 
