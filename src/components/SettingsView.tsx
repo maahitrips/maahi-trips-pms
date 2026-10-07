@@ -628,12 +628,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {/* Live URL Card */}
             {(() => {
               const getAppBaseUrl = () => {
-                if (typeof window === 'undefined') return '';
-                const origin = window.location.origin;
-                if (origin.includes('maahitrips.in')) {
-                  return 'https://ais-dev-pibjniodpjsmsyf4yqpbry-941942044826.asia-east1.run.app';
-                }
-                return origin;
+                return 'https://hotelpms.maahitrips.in';
               };
               const fullPublicUrl = `${getAppBaseUrl()}/h/${profile.slug || 'hotel'}`;
 
