@@ -147,6 +147,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           description: profile.description || '',
           heroPhotoUrl: profile.heroPhotoUrl || '',
           photos: profile.photos || [],
+          roomPhotos: profile.roomPhotos || [],
           amenities: profile.amenities || [],
           policies: profile.policies || ''
         },
@@ -568,6 +569,20 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                   <div key={idx} className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-bold text-slate-800">
                     <CheckCircle2 size={16} className="text-teal-700 shrink-0" />
                     <span>{amenity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Room Photos Gallery */}
+          {profile.roomPhotos && profile.roomPhotos.length > 0 && (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+              <h3 className="text-base font-black text-slate-900">Room Photos &amp; Interiors</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {profile.roomPhotos.map((rPhoto: string, idx: number) => (
+                  <div key={idx} className="h-36 rounded-2xl overflow-hidden shadow-xs border border-slate-200 bg-slate-100">
+                    <img src={rPhoto} alt={`Room ${idx + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
                   </div>
                 ))}
               </div>

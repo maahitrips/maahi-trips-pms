@@ -252,6 +252,7 @@ export interface HotelProfile {
   description?: string;
   heroPhotoUrl?: string;
   photos?: string[];
+  roomPhotos?: string[];
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
@@ -297,6 +298,7 @@ export interface Hotel {
   description?: string;
   heroPhotoUrl?: string;
   photos?: string[];
+  roomPhotos?: string[];
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
