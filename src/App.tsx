@@ -592,16 +592,20 @@ export default function App() {
           h.id === 'hotel-bighouse' || !deletedHotelIds.has(h.id)
         );
 
-        // If cloud had deleted entries, write back the cleaned list to cloud
-        if (filteredCloud.length !== cloudHotels.length) {
-          saveHotelsToCloud(filteredCloud.length > 0 ? filteredCloud : [initialHotels[0]]);
-        }
-
-        const finalList = filteredCloud.length > 0 ? filteredCloud : [initialHotels[0]];
-        setHotels(finalList);
-        try {
-          localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(finalList));
-        } catch {}
+        setHotels(prevHotels => {
+          const map = new Map<string, Hotel>();
+          filteredCloud.forEach(h => map.set(h.id, h));
+          prevHotels.forEach(h => {
+            if (!map.has(h.id)) {
+              map.set(h.id, h);
+            }
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
     });
     // Persist and sync users to Firestore
@@ -609,10 +613,20 @@ export default function App() {
 
     const unsubUsers = subscribeToUsers((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
-        setUsers(cloudUsers);
-        try {
-          localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(cloudUsers));
-        } catch {}
+        setUsers(prevUsers => {
+          const map = new Map<string, UserAccount>();
+          cloudUsers.forEach(u => map.set(u.id, u));
+          prevUsers.forEach(u => {
+            if (!map.has(u.id)) {
+              map.set(u.id, u);
+            }
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
     });
     const unsubRequests = subscribeToDeletionRequests((cloudReqs) => {
