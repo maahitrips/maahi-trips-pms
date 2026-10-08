@@ -577,7 +577,6 @@ export default function App() {
 
     const deletedHotelIds = new Set([
       'hotel-royalguesthouse',
-      'hotel-nikita',
       'hotel-sairesidency',
       'hotel-grandheritage'
     ]);
