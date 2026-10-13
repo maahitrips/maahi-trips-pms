@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { HotelProfile } from '../types';
-import { Sparkles, Trash2, Plus, Upload, CheckCircle2, Building, BedDouble } from 'lucide-react';
+import { HotelProfile, GalleryPhoto } from '../types';
+import { Sparkles, Trash2, Plus, Upload, CheckCircle2, Building, BedDouble, Tag } from 'lucide-react';
 
 interface PhotoGalleryViewProps {
   hotelProfile: HotelProfile;
@@ -15,21 +15,59 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'property' | 'rooms'>('property');
   const [newUrl, setNewUrl] = useState('');
+  const [newTag, setNewTag] = useState('Exterior / Front View');
 
-  const currentPhotos = activeTab === 'property' 
+  const rawPhotos = activeTab === 'property' 
     ? (hotelProfile.photos || []) 
     : (hotelProfile.roomPhotos || []);
 
+  // Normalize items to GalleryPhoto objects
+  const photosList: GalleryPhoto[] = rawPhotos.map((p: any) => {
+    if (typeof p === 'string') {
+      return { url: p, tag: activeTab === 'property' ? 'General Property' : 'Standard Room' };
+    }
+    return { url: p.url, tag: p.tag || (activeTab === 'property' ? 'General Property' : 'Standard Room') };
+  });
+
+  const propertyTagOptions = [
+    'Exterior / Front View',
+    'Lobby / Reception',
+    'Swimming Pool',
+    'Restaurant / Dining',
+    'Spa & Wellness',
+    'Garden / Exterior',
+    'Parking Area',
+    'Building View'
+  ];
+
+  const roomTagOptions = [
+    'Deluxe Room',
+    'Executive Suite',
+    'Super Deluxe Room',
+    'Family Suite',
+    'Balcony View',
+    'Bathroom / Washroom',
+    'Interior Decor',
+    'Bedding & Amenities'
+  ];
+
+  const currentTagOptions = activeTab === 'property' ? propertyTagOptions : roomTagOptions;
+
   const handleAddPhoto = () => {
     if (!newUrl.trim()) return;
-    const updatedList = [...currentPhotos, newUrl.trim()];
+    const newPhotoItem: GalleryPhoto = {
+      url: newUrl.trim(),
+      tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Standard Room')
+    };
+
+    const updatedList = [...rawPhotos, newPhotoItem];
     const updated = activeTab === 'property'
       ? { ...hotelProfile, photos: updatedList }
       : { ...hotelProfile, roomPhotos: updatedList };
     
     onUpdateProfile(updated);
     setNewUrl('');
-    showToast(`${activeTab === 'property' ? 'Property' : 'Room'} Photo Added!`, 'Gallery updated and synced with website.');
+    showToast(`${activeTab === 'property' ? 'Property' : 'Room'} Photo Added with Tag!`, `Tagged as: ${newPhotoItem.tag}`);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,43 +76,95 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64String = event.target?.result as string;
-      if (base64String) {
-        const updatedList = [...currentPhotos, base64String];
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+        const newPhotoItem: GalleryPhoto = {
+          url: compressedBase64,
+          tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Standard Room')
+        };
+
+        const updatedList = [...rawPhotos, newPhotoItem];
         const updated = activeTab === 'property'
           ? { ...hotelProfile, photos: updatedList }
           : { ...hotelProfile, roomPhotos: updatedList };
         
         onUpdateProfile(updated);
-        showToast('Photo Uploaded Successfully!', file.name);
-      }
+        showToast('Photo Uploaded, Tagged & Compressed!', `Tag: ${newPhotoItem.tag}`);
+      };
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleAddPreset = (url: string, label: string) => {
-    if (!currentPhotos.includes(url)) {
-      const updatedList = [...currentPhotos, url];
+  const handleAddPreset = (url: string, label: string, tagPreset: string) => {
+    const exists = photosList.some(p => p.url === url);
+    if (!exists) {
+      const newPhotoItem: GalleryPhoto = {
+        url,
+        tag: tagPreset
+      };
+      const updatedList = [...rawPhotos, newPhotoItem];
       const updated = activeTab === 'property'
         ? { ...hotelProfile, photos: updatedList }
         : { ...hotelProfile, roomPhotos: updatedList };
       
       onUpdateProfile(updated);
-      showToast('Preset Photo Added!', label);
+      showToast('Preset Photo Added!', `${label} (${tagPreset})`);
     } else {
       showToast('Photo Already Exists', label);
     }
   };
 
   const handleDeletePhoto = (index: number) => {
-    const updatedList = currentPhotos.filter((_, i) => i !== index);
+    const updatedList = rawPhotos.filter((_, i) => i !== index);
     const updated = activeTab === 'property'
       ? { ...hotelProfile, photos: updatedList }
       : { ...hotelProfile, roomPhotos: updatedList };
     
     onUpdateProfile(updated);
     showToast('Photo Removed', 'Gallery updated successfully.');
+  };
+
+  const handleUpdateTag = (index: number, newPhotoTag: string) => {
+    const updatedList = [...rawPhotos];
+    const existing = updatedList[index];
+    if (typeof existing === 'string') {
+      updatedList[index] = { url: existing, tag: newPhotoTag };
+    } else {
+      updatedList[index] = { ...existing, tag: newPhotoTag };
+    }
+
+    const updated = activeTab === 'property'
+      ? { ...hotelProfile, photos: updatedList }
+      : { ...hotelProfile, roomPhotos: updatedList };
+    
+    onUpdateProfile(updated);
+    showToast('Photo Tag Updated!', `New Tag: ${newPhotoTag}`);
   };
 
   return (
@@ -89,14 +179,14 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 uppercase tracking-wider">
-                  Unlimited Media Library
+                  Unlimited Tagged Media Library
                 </span>
                 <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
                   <CheckCircle2 size={13} /> Live on Direct Website
                 </span>
               </div>
               <h1 className="text-2xl font-black text-white tracking-tight mt-1">
-                Hotel Visual Media Gallery
+                Hotel Photo Gallery &amp; Room Tags
               </h1>
             </div>
           </div>
@@ -106,7 +196,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
         <div className="max-w-6xl mx-auto flex items-center gap-3 pt-2">
           <button
             type="button"
-            onClick={() => setActiveTab('property')}
+            onClick={() => { setActiveTab('property'); setNewTag('Exterior / Front View'); }}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'property'
                 ? 'bg-teal-600 text-white shadow-md'
@@ -119,7 +209,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setActiveTab('rooms')}
+            onClick={() => { setActiveTab('rooms'); setNewTag('Deluxe Room'); }}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'rooms'
                 ? 'bg-teal-600 text-white shadow-md'
@@ -137,10 +227,27 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
         
         {/* Add Photo Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-5">
-          <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-            <Plus size={18} className="text-teal-700" />
-            <span>Add Unlimited {activeTab === 'property' ? 'Property' : 'Room'} Photos</span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <Plus size={18} className="text-teal-700" />
+              <span>Add Unlimited {activeTab === 'property' ? 'Property' : 'Room'} Photos with Tag</span>
+            </h2>
+
+            {/* Tag Selection Dropdown / Input */}
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-300">
+              <Tag size={15} className="text-teal-700 shrink-0 ml-1" />
+              <span className="text-xs font-bold text-slate-700 shrink-0">Photo Tag:</span>
+              <select
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                className="text-xs bg-white font-bold text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:border-teal-600 outline-hidden"
+              >
+                {currentTagOptions.map((opt, i) => (
+                  <option key={i} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Option 1: Direct File Upload */}
@@ -157,7 +264,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
               </div>
               <div>
                 <span className="font-bold text-xs text-teal-950 block">Upload Image from Device / Phone</span>
-                <span className="text-[11px] text-teal-800">Click to browse JPG, PNG, WEBP (Unlimited)</span>
+                <span className="text-[11px] text-teal-800">Tagged as: <strong>{newTag}</strong> (Unlimited)</span>
               </div>
             </div>
 
@@ -186,26 +293,27 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
 
           {/* Quick Presets */}
           <div className="pt-2 border-t border-slate-100">
-            <span className="text-xs font-bold text-slate-500 block mb-2">Or click to add professional presets:</span>
+            <span className="text-xs font-bold text-slate-500 block mb-2">Or click to add professional presets with tags:</span>
             <div className="flex flex-wrap gap-2">
               {(activeTab === 'property' ? [
-                { label: '🏨 Luxury Lobby', url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800' },
-                { label: '🏊 Swimming Pool', url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&q=80&w=800' },
-                { label: '🍽️ Fine Dining', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800' },
-                { label: '🌿 Spa & Wellness', url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=800' }
+                { label: '🏨 Luxury Lobby', url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800', tag: 'Lobby / Reception' },
+                { label: '🏊 Swimming Pool', url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&q=80&w=800', tag: 'Swimming Pool' },
+                { label: '🍽️ Fine Dining', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800', tag: 'Restaurant / Dining' },
+                { label: '🌿 Spa & Wellness', url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=800', tag: 'Spa & Wellness' }
               ] : [
-                { label: '🛏️ Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800' },
-                { label: '👑 Executive Suite', url: 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&q=80&w=800' },
-                { label: '🌅 Balcony View Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&q=80&w=800' },
-                { label: '🛁 Luxury Bathroom', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800' }
+                { label: '🛏️ Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800', tag: 'Deluxe Room' },
+                { label: '👑 Executive Suite', url: 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&q=80&w=800', tag: 'Executive Suite' },
+                { label: '🌅 Balcony View Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&q=80&w=800', tag: 'Balcony View' },
+                { label: '🛁 Luxury Bathroom', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800', tag: 'Bathroom / Washroom' }
               ]).map((preset, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleAddPreset(preset.url, preset.label)}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                  onClick={() => handleAddPreset(preset.url, preset.label, preset.tag)}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {preset.label}
+                  <span>{preset.label}</span>
+                  <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-md font-mono">{preset.tag}</span>
                 </button>
               ))}
             </div>
@@ -215,28 +323,44 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
         {/* Gallery Grid */}
         <div className="space-y-4">
           <h2 className="text-lg font-black text-slate-900 tracking-tight">
-            {activeTab === 'property' ? 'Property Photos' : 'Room Photos'} ({currentPhotos.length})
+            {activeTab === 'property' ? 'Property Photos' : 'Room Photos'} ({photosList.length})
           </h2>
 
-          {currentPhotos.length === 0 ? (
+          {photosList.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400 space-y-2">
               <Sparkles size={32} className="mx-auto text-teal-600" />
               <p className="font-bold text-sm text-slate-700">No {activeTab === 'property' ? 'Property' : 'Room'} Photos Added Yet</p>
-              <p className="text-xs text-slate-500">Upload unlimited photos above to showcase your hotel to guests.</p>
+              <p className="text-xs text-slate-500">Upload unlimited tagged photos above to showcase your hotel rooms and amenities.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {currentPhotos.map((photoUrl, idx) => (
-                <div key={idx} className="relative group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-md">
-                  <div className="h-52 overflow-hidden bg-slate-100">
-                    <img src={photoUrl} alt={`${activeTab} ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              {photosList.map((photo, idx) => (
+                <div key={idx} className="relative group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-md flex flex-col justify-between">
+                  <div>
+                    <div className="h-48 overflow-hidden bg-slate-100 relative">
+                      <img src={photo.url} alt={photo.tag} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-white/20 shadow-sm flex items-center gap-1">
+                        <Tag size={12} className="text-teal-400" />
+                        <span>{photo.tag}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-4 flex items-center justify-between bg-white border-t border-slate-100">
-                    <span className="font-bold text-xs text-slate-800">Photo #{idx + 1}</span>
+
+                  <div className="p-3.5 bg-white border-t border-slate-100 flex items-center justify-between gap-2">
+                    <select
+                      value={photo.tag}
+                      onChange={(e) => handleUpdateTag(idx, e.target.value)}
+                      className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 focus:border-teal-600 outline-hidden flex-1"
+                    >
+                      {currentTagOptions.map((opt, i) => (
+                        <option key={i} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+
                     <button
                       type="button"
                       onClick={() => handleDeletePhoto(idx)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-rose-200"
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-rose-200 shrink-0"
                     >
                       <Trash2 size={13} />
                       <span>Delete</span>

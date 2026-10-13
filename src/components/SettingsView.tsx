@@ -2311,7 +2311,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {(profile.photos || []).map((photoUrl, idx) => (
                 <div key={idx} className="relative group h-44 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                  <img src={photoUrl} alt={`Property Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img src={typeof photoUrl === 'string' ? photoUrl : photoUrl.url} alt={`Property Photo ${idx + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button
                       type="button"

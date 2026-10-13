@@ -1142,10 +1142,11 @@ export default function App() {
       } catch (err) {
         console.error('Failed to save hotels', err);
       }
+      saveHotelsToCloud(updated);
       return updated;
     });
 
-    // 3. Immediately persist bundle to localStorage
+    // 3. Immediately persist bundle to localStorage and Cloud
     const currentBundle: HotelDataBundle = {
       hotelId: activeHotelId,
       profile: up,
@@ -1162,6 +1163,10 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to save hotel bundle', err);
+    }
+    saveHotelBundleToCloud(activeHotelId, currentBundle);
+    if (up.slug) {
+      syncHotelSlugToCloud(activeHotelId, up.slug);
     }
 
     showToast('Hotel Profile & Address Saved!', `${up.name} • ${[up.address, up.city].filter(Boolean).join(', ')}`);

@@ -44,10 +44,19 @@ export const getAccessibleHotels = (
   user: UserAccount | null | undefined,
   allHotels: Hotel[]
 ): Hotel[] => {
-  if (!user) return allHotels;
-  // In the hotel portfolio switcher, all active hotels (including Royal Guest House) are visible
-  // so property owners and managers never lose sight of their properties.
-  return allHotels;
+  if (!user) return [];
+  if (isSuperAdminUser(user)) {
+    return allHotels;
+  }
+  if (user.role === 'hotel_owner') {
+    return allHotels.filter(h => 
+      h.ownerId === user.id || 
+      (user.username && h.ownerUsername && h.ownerUsername.toLowerCase() === user.username.toLowerCase()) || 
+      h.id === user.hotelId
+    );
+  }
+  // Staff (manager, front_desk) can only see their assigned hotel
+  return allHotels.filter(h => h.id === user.hotelId);
 };
 
 /**

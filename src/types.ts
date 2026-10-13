@@ -236,6 +236,11 @@ export interface DynamicPricingConfig {
   lastMinuteAutomation?: LastMinuteRateAutomationConfig;
 }
 
+export interface GalleryPhoto {
+  url: string;
+  tag: string;
+}
+
 export interface HotelProfile {
   name: string;
   tagline: string;
@@ -251,8 +256,8 @@ export interface HotelProfile {
   isPublished?: boolean;
   description?: string;
   heroPhotoUrl?: string;
-  photos?: string[];
-  roomPhotos?: string[];
+  photos?: (string | GalleryPhoto)[];
+  roomPhotos?: (string | GalleryPhoto)[];
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
@@ -297,8 +302,8 @@ export interface Hotel {
   isPublished?: boolean;
   description?: string;
   heroPhotoUrl?: string;
-  photos?: string[];
-  roomPhotos?: string[];
+  photos?: (string | GalleryPhoto)[];
+  roomPhotos?: (string | GalleryPhoto)[];
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
