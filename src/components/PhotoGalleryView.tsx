@@ -24,9 +24,9 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
   // Normalize items to GalleryPhoto objects
   const photosList: GalleryPhoto[] = rawPhotos.map((p: any) => {
     if (typeof p === 'string') {
-      return { url: p, tag: activeTab === 'property' ? 'General Property' : 'Standard Room' };
+      return { url: p, tag: activeTab === 'property' ? 'General Property' : 'Bedroom - Standard Room' };
     }
-    return { url: p.url, tag: p.tag || (activeTab === 'property' ? 'General Property' : 'Standard Room') };
+    return { url: p.url, tag: p.tag || (activeTab === 'property' ? 'General Property' : 'Bedroom - Standard Room') };
   });
 
   const propertyTagOptions = [
@@ -41,13 +41,17 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
   ];
 
   const roomTagOptions = [
-    'Deluxe Room',
-    'Executive Suite',
-    'Super Deluxe Room',
+    'Bedroom (General)',
+    'Washroom / Bathroom',
+    'Deluxe Room - Bedroom',
+    'Deluxe Room - Washroom',
+    'Super Deluxe Room - Bedroom',
+    'Super Deluxe Room - Washroom',
+    'Executive Suite - Bedroom',
+    'Executive Suite - Washroom',
     'Family Suite',
-    'Balcony View',
-    'Bathroom / Washroom',
-    'Interior Decor',
+    'Balcony / View',
+    'Room Interior & Decor',
     'Bedding & Amenities'
   ];
 
@@ -57,7 +61,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
     if (!newUrl.trim()) return;
     const newPhotoItem: GalleryPhoto = {
       url: newUrl.trim(),
-      tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Standard Room')
+      tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Bedroom - Standard Room')
     };
 
     const updatedList = [...rawPhotos, newPhotoItem];
@@ -105,7 +109,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
         const newPhotoItem: GalleryPhoto = {
           url: compressedBase64,
-          tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Standard Room')
+          tag: newTag.trim() || (activeTab === 'property' ? 'General Property' : 'Bedroom - Standard Room')
         };
 
         const updatedList = [...rawPhotos, newPhotoItem];
@@ -209,7 +213,7 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
 
           <button
             type="button"
-            onClick={() => { setActiveTab('rooms'); setNewTag('Deluxe Room'); }}
+            onClick={() => { setActiveTab('rooms'); setNewTag('Deluxe Room - Bedroom'); }}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'rooms'
                 ? 'bg-teal-600 text-white shadow-md'
@@ -233,19 +237,23 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
               <span>Add Unlimited {activeTab === 'property' ? 'Property' : 'Room'} Photos with Tag</span>
             </h2>
 
-            {/* Tag Selection Dropdown / Input */}
+            {/* Tag Selection Dropdown + Custom Input */}
             <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-300">
               <Tag size={15} className="text-teal-700 shrink-0 ml-1" />
               <span className="text-xs font-bold text-slate-700 shrink-0">Photo Tag:</span>
-              <select
+              <input
+                type="text"
+                list="tag-options"
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
-                className="text-xs bg-white font-bold text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:border-teal-600 outline-hidden"
-              >
+                placeholder="Select or type tag (e.g. Deluxe Room - Bedroom)..."
+                className="text-xs bg-white font-bold text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:border-teal-600 outline-hidden w-60"
+              />
+              <datalist id="tag-options">
                 {currentTagOptions.map((opt, i) => (
-                  <option key={i} value={opt}>{opt}</option>
+                  <option key={i} value={opt} />
                 ))}
-              </select>
+              </datalist>
             </div>
           </div>
 
@@ -301,10 +309,10 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
                 { label: '🍽️ Fine Dining', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800', tag: 'Restaurant / Dining' },
                 { label: '🌿 Spa & Wellness', url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=800', tag: 'Spa & Wellness' }
               ] : [
-                { label: '🛏️ Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800', tag: 'Deluxe Room' },
-                { label: '👑 Executive Suite', url: 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&q=80&w=800', tag: 'Executive Suite' },
-                { label: '🌅 Balcony View Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&q=80&w=800', tag: 'Balcony View' },
-                { label: '🛁 Luxury Bathroom', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800', tag: 'Bathroom / Washroom' }
+                { label: '🛏️ Deluxe Bedroom', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800', tag: 'Deluxe Room - Bedroom' },
+                { label: '🛁 Deluxe Washroom', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800', tag: 'Deluxe Room - Washroom' },
+                { label: '👑 Suite Bedroom', url: 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&q=80&w=800', tag: 'Executive Suite - Bedroom' },
+                { label: '🌅 Balcony View', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&q=80&w=800', tag: 'Balcony / View' }
               ]).map((preset, idx) => (
                 <button
                   key={idx}
@@ -347,15 +355,19 @@ export const PhotoGalleryView: React.FC<PhotoGalleryViewProps> = ({
                   </div>
 
                   <div className="p-3.5 bg-white border-t border-slate-100 flex items-center justify-between gap-2">
-                    <select
+                    <input
+                      type="text"
+                      list="tag-options-grid"
                       value={photo.tag}
                       onChange={(e) => handleUpdateTag(idx, e.target.value)}
-                      className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 focus:border-teal-600 outline-hidden flex-1"
-                    >
+                      className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:border-teal-600 outline-hidden flex-1"
+                      placeholder="Edit tag..."
+                    />
+                    <datalist id="tag-options-grid">
                       {currentTagOptions.map((opt, i) => (
-                        <option key={i} value={opt}>{opt}</option>
+                        <option key={i} value={opt} />
                       ))}
-                    </select>
+                    </datalist>
 
                     <button
                       type="button"
