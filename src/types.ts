@@ -261,6 +261,9 @@ export interface HotelProfile {
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
+  upiId?: string;
+  qrCodeUrl?: string;
+  paymentPolicy?: 'full_at_property' | 'advance_30_percent';
 }
 
 export type UserRole = 'super_admin' | 'hotel_owner' | 'hotel_manager' | 'front_desk';
@@ -307,6 +310,9 @@ export interface Hotel {
   whatsapp?: string;
   amenities?: string[] | string;
   policies?: string;
+  upiId?: string;
+  qrCodeUrl?: string;
+  paymentPolicy?: 'full_at_property' | 'advance_30_percent';
 }
 
 export interface HotelDataBundle {

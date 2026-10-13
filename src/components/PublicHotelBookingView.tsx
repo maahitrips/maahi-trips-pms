@@ -22,7 +22,9 @@ import {
   ArrowLeft, 
   Copy, 
   Check,
-  AlertCircle
+  AlertCircle,
+  QrCode,
+  CreditCard
 } from 'lucide-react';
 import { db } from '../services/firebase';
 import { doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
@@ -56,12 +58,14 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [nightsCount, setNightsCount] = useState(1);
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
+  const [roomCount, setRoomCount] = useState(1);
 
   // Booking form state
   const [guestName, setGuestName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [specialRequest, setSpecialRequest] = useState('');
+  const [upiRef, setUpiRef] = useState('');
   const [honeypot, setHoneypot] = useState(''); // Spam protection
   const [submitting, setSubmitting] = useState(false);
   const [bookingResult, setBookingResult] = useState<any | null>(null);
@@ -149,7 +153,10 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           photos: profile.photos || [],
           roomPhotos: profile.roomPhotos || [],
           amenities: profile.amenities || [],
-          policies: profile.policies || ''
+          policies: profile.policies || '',
+          upiId: profile.upiId || 'hotel@upi',
+          qrCodeUrl: profile.qrCodeUrl || '',
+          paymentPolicy: profile.paymentPolicy || 'full_at_property'
         },
         rooms: rooms.map((r: any) => ({
           id: r.id,
@@ -178,28 +185,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           meta.content = dataFormatted.profile.description || dataFormatted.profile.tagline;
           document.head.appendChild(meta);
         }
-
-        const scriptId = 'json-ld-hotel-schema';
-        let script = document.getElementById(scriptId) as HTMLScriptElement;
-        if (!script) {
-          script = document.createElement('script') as HTMLScriptElement;
-          script.id = scriptId;
-          script.type = 'application/ld+json';
-          document.head.appendChild(script);
-        }
-        script.textContent = JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Hotel",
-          "name": dataFormatted.profile.name,
-          "description": dataFormatted.profile.description,
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": dataFormatted.profile.address,
-            "addressLocality": dataFormatted.profile.city
-          },
-          "telephone": dataFormatted.profile.phone,
-          "priceRange": "₹₹"
-        });
       }
     } catch (err: any) {
       setError(err.message || 'This property is not available.');
@@ -213,7 +198,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
     if (!hotelId || !hotelData) return;
     try {
       setSearching(true);
-      // Fetch latest bundle snapshot directly from Firestore
       const bundleSnap = await getDoc(doc(db, 'hotelBundles', hotelId));
       if (!bundleSnap.exists()) throw new Error('Property data not found');
       const bundle = bundleSnap.data();
@@ -295,7 +279,11 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
       const outDate = new Date(checkOut);
       const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
       const baseRate = Number(matchingRoom.baseRate) || 0;
-      const totalAmount = baseRate * nights;
+      const totalAmount = baseRate * nights * roomCount;
+
+      const isAdvancePayment = hotelData.profile.paymentPolicy === 'advance_30_percent';
+      const paidAmount = isAdvancePayment ? Math.round(totalAmount * 0.3) : 0;
+      const balanceAmount = totalAmount - paidAmount;
 
       const bookingId = `bk-web-${Date.now()}`;
       const bookingRef = `WEB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -312,11 +300,14 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         children: Number(children) || 0,
         roomTypeId: matchingRoom.type || selectedRoom.type,
         roomNumber: matchingRoom.number || '',
+        roomCount: Number(roomCount) || 1,
         status: 'Pending',
         source: 'Direct (Website)',
         totalAmount,
-        paidAmount: 0,
-        balanceAmount: totalAmount,
+        paidAmount,
+        balanceAmount,
+        paymentPolicy: hotelData.profile.paymentPolicy,
+        upiRef: upiRef ? String(upiRef).trim() : '',
         specialRequest: specialRequest ? String(specialRequest).trim() : '',
         createdAt: new Date().toISOString()
       };
@@ -336,6 +327,8 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
       setBookingResult({
         bookingRef,
         totalAmount,
+        paidAmount,
+        balanceAmount,
         hotelName: bundle.profile?.name || 'Hotel',
         whatsapp: bundle.profile?.whatsapp || bundle.profile?.phone || ''
       });
@@ -391,13 +384,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           <p className="text-xs text-slate-300 leading-relaxed">
             This property is set up and published, but room rates are currently being configured by management. Please check back soon or contact us directly.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            {profile.phone && (
-              <a href={`tel:${profile.phone}`} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5">
-                <Phone size={14} /> Call Hotel
-              </a>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -406,7 +392,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const { profile, rooms } = hotelData;
 
   if (bookingResult) {
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${profile.whatsapp || profile.phone}&text=Hello%20${encodeURIComponent(profile.name)}%2C%20I%20have%20submitted%20a%20new%20booking%20Ref%3A%20${bookingResult.bookingRef}%20for%20${encodeURIComponent(guestName)}%20(${checkIn}%20to%20${checkOut}).%20Please%20confirm!`;
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${profile.whatsapp || profile.phone}&text=Hello%20${encodeURIComponent(profile.name)}%2C%20I%20have%20submitted%20a%20new%20booking%20Ref%3A%20${bookingResult.bookingRef}%20for%20${encodeURIComponent(guestName)}%20(${checkIn}%20to%20${checkOut}).%20Advance%20Paid%3A%20%E2%82%B9${bookingResult.paidAmount}.%20Please%20confirm!`;
 
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-sans">
@@ -417,7 +403,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
           <div className="space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-3 py-1 rounded-full">
-              Booking Submitted Successfully
+              Reservation Submitted Successfully
             </span>
             <h1 className="text-2xl font-black tracking-tight mt-1">Thank You, {guestName}!</h1>
             <p className="text-xs text-slate-500">Your reservation request has been received and is pending staff confirmation.</p>
@@ -433,12 +419,22 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
               <span className="font-bold">{profile.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Dates:</span>
-              <span className="font-bold">{checkIn} to {checkOut} ({nightsCount} Nights)</span>
+              <span className="text-slate-500 font-medium">Dates &amp; Stay:</span>
+              <span className="font-bold">{checkIn} to {checkOut} ({nightsCount} Nights, {roomCount} Room{roomCount > 1 ? 's' : ''})</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 font-medium">Total Amount:</span>
-              <span className="font-extrabold text-emerald-700">{profile.currencySymbol || '₹'}{bookingResult.totalAmount} (Pay at Hotel)</span>
+              <span className="font-extrabold text-slate-900">{profile.currencySymbol || '₹'}{bookingResult.totalAmount}</span>
+            </div>
+            {bookingResult.paidAmount > 0 && (
+              <div className="flex justify-between text-teal-800 font-bold">
+                <span>30% Advance Paid (UPI):</span>
+                <span>{profile.currencySymbol || '₹'}{bookingResult.paidAmount}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-emerald-700 font-bold">
+              <span>Balance Due at Property:</span>
+              <span>{profile.currencySymbol || '₹'}{bookingResult.balanceAmount}</span>
             </div>
           </div>
 
@@ -523,17 +519,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
             </p>
           </div>
         </div>
-
-        {/* Thumbnails Gallery */}
-        {profile.photos && profile.photos.length > 1 && (
-          <div className="grid grid-cols-4 gap-2.5 mt-3">
-            {profile.photos.slice(0, 4).map((pUrl: string, idx: number) => (
-              <div key={idx} className="h-20 sm:h-24 rounded-2xl overflow-hidden shadow-xs border border-slate-200 bg-white">
-                <img src={pUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Main Content & Search Widget */}
@@ -542,7 +527,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         {/* Left / Main Details */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* About / Description rendered via ReactMarkdown */}
+          {/* About / Description */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
             <h3 className="text-base font-black text-slate-900">About {profile.name}</h3>
             <div className="text-xs sm:text-sm text-slate-600 leading-relaxed prose prose-slate max-w-none">
@@ -569,20 +554,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                   <div key={idx} className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-bold text-slate-800">
                     <CheckCircle2 size={16} className="text-teal-700 shrink-0" />
                     <span>{amenity}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Room Photos Gallery */}
-          {profile.roomPhotos && profile.roomPhotos.length > 0 && (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
-              <h3 className="text-base font-black text-slate-900">Room Photos &amp; Interiors</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {profile.roomPhotos.map((rPhoto: string, idx: number) => (
-                  <div key={idx} className="h-36 rounded-2xl overflow-hidden shadow-xs border border-slate-200 bg-slate-100">
-                    <img src={rPhoto} alt={`Room ${idx + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
                   </div>
                 ))}
               </div>
@@ -618,7 +589,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                             {roomType.availableCount} Rooms Available
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">Max Occupancy: {roomType.maxOccupancy} Guests</p>
+                        <p className="text-xs text-slate-500 mt-1">Max Occupancy: {roomType.maxOccupancy} Guests per room</p>
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
@@ -627,13 +598,23 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                           <span className="text-[11px] text-slate-500 block">per night</span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRoom(roomType)}
-                          className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
-                        >
-                          Select Room
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={roomCount}
+                            onChange={(e) => setRoomCount(Number(e.target.value))}
+                            className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800"
+                          >
+                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Room{n > 1 ? 's' : ''}</option>)}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRoom(roomType)}
+                            className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+                          >
+                            Book Now
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -718,14 +699,14 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
               </button>
             </form>
 
-            {/* Selected Room & Booking Form Modal / Drawer */}
+            {/* Selected Room & Booking Form */}
             {selectedRoom && (
               <div className="mt-6 pt-5 border-t border-slate-200 space-y-4 animate-in fade-in">
                 <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl space-y-1">
-                  <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Selected Room</span>
-                  <div className="font-bold text-slate-900 text-sm">{selectedRoom.type}</div>
+                  <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Selected Room &amp; Multi-Room</span>
+                  <div className="font-bold text-slate-900 text-sm">{selectedRoom.type} ({roomCount} Room{roomCount > 1 ? 's' : ''})</div>
                   <div className="text-xs font-extrabold text-emerald-700">
-                    {profile.currencySymbol || '₹'}{selectedRoom.baseRate * nightsCount} total for {nightsCount} night{nightsCount > 1 ? 's' : ''}
+                    {profile.currencySymbol || '₹'}{selectedRoom.baseRate * nightsCount * roomCount} total for {nightsCount} night{nightsCount > 1 ? 's' : ''}
                   </div>
                 </div>
 
@@ -765,6 +746,46 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                     />
                   </div>
 
+                  {/* Payment Policy Section: 30% Advance vs Pay at Property */}
+                  {profile.paymentPolicy === 'advance_30_percent' ? (
+                    <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900">30% Advance UPI Payment</span>
+                        <span className="font-mono font-extrabold text-amber-800">
+                          {profile.currencySymbol || '₹'}{Math.round(selectedRoom.baseRate * nightsCount * roomCount * 0.3)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-700">Scan QR or pay via UPI ID, then enter your UPI Ref / UTR number below.</p>
+                      
+                      <div className="flex items-center justify-center bg-white p-2.5 rounded-lg border border-amber-200">
+                        <img
+                          src={profile.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=${profile.upiId || 'hotel@upi'}&pn=${encodeURIComponent(profile.name)}&am=${Math.round(selectedRoom.baseRate * nightsCount * roomCount * 0.3)}&cu=INR`}
+                          alt="UPI QR Code"
+                          className="w-32 h-32 object-contain"
+                        />
+                      </div>
+                      <div className="text-center font-mono font-bold text-slate-800 text-[11px]">
+                        UPI ID: {profile.upiId || 'hotel@upi'}
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">UPI Ref / UTR Transaction Number *</label>
+                        <input
+                          type="text"
+                          value={upiRef}
+                          onChange={(e) => setUpiRef(e.target.value)}
+                          placeholder="e.g. 325418967412"
+                          className="w-full bg-white border border-amber-300 rounded-lg p-2 font-mono font-bold text-slate-900"
+                          required={profile.paymentPolicy === 'advance_30_percent'}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-900 font-bold text-center">
+                      100% Pay at Property (No Advance Required)
+                    </div>
+                  )}
+
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Special Requests</label>
                     <textarea
@@ -792,7 +813,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                     disabled={submitting}
                     className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    {submitting ? 'Submitting Booking...' : 'Confirm Reservation (Pay at Hotel)'}
+                    {submitting ? 'Submitting Booking...' : (profile.paymentPolicy === 'advance_30_percent' ? 'Confirm Booking with 30% Advance' : 'Confirm Reservation (Pay at Hotel)')}
                   </button>
                   <button
                     type="button"

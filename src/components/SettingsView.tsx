@@ -735,6 +735,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="Check-in/out rules, cancellation policy, ID proof requirement..."
               ></textarea>
             </div>
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4 mt-4">
+              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <span>💳 Direct Booking Payment &amp; UPI Setup</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hotel UPI ID (for Direct Payments)</label>
+                  <input
+                    type="text"
+                    value={profile.upiId || ''}
+                    onChange={(e) => setProfile({ ...profile, upiId: e.target.value })}
+                    placeholder="e.g. 9876543210@paytm or hotel@upi"
+                    className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 font-mono font-bold text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Payment Policy</label>
+                  <select
+                    value={profile.paymentPolicy || 'full_at_property'}
+                    onChange={(e) => setProfile({ ...profile, paymentPolicy: e.target.value as any })}
+                    className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 font-bold text-slate-800"
+                  >
+                    <option value="full_at_property">100% Pay at Property</option>
+                    <option value="advance_30_percent">30% Advance Online (UPI) &amp; 70% Pay at Property</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">UPI QR Code Image URL (Google Pay / PhonePe / Paytm QR)</label>
+                <input
+                  type="url"
+                  value={profile.qrCodeUrl || ''}
+                  onChange={(e) => setProfile({ ...profile, qrCodeUrl: e.target.value })}
+                  placeholder="https://i.ibb.co/... or image URL of your UPI QR code"
+                  className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 font-mono text-slate-800"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-200 flex justify-end">
