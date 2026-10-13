@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 
 interface Props {
   children: React.ReactNode;
@@ -35,7 +35,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
     window.location.reload();
   };
 
-  public handleClearAndReload = () => {
+  public handleClearStorageAndReload = () => {
+    try {
+      localStorage.clear();
+    } catch {}
     this.setState({ hasError: false, error: null, errorInfo: null });
     window.location.href = window.location.pathname;
   };
@@ -49,18 +52,25 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <AlertTriangle size={28} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Something went wrong</h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <h2 className="text-xl font-bold text-white tracking-tight">Application Load Notice</h2>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 {this.state.error?.message || 'An unexpected rendering error occurred.'}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col gap-2.5 pt-2">
               <button
                 onClick={this.handleReset}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
               >
                 <RefreshCw size={14} />
                 <span>Reload Application</span>
+              </button>
+              <button
+                onClick={this.handleClearStorageAndReload}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+              >
+                <Trash2 size={14} />
+                <span>Clear Cache &amp; Fresh Restart</span>
               </button>
             </div>
           </div>
