@@ -23,6 +23,7 @@ interface LoginModalProps {
   onLogin: (user: UserAccount) => void;
   onLogout: () => void;
   onOpenAddUser?: () => void;
+  onOpenForgotPassword?: () => void;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -32,6 +33,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   users,
   onLogin,
   onLogout,
+  onOpenForgotPassword,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -240,6 +242,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <span>Sign In</span>
               <ArrowRight size={16} />
             </button>
+
+            {onOpenForgotPassword && (
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={onOpenForgotPassword}
+                  className="text-xs font-semibold text-teal-800 hover:text-teal-950 underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Forgot Password? Click here to recover
+                </button>
+              </div>
+            )}
           </form>
 
           {/* Security Note */}

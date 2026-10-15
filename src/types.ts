@@ -279,6 +279,7 @@ export interface HotelProfile {
   upiId?: string;
   qrCodeUrl?: string;
   paymentPolicy?: 'full_at_property' | 'advance_30_percent';
+  youtubeVideos?: string[];
 }
 
 export type UserRole = 'super_admin' | 'hotel_owner' | 'hotel_manager' | 'front_desk';

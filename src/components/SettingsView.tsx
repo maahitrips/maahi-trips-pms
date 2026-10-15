@@ -93,6 +93,7 @@ interface SettingsViewProps {
   onUpdateDynamicPricing?: (newConfig: DynamicPricingConfig) => void;
   lastMinuteStatus?: LastMinuteRuleStatus;
   onToggleSimulate7am?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -123,7 +124,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   dynamicPricing,
   onUpdateDynamicPricing,
   lastMinuteStatus,
-  onToggleSimulate7am
+  onToggleSimulate7am,
+  onOpenChangePassword
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'rooms' | 'hotels' | 'users' | 'requests' | 'backup' | 'domain_connect' | 'pricing' | 'gallery'>(initialSubTab || 'profile');
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
@@ -1252,6 +1254,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <KeyRound size={15} />
                 <span>Switch / Test Login</span>
               </button>
+
+              {onOpenChangePassword && currentUser && (
+                <button
+                  onClick={onOpenChangePassword}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                  title="Change your account password"
+                >
+                  <Lock size={15} />
+                  <span>Change Password</span>
+                </button>
+              )}
             </div>
           </div>
 

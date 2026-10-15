@@ -61,6 +61,8 @@ import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { NewBookingAlertModal } from './components/NewBookingAlertModal';
+import { ForgotPasswordModal } from './components/ForgotPasswordModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { playNewBookingSound, triggerBrowserNotification } from './utils/audioNotification';
 import { 
   defaultLastMinuteConfig, 
@@ -420,6 +422,8 @@ export default function App() {
   const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState<boolean>(false);
   const [roomToEdit, setRoomToEdit] = useState<Room | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState<boolean>(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
 
   // Super Admin Deletion Guard & Request State
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -1061,6 +1065,21 @@ export default function App() {
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
     setIsLoginModalOpen(true);
+  };
+
+  // Handle Password Update for Current User
+  const handleUpdatePassword = (newPass: string) => {
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, password: newPass };
+    setCurrentUser(updatedUser);
+    localStorage.setItem(STORAGE_KEY_CURRENT_USER, JSON.stringify(updatedUser));
+
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === currentUser.id ? updatedUser : u);
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updated));
+      saveUsersToCloud(updated);
+      return updated;
+    });
   };
 
   // Add New Hotel Property Action (Super Admin or Property Owner within 5 max quota)
@@ -2336,6 +2355,7 @@ export default function App() {
               onUpdateDynamicPricing={handleUpdateDynamicPricing}
               lastMinuteStatus={lastMinuteStatus}
               onToggleSimulate7am={handleToggleSimulate7am}
+              onOpenChangePassword={() => setIsChangePasswordOpen(true)}
             />
           )}
         </main>
@@ -2467,6 +2487,10 @@ export default function App() {
           setIsLoginModalOpen(false);
           setIsCreateUserModalOpen(true);
         }}
+        onOpenForgotPassword={() => {
+          setIsLoginModalOpen(false);
+          setIsForgotPasswordOpen(true);
+        }}
       />
 
       {/* Add New Hotel Property Modal */}
@@ -2565,6 +2589,31 @@ export default function App() {
             setActiveTab('desk');
             setNewBookingAlert(null);
           }}
+        />
+      )}
+
+      {/* Forgot Password Recovery Modal */}
+      {isForgotPasswordOpen && (
+        <ForgotPasswordModal
+          isOpen={isForgotPasswordOpen}
+          onClose={() => setIsForgotPasswordOpen(false)}
+          users={users}
+          onLoginDirect={(u) => {
+            handleLogin(u);
+            setIsForgotPasswordOpen(false);
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* Change Password Modal */}
+      {isChangePasswordOpen && (
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={() => setIsChangePasswordOpen(false)}
+          currentUser={currentUser}
+          onUpdatePassword={handleUpdatePassword}
+          showToast={showToast}
         />
       )}
 

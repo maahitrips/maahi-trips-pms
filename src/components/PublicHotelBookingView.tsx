@@ -18,13 +18,16 @@ import {
   Tv, 
   AirVent, 
   Utensils, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronLeft, 
   ArrowLeft, 
   Copy, 
   Check,
   AlertCircle,
   QrCode,
-  CreditCard
+  CreditCard,
+  Video,
+  Tag
 } from 'lucide-react';
 import { db } from '../services/firebase';
 import { doc, getDoc, getDocs, collection, setDoc } from 'firebase/firestore';
@@ -59,6 +62,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [nightsCount, setNightsCount] = useState(1);
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [roomCount, setRoomCount] = useState(1);
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
   // Booking form state
   const [guestName, setGuestName] = useState('');
@@ -537,26 +541,107 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         </div>
       </header>
 
-      {/* Hero Photo & Gallery Preview */}
-      <div className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
-        <div className="relative h-64 sm:h-96 rounded-3xl overflow-hidden shadow-xl bg-slate-200">
-          <img
-            src={profile.heroPhotoUrl || profile.photos?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200'}
-            alt={profile.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-end p-6 sm:p-8 text-white">
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-500/30 text-teal-300 backdrop-blur-md w-max border border-teal-400/30 mb-2">
-              Official Direct Booking
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-black tracking-tight">{profile.name}</h2>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1 flex items-center gap-1.5">
-              <MapPin size={15} className="text-teal-400 shrink-0" />
-              <span>{profile.address}, {profile.city}</span>
-            </p>
+      {/* Slide-wise Photo Carousel & Gallery */}
+      {(() => {
+        const allPhotos: { url: string; tag: string }[] = [];
+        if (profile.heroPhotoUrl) allPhotos.push({ url: profile.heroPhotoUrl, tag: 'Hero Banner' });
+        if (profile.photos && Array.isArray(profile.photos)) {
+          profile.photos.forEach((p: any) => {
+            if (typeof p === 'string') allPhotos.push({ url: p, tag: 'Property View' });
+            else if (p && p.url) allPhotos.push({ url: p.url, tag: p.tag || 'Property View' });
+          });
+        }
+        if (profile.roomPhotos && Array.isArray(profile.roomPhotos)) {
+          profile.roomPhotos.forEach((p: any) => {
+            if (typeof p === 'string') allPhotos.push({ url: p, tag: 'Room View' });
+            else if (p && p.url) allPhotos.push({ url: p.url, tag: p.tag || 'Room View' });
+          });
+        }
+        if (allPhotos.length === 0) {
+          allPhotos.push({ url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1200', tag: 'Hotel Exterior' });
+        }
+
+        const currentPhoto = allPhotos[activePhotoIdx] || allPhotos[0];
+
+        const handlePrevPhoto = () => {
+          setActivePhotoIdx(prev => (prev === 0 ? allPhotos.length - 1 : prev - 1));
+        };
+
+        const handleNextPhoto = () => {
+          setActivePhotoIdx(prev => (prev === allPhotos.length - 1 ? 0 : prev + 1));
+        };
+
+        return (
+          <div className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6 space-y-3">
+            <div className="relative h-64 sm:h-96 rounded-3xl overflow-hidden shadow-2xl bg-slate-900 group">
+              <img
+                src={currentPhoto.url}
+                alt={currentPhoto.tag}
+                className="w-full h-full object-cover transition-all duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-between p-6 sm:p-8 text-white pointer-events-none">
+                <div className="flex items-center justify-between pointer-events-auto">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-500/30 text-teal-300 backdrop-blur-md border border-teal-400/30">
+                    Official Direct Booking • {activePhotoIdx + 1} / {allPhotos.length}
+                  </span>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-900/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1">
+                    <Tag size={12} className="text-teal-400" />
+                    <span>{currentPhoto.tag}</span>
+                  </span>
+                </div>
+
+                <div>
+                  <h2 className="text-2xl sm:text-4xl font-black tracking-tight">{profile.name}</h2>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1 flex items-center gap-1.5">
+                    <MapPin size={15} className="text-teal-400 shrink-0" />
+                    <span>{profile.address}, {profile.city}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Carousel Arrow Controls */}
+              {allPhotos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrevPhoto}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/20 transition-all cursor-pointer opacity-80 group-hover:opacity-100 shadow-lg"
+                    title="Previous Photo"
+                  >
+                    <ChevronLeft size={22} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextPhoto}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/20 transition-all cursor-pointer opacity-80 group-hover:opacity-100 shadow-lg"
+                    title="Next Photo"
+                  >
+                    <ChevronRight size={22} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Strip */}
+            {allPhotos.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+                {allPhotos.map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActivePhotoIdx(idx)}
+                    className={`relative w-20 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                      activePhotoIdx === idx ? 'border-teal-600 scale-105 shadow-md' : 'border-slate-300 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={p.url} alt={p.tag} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Main Content & Search Widget */}
       <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -593,6 +678,40 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                     <span>{amenity}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* YouTube Video Tour Section */}
+          {profile.youtubeVideos && profile.youtubeVideos.length > 0 && (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Video size={20} className="text-rose-600" />
+                <span>Property Video Walkthrough Tour</span>
+              </h3>
+              <div className="grid grid-cols-1 gap-4">
+                {profile.youtubeVideos.map((vidUrl: string, idx: number) => {
+                  const getYouTubeEmbedUrl = (url: string) => {
+                    if (!url) return '';
+                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                    const match = url.match(regExp);
+                    return (match && match[2].length === 11)
+                      ? `https://www.youtube.com/embed/${match[2]}`
+                      : url;
+                  };
+                  const embed = getYouTubeEmbedUrl(vidUrl);
+                  return embed ? (
+                    <div key={idx} className="h-72 sm:h-96 rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-slate-900">
+                      <iframe
+                        src={embed}
+                        title={`Property Video Tour ${idx + 1}`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  ) : null;
+                })}
               </div>
             </div>
           )}
