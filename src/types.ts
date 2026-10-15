@@ -153,6 +153,21 @@ export interface Booking {
   createdAt: string;
   notes?: string;
   documents?: IdDocument[]; // All documents (primary + co-guests) attached to booking
+  // Direct booking engine & online channels extensions
+  roomName?: string;
+  source?: string;
+  bookingRef?: string;
+  guestName?: string;
+  phone?: string;
+  email?: string;
+  checkIn?: string;
+  checkOut?: string;
+  totalAmount?: number;
+  paidAmount?: number;
+  balanceAmount?: number;
+  paymentPolicy?: string;
+  upiRef?: string;
+  specialRequest?: string;
 }
 
 export const getAllBookingDocuments = (booking: Booking | null | undefined): IdDocument[] => {

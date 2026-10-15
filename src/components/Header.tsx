@@ -62,6 +62,8 @@ interface HeaderProps {
   lastMinuteStatus?: LastMinuteRuleStatus;
   onOpenLastMinuteModal?: () => void;
   onOpenInstallModal?: () => void;
+  unseenBookingsCount?: number;
+  onOpenLatestBookingAlert?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -89,7 +91,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCloudSync,
   lastMinuteStatus,
   onOpenLastMinuteModal,
-  onOpenInstallModal
+  onOpenInstallModal,
+  unseenBookingsCount = 0,
+  onOpenLatestBookingAlert
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
@@ -352,6 +356,26 @@ export const Header: React.FC<HeaderProps> = ({
             Ctrl K
           </kbd>
         </div>
+
+        {/* 🔔 Live Online Bookings Notification Bell */}
+        <button
+          type="button"
+          id="btn-header-notifications"
+          onClick={onOpenLatestBookingAlert}
+          className={`relative p-2 rounded-lg border transition-all cursor-pointer ${
+            unseenBookingsCount > 0
+              ? 'bg-emerald-500/15 border-emerald-400 text-emerald-800 hover:bg-emerald-500/25 shadow-xs'
+              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title={unseenBookingsCount > 0 ? `${unseenBookingsCount} new online booking(s) received!` : 'Online booking notifications'}
+        >
+          <Bell size={16} className={unseenBookingsCount > 0 ? 'text-emerald-700 animate-bounce' : 'text-slate-500'} />
+          {unseenBookingsCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white shadow-xs">
+              {unseenBookingsCount}
+            </span>
+          )}
+        </button>
 
         {/* 👑 Super Admin Quick Access Pill/Button in Header */}
         {isSuper ? (

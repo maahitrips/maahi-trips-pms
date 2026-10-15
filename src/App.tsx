@@ -60,6 +60,8 @@ import { PublicHotelBookingView } from './components/PublicHotelBookingView';
 import { GeminiFloatingWidget } from './components/GeminiFloatingWidget';
 import { DynamicPricingRulesModal } from './components/DynamicPricingRulesModal';
 import { InstallAppModal } from './components/InstallAppModal';
+import { NewBookingAlertModal } from './components/NewBookingAlertModal';
+import { playNewBookingSound, triggerBrowserNotification } from './utils/audioNotification';
 import { 
   defaultLastMinuteConfig, 
   evaluateLastMinuteAutomation, 
@@ -360,10 +362,22 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     try {
-      localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
-    } catch {}
+      const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id && parsed.username) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse current user from storage:', e);
+    }
     return null;
   });
+
+  // Real-Time Online Booking Alert Notification State
+  const [newBookingAlert, setNewBookingAlert] = useState<{ booking: Booking; hotelName: string } | null>(null);
+  const [unseenOnlineBookingsCount, setUnseenOnlineBookingsCount] = useState<number>(0);
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
     try {
@@ -645,6 +659,9 @@ export default function App() {
   useEffect(() => {
     if (!activeHotelId) return;
 
+    let isInitialSnapshot = true;
+    const knownIds = new Set<string>();
+
     // 1. Full bundle changes (rooms, rates, profiles, full booking list)
     const unsubBundle = subscribeToHotelBundle(activeHotelId, (cloudBundle) => {
       if (cloudBundle) {
@@ -652,12 +669,45 @@ export default function App() {
         if (cloudBundle.profile) setHotelProfile(cloudBundle.profile);
         if (cloudBundle.rooms) setRooms(cloudBundle.rooms);
         if (cloudBundle.bookings && Array.isArray(cloudBundle.bookings)) {
+          let newlyArrivedBooking: Booking | null = null;
+          if (!isInitialSnapshot) {
+            for (const b of cloudBundle.bookings) {
+              if (b && b.id && !knownIds.has(b.id)) {
+                newlyArrivedBooking = b;
+                break;
+              }
+            }
+          }
+
+          cloudBundle.bookings.forEach(b => {
+            if (b && b.id) knownIds.add(b.id);
+          });
+
           setBookings(prev => {
             const map = new Map<string, Booking>();
             prev.forEach(b => map.set(b.id, b));
             cloudBundle.bookings.forEach(b => map.set(b.id, b));
             return Array.from(map.values());
           });
+
+          if (newlyArrivedBooking && !isInitialSnapshot) {
+            try {
+              playNewBookingSound();
+              triggerBrowserNotification(
+                '🏨 New Online Reservation Received!',
+                `${newlyArrivedBooking.guest?.fullName || 'Guest'} reserved ${newlyArrivedBooking.roomName || 'Room'} • ₹${newlyArrivedBooking.totalAmount}`
+              );
+            } catch {}
+            showToast(
+              '🔔 New Online Reservation Received!',
+              `${newlyArrivedBooking.guest?.fullName || 'Guest'} • ₹${newlyArrivedBooking.totalAmount?.toLocaleString('en-IN') || 0} (${newlyArrivedBooking.roomName || 'Room'})`
+            );
+            setNewBookingAlert({
+              booking: newlyArrivedBooking,
+              hotelName: cloudBundle.profile?.name || hotelProfile?.name || 'Hotel'
+            });
+            setUnseenOnlineBookingsCount(prev => prev + 1);
+          }
         }
         if (cloudBundle.channels) setChannels(cloudBundle.channels);
         if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
@@ -671,12 +721,15 @@ export default function App() {
       }
     });
 
-    // 2. Instant sub-second single booking updates (when mobile or any device saves a booking)
+    // 2. Instant sub-second single booking updates (when mobile, booking engine, or any device saves a booking)
     const unsubLive = subscribeToLiveBookings(activeHotelId, (booking, changeType) => {
       isRemoteSyncRef.current = true;
       if (changeType === 'removed') {
         setBookings(prev => prev.filter(b => b.id !== booking.id));
       } else {
+        const isNew = changeType === 'added' && !knownIds.has(booking.id);
+        knownIds.add(booking.id);
+
         setBookings(prev => {
           const idx = prev.findIndex(b => b.id === booking.id);
           if (idx >= 0) {
@@ -686,10 +739,34 @@ export default function App() {
           }
           return [booking, ...prev];
         });
+
+        if (isNew && !isInitialSnapshot) {
+          try {
+            playNewBookingSound();
+            triggerBrowserNotification(
+              '🏨 New Online Reservation Received!',
+              `${booking.guest?.fullName || 'Guest'} reserved ${booking.roomName || 'Room'} • ₹${booking.totalAmount}`
+            );
+          } catch {}
+          showToast(
+            '🔔 New Online Reservation Received!',
+            `${booking.guest?.fullName || 'Guest'} • ₹${booking.totalAmount?.toLocaleString('en-IN') || 0} (${booking.roomName || 'Room'})`
+          );
+          setNewBookingAlert({
+            booking,
+            hotelName: hotelProfile?.name || 'Hotel'
+          });
+          setUnseenOnlineBookingsCount(prev => prev + 1);
+        }
       }
     });
 
+    const initTimer = setTimeout(() => {
+      isInitialSnapshot = false;
+    }, 1500);
+
     return () => {
+      clearTimeout(initTimer);
       unsubBundle();
       unsubLive();
     };
@@ -2009,6 +2086,15 @@ export default function App() {
             setIsDynamicRulesModalOpen(true);
           }}
           onOpenInstallModal={() => setIsInstallModalOpen(true)}
+          unseenBookingsCount={unseenOnlineBookingsCount}
+          onOpenLatestBookingAlert={() => {
+            if (newBookingAlert) {
+              setNewBookingAlert(newBookingAlert);
+            } else if (bookings.length > 0) {
+              setNewBookingAlert({ booking: bookings[0], hotelName: hotelProfile.name });
+            }
+            setUnseenOnlineBookingsCount(0);
+          }}
         />
 
         {/* Quota Exceeded / Local Persistence Alert Banner */}
@@ -2464,6 +2550,23 @@ export default function App() {
         deferredPrompt={deferredInstallPrompt}
         onInstallPrompt={handleInstallAppPrompt}
       />
+
+      {/* 🔔 Real-Time Online Booking Alert Notification Modal */}
+      {newBookingAlert && (
+        <NewBookingAlertModal
+          booking={newBookingAlert.booking}
+          hotelName={newBookingAlert.hotelName}
+          onClose={() => setNewBookingAlert(null)}
+          onViewBooking={(b) => {
+            setSelectedBooking(b);
+            setNewBookingAlert(null);
+          }}
+          onNavigateToDesk={() => {
+            setActiveTab('desk');
+            setNewBookingAlert(null);
+          }}
+        />
+      )}
 
       {/* Floating Quick Gemini AI Concierge Widget */}
       <GeminiFloatingWidget

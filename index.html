@@ -10,6 +10,11 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- Cache-Busting & Fresh Content Headers for Mobile Browsers -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <!-- PWA Web App Manifest & Mobile App Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#115e59" />
@@ -20,19 +25,92 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <style>
+      html, body {
+        background-color: #020617;
+        color: #ffffff;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      @keyframes pms-spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <!-- Self-Healing Auto Recovery for Mobile & Desktop (Prevents White Screens from Stale Service Workers/Chunks) -->
+    <script>
+      (function() {
+        var autoHealed = sessionStorage.getItem('pms_chunk_auto_heal');
+        
+        // Listen for chunk load failures, dynamic import errors, or script execution failures
+        window.addEventListener('error', function(e) {
+          var msg = (e && (e.message || '')) + '';
+          if (
+            msg.indexOf('dynamically imported module') !== -1 ||
+            msg.indexOf('Loading chunk') !== -1 ||
+            msg.indexOf('Unexpected token') !== -1 ||
+            msg.indexOf('failed to fetch') !== -1
+          ) {
+            console.warn('PMS auto-healing stale cache:', msg);
+            if (!autoHealed) {
+              sessionStorage.setItem('pms_chunk_auto_heal', '1');
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  for (var i = 0; i < regs.length; i++) regs[i].unregister();
+                });
+              }
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var i = 0; i < names.length; i++) caches.delete(names[i]);
+                });
+              }
+              setTimeout(function() {
+                window.location.reload();
+              }, 150);
+            }
+          }
+        });
+
+        // Reset auto-heal flag after app mounts successfully
+        setTimeout(function() {
+          sessionStorage.removeItem('pms_chunk_auto_heal');
+        }, 8000);
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#020617;color:#fff;text-align:center;padding:24px;">
+        <div style="width:44px;height:44px;border:3px solid #0d9488;border-top-color:transparent;border-radius:50%;animation:pms-spin 0.8s linear infinite;margin-bottom:16px;"></div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px;">Maahi Trips • Hotel PMS</div>
+        <div style="font-size:12px;color:#94a3b8;max-width:280px;line-height:1.5;">Loading hotel management suite...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Register service worker with aggressive auto-update check
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.log('ServiceWorker registration optional error:', err);
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            reg.update();
+            reg.addEventListener('updatefound', function() {
+              var newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', function() {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // Automatically reload to get fresh build without requiring Ctrl+Shift+R
+                    console.log('[SW] New version detected, updating cleanly...');
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          }).catch(function(err) {
+            console.log('SW registration notice:', err);
           });
         });
       }
     </script>
   </body>
 </html>
-
