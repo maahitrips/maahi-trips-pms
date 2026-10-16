@@ -922,6 +922,30 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       />
                     </div>
 
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Adults *</label>
+                        <select
+                          value={adults}
+                          onChange={(e) => setAdults(Number(e.target.value))}
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15].map(n => <option key={n} value={n}>{n} Adult{n > 1 ? 's' : ''}</option>)}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Children</label>
+                        <select
+                          value={children}
+                          onChange={(e) => setChildren(Number(e.target.value))}
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6, 8].map(n => <option key={n} value={n}>{n} Child{n !== 1 ? 'ren' : ''}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
                     {/* Payment Policy Section: 30% Advance vs Pay at Property */}
                     {profile.paymentPolicy === 'advance_30_percent' ? (
                       <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2.5">
