@@ -921,16 +921,22 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
                     {(() => {
                       const selectedCategories = availableRooms.filter(rt => (roomCounts[rt.type] || 0) > 0);
-                      const maxTotalAdults = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 2);
-                      const maxTotalChildren = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 2);
+                      const roomCapacityTotal = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 6);
+                      const maxTotalAdults = Math.max(1, roomCapacityTotal);
+                      const maxTotalChildren = Math.max(0, maxTotalAdults - adults);
 
                       const adultOptions = Array.from({ length: maxTotalAdults }, (_, i) => i + 1);
                       const childOptions = Array.from({ length: maxTotalChildren + 1 }, (_, i) => i);
 
+                      // Ensure children selection doesn't exceed new max
+                      if (children > maxTotalChildren) {
+                        setTimeout(() => setChildren(maxTotalChildren), 0);
+                      }
+
                       return (
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block font-bold text-slate-700 mb-1">Adults * (Max {maxTotalAdults})</label>
+                            <label className="block font-bold text-slate-700 mb-1">Adults + Children *</label>
                             <select
                               value={adults}
                               onChange={(e) => setAdults(Number(e.target.value))}
