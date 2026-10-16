@@ -388,6 +388,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         totalAmount,
         paidAmount,
         balanceAmount,
+        totalRoomsBooked,
         hotelName: bundle.profile?.name || 'Hotel',
         whatsapp: bundle.profile?.whatsapp || bundle.profile?.phone || ''
       });
@@ -479,7 +480,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 font-medium">Dates &amp; Stay:</span>
-              <span className="font-bold">{checkIn} to {checkOut} ({nightsCount} Nights, {roomCount} Room{roomCount > 1 ? 's' : ''})</span>
+              <span className="font-bold">{checkIn} to {checkOut} ({nightsCount} Nights, {bookingResult.totalRoomsBooked || 1} Room{(bookingResult.totalRoomsBooked || 1) > 1 ? 's' : ''})</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 font-medium">Total Amount:</span>
@@ -845,29 +846,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Adults</label>
-                  <select
-                    value={adults}
-                    onChange={(e) => setAdults(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} Adult{n > 1 ? 's' : ''}</option>)}
-                  </select>
-                </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Children</label>
-                  <select
-                    value={children}
-                    onChange={(e) => setChildren(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800"
-                  >
-                    {[0, 1, 2, 3, 4].map(n => <option key={n} value={n}>{n} Child{n !== 1 ? 'ren' : ''}</option>)}
-                  </select>
-                </div>
-              </div>
 
               <button
                 type="submit"
