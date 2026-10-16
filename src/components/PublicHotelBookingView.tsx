@@ -940,29 +940,40 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">Adults *</label>
-                        <select
-                          value={adults}
-                          onChange={(e) => setAdults(Number(e.target.value))}
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15].map(n => <option key={n} value={n}>{n} Adult{n > 1 ? 's' : ''}</option>)}
-                        </select>
-                      </div>
+                    {(() => {
+                      const selectedCategories = availableRooms.filter(rt => (roomCounts[rt.type] || 0) > 0);
+                      const maxTotalAdults = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 2);
+                      const maxTotalChildren = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 2);
 
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">Children</label>
-                        <select
-                          value={children}
-                          onChange={(e) => setChildren(Number(e.target.value))}
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
-                        >
-                          {[0, 1, 2, 3, 4, 5, 6, 8].map(n => <option key={n} value={n}>{n} Child{n !== 1 ? 'ren' : ''}</option>)}
-                        </select>
-                      </div>
-                    </div>
+                      const adultOptions = Array.from({ length: maxTotalAdults }, (_, i) => i + 1);
+                      const childOptions = Array.from({ length: maxTotalChildren + 1 }, (_, i) => i);
+
+                      return (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Adults * (Max {maxTotalAdults})</label>
+                            <select
+                              value={adults}
+                              onChange={(e) => setAdults(Number(e.target.value))}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                            >
+                              {adultOptions.map(n => <option key={n} value={n}>{n} Adult{n > 1 ? 's' : ''}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Children (Max {maxTotalChildren})</label>
+                            <select
+                              value={children}
+                              onChange={(e) => setChildren(Number(e.target.value))}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                            >
+                              {childOptions.map(n => <option key={n} value={n}>{n} Child{n !== 1 ? 'ren' : ''}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Payment Policy Section: 30% Advance vs Pay at Property */}
                     {profile.paymentPolicy === 'advance_30_percent' ? (
