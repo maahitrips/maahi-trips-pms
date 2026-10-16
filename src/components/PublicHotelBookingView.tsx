@@ -60,8 +60,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [searching, setSearching] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [nightsCount, setNightsCount] = useState(1);
-  const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
-  const [roomCount, setRoomCount] = useState(1);
+  const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
   // Booking form state
@@ -250,6 +249,12 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
       const available = Object.values(roomTypesMap).filter((rt: any) => rt.availableCount > 0 && rt.baseRate > 0);
       setAvailableRooms(available);
+
+      const initialCounts: Record<string, number> = {};
+      available.forEach((rt: any) => {
+        initialCounts[rt.type] = 0;
+      });
+      setRoomCounts(initialCounts);
     } catch (err: any) {
       alert(err.message || 'Search failed');
     } finally {
@@ -756,8 +761,8 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
                         <div className="flex items-center gap-2">
                           <select
-                            value={roomCount}
-                            onChange={(e) => setRoomCount(Number(e.target.value))}
+                            value={roomCounts[roomType.type] || 0}
+                            onChange={(e) => setRoomCounts(prev => ({ ...prev, [roomType.type]: Number(e.target.value) }))}
                             className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800"
                           >
                             {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Room{n !== 1 ? 's' : ''}</option>)}
@@ -856,131 +861,151 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
             </form>
 
             {/* Selected Room & Booking Form */}
-            {selectedRoom && (
-              <div className="mt-6 pt-5 border-t border-slate-200 space-y-4 animate-in fade-in">
-                <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl space-y-1">
-                  <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Selected Room &amp; Multi-Room</span>
-                  <div className="font-bold text-slate-900 text-sm">{selectedRoom.type} ({roomCount} Room{roomCount > 1 ? 's' : ''})</div>
-                  <div className="text-xs font-extrabold text-emerald-700">
-                    {profile.currencySymbol || '₹'}{selectedRoom.baseRate * nightsCount * roomCount} total for {nightsCount} night{nightsCount > 1 ? 's' : ''}
+            {(() => {
+              const selectedCategories = availableRooms.filter(rt => (roomCounts[rt.type] || 0) > 0);
+              const totalSelectedRooms = selectedCategories.reduce((sum, rt) => sum + (roomCounts[rt.type] || 0), 0);
+              const totalSelectedAmount = selectedCategories.reduce((sum, rt) => sum + (rt.baseRate * nightsCount * (roomCounts[rt.type] || 0)), 0);
+
+              if (totalSelectedRooms === 0) return null;
+
+              return (
+                <div className="mt-6 pt-5 border-t border-slate-200 space-y-4 animate-in fade-in">
+                  <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl space-y-1.5">
+                    <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Selected Rooms &amp; Multi-Room Cart</span>
+                    <div className="font-bold text-slate-900 text-xs space-y-0.5">
+                      {selectedCategories.map((cat, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>{cat.type} ({roomCounts[cat.type]} Room{roomCounts[cat.type] > 1 ? 's' : ''})</span>
+                          <span className="font-mono font-bold">{profile.currencySymbol || '₹'}{cat.baseRate * nightsCount * roomCounts[cat.type]}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs font-extrabold text-emerald-700 pt-1.5 border-t border-teal-200 flex justify-between">
+                      <span>Total ({totalSelectedRooms} Room{totalSelectedRooms > 1 ? 's' : ''}, {nightsCount} Night{nightsCount > 1 ? 's' : ''}):</span>
+                      <span className="text-sm">{profile.currencySymbol || '₹'}{totalSelectedAmount}</span>
+                    </div>
                   </div>
+
+                  <form onSubmit={handleBookSubmit} className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Your Full Name *</label>
+                      <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="e.g. Rahul Sharma"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Phone Number (WhatsApp) *</label>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Email Address (Optional)</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="rahul@example.com"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
+                      />
+                    </div>
+
+                    {/* Payment Policy Section: 30% Advance vs Pay at Property */}
+                    {profile.paymentPolicy === 'advance_30_percent' ? (
+                      <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-900">30% Advance UPI Payment</span>
+                          <span className="font-mono font-extrabold text-amber-800">
+                            {profile.currencySymbol || '₹'}{Math.round(totalSelectedAmount * 0.3)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-700">Scan QR or pay via UPI ID, then enter your UPI Ref / UTR number below.</p>
+                        
+                        <div className="flex items-center justify-center bg-white p-2.5 rounded-lg border border-amber-200">
+                          <img
+                            src={profile.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=${profile.upiId || 'hotel@upi'}&pn=${encodeURIComponent(profile.name)}&am=${Math.round(totalSelectedAmount * 0.3)}&cu=INR`}
+                            alt="UPI QR Code"
+                            className="w-32 h-32 object-contain"
+                          />
+                        </div>
+                        <div className="text-center font-mono font-bold text-slate-800 text-[11px]">
+                          UPI ID: {profile.upiId || 'hotel@upi'}
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">UPI Ref / UTR Transaction Number *</label>
+                          <input
+                            type="text"
+                            value={upiRef}
+                            onChange={(e) => setUpiRef(e.target.value)}
+                            placeholder="e.g. 325418967412"
+                            className="w-full bg-white border border-amber-300 rounded-lg p-2 font-mono font-bold text-slate-900"
+                            required={profile.paymentPolicy === 'advance_30_percent'}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-900 font-bold text-center">
+                        100% Pay at Property (No Advance Required)
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Special Requests</label>
+                      <textarea
+                        value={specialRequest}
+                        onChange={(e) => setSpecialRequest(e.target.value)}
+                        placeholder="Early check-in, quiet room, etc."
+                        rows={2}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 font-medium"
+                      ></textarea>
+                    </div>
+
+                    {/* Honeypot hidden spam field */}
+                    <div className="hidden">
+                      <input
+                        type="text"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
+                        tabIndex={-1}
+                        autoComplete="off"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      {submitting ? 'Submitting Booking...' : (profile.paymentPolicy === 'advance_30_percent' ? 'Confirm Booking with 30% Advance' : 'Confirm Reservation (Pay at Hotel)')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cleared: Record<string, number> = {};
+                        availableRooms.forEach(rt => { cleared[rt.type] = 0; });
+                        setRoomCounts(cleared);
+                      }}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs"
+                    >
+                      Clear Selection
+                    </button>
+                  </form>
                 </div>
-
-                <form onSubmit={handleBookSubmit} className="space-y-3 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Your Full Name *</label>
-                    <input
-                      type="text"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder="e.g. Rahul Sharma"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Phone Number (WhatsApp) *</label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Email Address (Optional)</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="rahul@example.com"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-900"
-                    />
-                  </div>
-
-                  {/* Payment Policy Section: 30% Advance vs Pay at Property */}
-                  {profile.paymentPolicy === 'advance_30_percent' ? (
-                    <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-amber-900">30% Advance UPI Payment</span>
-                        <span className="font-mono font-extrabold text-amber-800">
-                          {profile.currencySymbol || '₹'}{Math.round(selectedRoom.baseRate * nightsCount * roomCount * 0.3)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-amber-700">Scan QR or pay via UPI ID, then enter your UPI Ref / UTR number below.</p>
-                      
-                      <div className="flex items-center justify-center bg-white p-2.5 rounded-lg border border-amber-200">
-                        <img
-                          src={profile.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=${profile.upiId || 'hotel@upi'}&pn=${encodeURIComponent(profile.name)}&am=${Math.round(selectedRoom.baseRate * nightsCount * roomCount * 0.3)}&cu=INR`}
-                          alt="UPI QR Code"
-                          className="w-32 h-32 object-contain"
-                        />
-                      </div>
-                      <div className="text-center font-mono font-bold text-slate-800 text-[11px]">
-                        UPI ID: {profile.upiId || 'hotel@upi'}
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">UPI Ref / UTR Transaction Number *</label>
-                        <input
-                          type="text"
-                          value={upiRef}
-                          onChange={(e) => setUpiRef(e.target.value)}
-                          placeholder="e.g. 325418967412"
-                          className="w-full bg-white border border-amber-300 rounded-lg p-2 font-mono font-bold text-slate-900"
-                          required={profile.paymentPolicy === 'advance_30_percent'}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-900 font-bold text-center">
-                      100% Pay at Property (No Advance Required)
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Special Requests</label>
-                    <textarea
-                      value={specialRequest}
-                      onChange={(e) => setSpecialRequest(e.target.value)}
-                      placeholder="Early check-in, quiet room, etc."
-                      rows={2}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 font-medium"
-                    ></textarea>
-                  </div>
-
-                  {/* Honeypot hidden spam field */}
-                  <div className="hidden">
-                    <input
-                      type="text"
-                      value={honeypot}
-                      onChange={(e) => setHoneypot(e.target.value)}
-                      tabIndex={-1}
-                      autoComplete="off"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    {submitting ? 'Submitting Booking...' : (profile.paymentPolicy === 'advance_30_percent' ? 'Confirm Booking with 30% Advance' : 'Confirm Reservation (Pay at Hotel)')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRoom(null)}
-                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs"
-                  >
-                    Cancel
-                  </button>
-                </form>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
 
