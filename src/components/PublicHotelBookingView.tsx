@@ -760,7 +760,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                             onChange={(e) => setRoomCount(Number(e.target.value))}
                             className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800"
                           >
-                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Room{n > 1 ? 's' : ''}</option>)}
+                            {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Room{n !== 1 ? 's' : ''}</option>)}
                           </select>
 
                           <button

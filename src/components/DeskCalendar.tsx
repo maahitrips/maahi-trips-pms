@@ -645,52 +645,46 @@ export const DeskCalendar: React.FC<DeskCalendarProps> = ({
 
       {/* ⚡ Morning 7:00 AM Last-Minute Booking Automation Compact Bottom-Left Widget */}
       {lastMinuteStatus && (
-        <div className="fixed bottom-3 left-3 z-30 max-w-xs bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3 shadow-xl space-y-2 animate-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+        <div className="fixed bottom-2 left-2 z-35 max-w-[200px] bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg p-2 shadow-lg space-y-1 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="flex items-center gap-1">
+              <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 ${
                 lastMinuteStatus.isTriggered ? 'bg-rose-600 text-white animate-pulse' : lastMinuteStatus.isPast7Am ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
               }`}>
-                <Clock size={11} />
+                <Clock size={10} />
               </div>
-              <span className="font-bold text-[11px] text-slate-900">
+              <span className="font-bold text-[10px] text-slate-900 truncate">
                 {lastMinuteStatus.isTriggered
-                  ? `⚡ 7 AM Flash Sale (-${lastMinuteStatus.discountPercent}%)`
-                  : `⏳ 7 AM Last-Minute Rule`}
+                  ? `⚡ Flash (-${lastMinuteStatus.discountPercent}%)`
+                  : `⏳ Flash Rule`}
               </span>
             </div>
-            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+            <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded-full shrink-0 ${
               lastMinuteStatus.isTriggered ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
             }`}>
-              {lastMinuteStatus.currentOccupancyPercent}% Occ
+              {lastMinuteStatus.currentOccupancyPercent}%
             </span>
           </div>
-
-          <p className="text-[10px] text-slate-600 leading-tight">
-            {lastMinuteStatus.isTriggered
-              ? `Occupancy <60% after 7 AM. 15% discount active on walk-ins & OTA channels.`
-              : `Runs daily at 7 AM. Auto-reduces rates 15% if occupancy is below 60%.`}
-          </p>
 
           <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
             {onToggleSimulate7am && (
               <button
                 type="button"
                 onClick={onToggleSimulate7am}
-                className="flex-1 py-1 px-2 text-[10px] font-bold rounded-lg border bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-1 cursor-pointer"
+                className="flex-1 py-0.5 px-1 text-[9px] font-bold rounded border bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-0.5 cursor-pointer truncate"
               >
-                <Zap size={10} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
-                <span>{lastMinuteStatus.isPast7Am ? 'Sim (ON)' : 'Test 7AM'}</span>
+                <Zap size={9} className={lastMinuteStatus.isPast7Am ? 'text-amber-600 fill-amber-500' : 'text-slate-400'} />
+                <span>{lastMinuteStatus.isPast7Am ? 'Sim' : 'Test'}</span>
               </button>
             )}
             {onOpenLastMinuteModal && (
               <button
                 type="button"
                 onClick={onOpenLastMinuteModal}
-                className="flex-1 py-1 px-2 text-[10px] font-bold rounded-lg bg-teal-800 hover:bg-teal-900 text-white flex items-center justify-center gap-1 cursor-pointer"
+                className="flex-1 py-0.5 px-1 text-[9px] font-bold rounded bg-teal-800 hover:bg-teal-900 text-white flex items-center justify-center gap-0.5 cursor-pointer truncate"
               >
-                <SlidersHorizontal size={10} />
-                <span>Settings</span>
+                <SlidersHorizontal size={9} />
+                <span>Config</span>
               </button>
             )}
           </div>
