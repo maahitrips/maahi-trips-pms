@@ -598,13 +598,18 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                 className="w-full h-full object-cover transition-all duration-300"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-between p-6 sm:p-8 text-white pointer-events-none">
-                <div className="flex items-center justify-between pointer-events-auto">
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-500/30 text-teal-300 backdrop-blur-md border border-teal-400/30">
-                    Official Direct Booking • {activePhotoIdx + 1} / {allPhotos.length}
-                  </span>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-900/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pointer-events-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-teal-500 text-slate-950 shadow-sm flex items-center gap-1">
+                      <span>DIRECT BOOKING ENGINE ACTIVE</span>
+                    </span>
+                    <span className="text-[11px] font-semibold text-teal-200 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                      Zero Commission 0% OTA Fees
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-900/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1 w-fit">
                     <Tag size={12} className="text-teal-400" />
-                    <span>{currentPhoto.tag}</span>
+                    <span>{currentPhoto.tag} ({activePhotoIdx + 1} / {allPhotos.length})</span>
                   </span>
                 </div>
 
