@@ -264,10 +264,16 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRoom || !hotelId) return;
+    if (!hotelId) return;
 
     if (honeypot) {
       alert('Spam detected');
+      return;
+    }
+
+    const selectedCategories = availableRooms.filter(rt => (roomCounts[rt.type] || 0) > 0);
+    if (selectedCategories.length === 0) {
+      alert('Please select at least 1 room from any category to book.');
       return;
     }
 
@@ -279,16 +285,23 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
       const rooms = bundle.rooms || [];
       const bookings = bundle.bookings || [];
 
-      const matchingRoom = rooms.find((r: any) => (r.type || 'Standard Room') === selectedRoom.type && Number(r.baseRate) > 0);
-      if (!matchingRoom) {
-        throw new Error('Selected room type is no longer available');
-      }
-
       const inDate = new Date(checkIn);
       const outDate = new Date(checkOut);
       const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
-      const baseRate = Number(matchingRoom.baseRate) || 0;
-      const totalAmount = baseRate * nights * roomCount;
+
+      let totalAmount = 0;
+      let totalRoomsBooked = 0;
+      const roomNamesSummary: string[] = [];
+
+      selectedCategories.forEach(cat => {
+        const count = roomCounts[cat.type] || 0;
+        totalRoomsBooked += count;
+        totalAmount += cat.baseRate * nights * count;
+        roomNamesSummary.push(`${count}x ${cat.type}`);
+      });
+
+      const primaryCat = selectedCategories[0];
+      const matchingRoom = rooms.find((r: any) => (r.type || 'Standard Room') === primaryCat.type && Number(r.baseRate) > 0) || rooms[0];
 
       const isAdvancePayment = hotelData.profile.paymentPolicy === 'advance_30_percent';
       const paidAmount = isAdvancePayment ? Math.round(totalAmount * 0.3) : 0;
@@ -301,10 +314,10 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         id: bookingId,
         bookingCode: bookingRef,
         bookingRef,
-        roomId: matchingRoom.id,
-        roomNumber: matchingRoom.number || '',
-        roomName: matchingRoom.name || matchingRoom.type || selectedRoom.type,
-        groupTotalRooms: Number(roomCount) || 1,
+        roomId: matchingRoom?.id || 'room-1',
+        roomNumber: matchingRoom?.number || '',
+        roomName: roomNamesSummary.join(', '),
+        groupTotalRooms: totalRoomsBooked,
         guest: {
           id: `gst-${Date.now()}`,
           fullName: String(guestName).trim(),
@@ -332,12 +345,12 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         nights,
         adults: Number(adults) || 1,
         children: Number(children) || 0,
-        roomTypeId: matchingRoom.type || selectedRoom.type,
-        roomCount: Number(roomCount) || 1,
+        roomTypeId: primaryCat.type,
+        roomCount: totalRoomsBooked,
         channel: 'walkin',
         source: 'Direct (Website)',
         status: 'confirmed',
-        roomRatePerNight: baseRate,
+        roomRatePerNight: primaryCat.baseRate,
         taxRatePercent: 5,
         extraCharges: [],
         payments: paidAmount > 0 ? [{
@@ -353,7 +366,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         balanceAmount,
         paymentPolicy: hotelData.profile.paymentPolicy,
         upiRef: upiRef ? String(upiRef).trim() : '',
-        specialRequests: specialRequest ? String(specialRequest).trim() : 'Direct Website Booking Engine Reservation',
+        specialRequests: specialRequest ? String(specialRequest).trim() : `Direct Website Booking: ${roomNamesSummary.join(', ')}`,
         specialRequest: specialRequest ? String(specialRequest).trim() : '',
         createdAt: new Date().toISOString()
       };
