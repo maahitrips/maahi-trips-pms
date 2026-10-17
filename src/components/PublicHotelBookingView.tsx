@@ -813,6 +813,29 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
             </div>
           )}
 
+          {/* Cancellation Policy */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
+            <h3 className="text-sm font-black text-slate-900">Cancellation Policy</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                <div className="font-bold text-rose-900">0 to 3 Days Before Check-in</div>
+                <div className="text-rose-700 font-semibold">Non-Refundable (0% Return)</div>
+              </div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                <div className="font-bold text-amber-900">4 to 7 Days Before Check-in</div>
+                <div className="text-amber-700 font-semibold">30% Advance Return</div>
+              </div>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                <div className="font-bold text-emerald-900">8 to 15 Days Before Check-in</div>
+                <div className="text-emerald-700 font-semibold">50% Advance Return</div>
+              </div>
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl space-y-1">
+                <div className="font-bold text-teal-900">16 to 90 Days Before Check-in</div>
+                <div className="text-teal-700 font-semibold">80% Advance Return</div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Right / Sticky Search & Booking Widget */}
@@ -881,6 +904,9 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                       <span>Total ({totalSelectedRooms} Room{totalSelectedRooms > 1 ? 's' : ''}, {nightsCount} Night{nightsCount > 1 ? 's' : ''}):</span>
                       <span className="text-sm">{profile.currencySymbol || '₹'}{totalSelectedAmount}</span>
                     </div>
+                    <div className="text-[10px] text-teal-800 font-semibold italic pt-0.5">
+                      * GST 5% may be applicable additionally
+                    </div>
                   </div>
 
                   <form onSubmit={handleBookSubmit} className="space-y-3 text-xs">
@@ -947,7 +973,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                           </div>
 
                           <div>
-                            <label className="block font-bold text-slate-700 mb-1">Children (Max {maxTotalChildren})</label>
+                            <label className="block font-bold text-slate-700 mb-1">Children</label>
                             <select
                               value={children}
                               onChange={(e) => setChildren(Number(e.target.value))}
