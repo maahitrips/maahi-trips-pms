@@ -921,7 +921,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
 
                     {(() => {
                       const selectedCategories = availableRooms.filter(rt => (roomCounts[rt.type] || 0) > 0);
-                      const roomCapacityTotal = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 6);
+                      const roomCapacityTotal = selectedCategories.reduce((sum, rt) => sum + (rt.maxOccupancy * (roomCounts[rt.type] || 0)), 0);
                       const maxTotalAdults = Math.max(1, roomCapacityTotal);
                       const maxTotalChildren = Math.max(0, maxTotalAdults - adults);
 
