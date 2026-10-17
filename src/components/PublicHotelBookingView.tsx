@@ -826,11 +826,11 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                 <div className="text-amber-700 font-semibold">30% Advance Return</div>
               </div>
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
-                <div className="font-bold text-emerald-900">8 to 15 Days Before Check-in</div>
+                <div className="font-bold text-emerald-900">8 to 30 Days Before Check-in</div>
                 <div className="text-emerald-700 font-semibold">50% Advance Return</div>
               </div>
               <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl space-y-1">
-                <div className="font-bold text-teal-900">16 to 90 Days Before Check-in</div>
+                <div className="font-bold text-teal-900">31 to 90+ Days Before Check-in</div>
                 <div className="text-teal-700 font-semibold">80% Advance Return</div>
               </div>
             </div>
