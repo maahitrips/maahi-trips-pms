@@ -509,7 +509,12 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
               <span>Chat on WhatsApp to Confirm</span>
             </a>
             <button
-              onClick={() => { setBookingResult(null); setSelectedRoom(null); }}
+              onClick={() => { 
+                setBookingResult(null); 
+                const cleared: Record<string, number> = {}; 
+                availableRooms.forEach(rt => { cleared[rt.type] = 0; }); 
+                setRoomCounts(cleared); 
+              }}
               className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
             >
               Book Another Room
@@ -779,21 +784,14 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                         </div>
 
                         <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-bold text-slate-600">Select Rooms:</label>
                           <select
                             value={roomCounts[roomType.type] || 0}
                             onChange={(e) => setRoomCounts(prev => ({ ...prev, [roomType.type]: Number(e.target.value) }))}
-                            className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800"
+                            className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-800"
                           >
                             {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Room{n !== 1 ? 's' : ''}</option>)}
                           </select>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRoom(roomType)}
-                            className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
-                          >
-                            Book Now
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -846,7 +844,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
               <h3 className="text-lg font-black text-slate-900 mt-0.5">Check Availability</h3>
             </div>
 
-            <form onSubmit={handleSearch} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Check-in Date</label>
                 <input
@@ -854,7 +852,6 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:bg-white focus:border-teal-700 outline-hidden"
-                  required
                 />
               </div>
 
@@ -865,20 +862,20 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:bg-white focus:border-teal-700 outline-hidden"
-                  required
                 />
               </div>
 
 
 
               <button
-                type="submit"
+                type="button"
+                onClick={handleSearch}
                 disabled={searching}
                 className="w-full py-3 bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 {searching ? 'Checking...' : 'Search Available Rooms'}
               </button>
-            </form>
+            </div>
 
             {/* Selected Room & Booking Form */}
             {(() => {

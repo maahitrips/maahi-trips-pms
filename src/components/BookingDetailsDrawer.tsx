@@ -879,8 +879,11 @@ export const BookingDetailsDrawer: React.FC<BookingDetailsDrawerProps> = ({
                   </div>
 
                   <div>
-                    <span className="text-slate-500 block text-xs mb-1">Guests</span>
-                    <span className="font-medium text-slate-800">{booking.adults + (booking.children || 0)}</span>
+                    <span className="text-slate-500 block text-xs mb-1">Adults &amp; Children</span>
+                    <span className="font-medium text-slate-800">
+                      {booking.adults || 1} Adult{((booking.adults || 1) > 1) ? 's' : ''}
+                      {booking.children ? `, ${booking.children} Child${booking.children > 1 ? 'ren' : ''}` : ''}
+                    </span>
                   </div>
 
                   {/* Row 2 */}

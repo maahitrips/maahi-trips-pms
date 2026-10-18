@@ -47,7 +47,8 @@ import {
   Zap,
   SlidersHorizontal,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Video
 } from 'lucide-react';
 import { defaultLastMinuteConfig, LastMinuteRuleStatus } from '../utils/pricingHelper';
 import { 
@@ -2357,32 +2358,122 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Current Gallery Grid */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">Current Property Gallery Photos ({profile.photos?.length || 0})</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {(profile.photos || []).map((photoUrl, idx) => (
-                <div key={idx} className="relative group h-44 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                  <img src={typeof photoUrl === 'string' ? photoUrl : photoUrl.url} alt={`Property Photo ${idx + 1}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updatedPhotos = (profile.photos || []).filter((_, i) => i !== idx);
-                        const updated = { ...profile, photos: updatedPhotos };
-                        setProfile(updated);
-                        onUpdateProfile(updated);
-                        if (onShowToast) onShowToast('Photo Deleted', 'Gallery updated.');
-                      }}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
-                    >
-                      Delete Photo
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+           {/* Current Gallery Grid */}
+           <div className="space-y-3">
+             <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">Current Property Gallery Photos ({profile.photos?.length || 0})</h4>
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+               {(profile.photos || []).map((photoUrl, idx) => (
+                 <div key={idx} className="relative group h-44 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                   <img src={typeof photoUrl === 'string' ? photoUrl : photoUrl.url} alt={`Property Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const updatedPhotos = (profile.photos || []).filter((_, i) => i !== idx);
+                         const updated = { ...profile, photos: updatedPhotos };
+                         setProfile(updated);
+                         onUpdateProfile(updated);
+                         if (onShowToast) onShowToast('Photo Deleted', 'Gallery updated.');
+                       }}
+                       className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
+                     >
+                       Delete Photo
+                     </button>
+                   </div>
+                 </div>
+               ))}
+             </div>
+           </div>
+
+           {/* Add YouTube Video Tour Link */}
+           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 mt-6">
+             <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
+               <Video size={16} className="text-rose-600" />
+               <span>Add YouTube Video Tour Link</span>
+             </h4>
+             <div className="flex flex-col sm:flex-row gap-2">
+               <input
+                 type="url"
+                 id="input-new-youtube-url"
+                 placeholder="Paste YouTube Link (e.g. https://www.youtube.com/watch?v=...)"
+                 className="flex-1 px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-teal-600 outline-hidden font-medium text-slate-900"
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter') {
+                     const val = (e.target as HTMLInputElement).value.trim();
+                     if (val) {
+                       const currentVideos = profile.youtubeVideos || [];
+                       const updated = { ...profile, youtubeVideos: [...currentVideos, val] };
+                       setProfile(updated);
+                       onUpdateProfile(updated);
+                       if (onShowToast) onShowToast('YouTube Video Added!', 'Tour video linked successfully.');
+                       (e.target as HTMLInputElement).value = '';
+                     }
+                   }
+                 }}
+               />
+               <button
+                 type="button"
+                 onClick={() => {
+                   const input = document.getElementById('input-new-youtube-url') as HTMLInputElement;
+                   if (input && input.value.trim()) {
+                     const val = input.value.trim();
+                     const currentVideos = profile.youtubeVideos || [];
+                     const updated = { ...profile, youtubeVideos: [...currentVideos, val] };
+                     setProfile(updated);
+                     onUpdateProfile(updated);
+                     if (onShowToast) onShowToast('YouTube Video Added!', 'Tour video linked successfully.');
+                     input.value = '';
+                   }
+                 }}
+                 className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer"
+               >
+                 + Add Video
+               </button>
+             </div>
+           </div>
+
+           {/* Current YouTube Videos Grid */}
+           {(profile.youtubeVideos || []).length > 0 && (
+             <div className="space-y-3 mt-4">
+               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">Embedded YouTube Tours ({profile.youtubeVideos?.length || 0})</h4>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 {(profile.youtubeVideos || []).map((vidUrl, idx) => {
+                   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                   const match = vidUrl.match(regExp);
+                   const embedUrl = (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : vidUrl;
+                   return (
+                     <div key={idx} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col justify-between">
+                       <div className="h-44 bg-slate-900 relative">
+                         <iframe
+                           src={embedUrl}
+                           title={`YouTube Tour ${idx + 1}`}
+                           className="w-full h-full border-0"
+                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                           allowFullScreen
+                         ></iframe>
+                       </div>
+                       <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-2">
+                         <span className="text-[11px] font-mono font-bold text-slate-600 truncate">{vidUrl}</span>
+                         <button
+                           type="button"
+                           onClick={() => {
+                             const updatedVideos = (profile.youtubeVideos || []).filter((_, i) => i !== idx);
+                             const updated = { ...profile, youtubeVideos: updatedVideos };
+                             setProfile(updated);
+                             onUpdateProfile(updated);
+                             if (onShowToast) onShowToast('YouTube Video Removed', 'Gallery updated.');
+                           }}
+                           className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer shrink-0"
+                         >
+                           Delete
+                         </button>
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+           )}
         </div>
       )}
     </div>
