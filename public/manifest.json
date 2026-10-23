@@ -3,7 +3,7 @@
   "start_url": "/",
   "scope": "/",
   "name": "Maahi Trips Hotel PMS",
-  "short_name": "Hotel PMS",
+  "short_name": "Maahi Trips",
   "description": "Comprehensive Multi-Property Hotel Management System with Front Desk Calendar, Guest KYC, and Two-Way OTA Channel Manager.",
   "display": "standalone",
   "orientation": "any",
