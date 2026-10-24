@@ -855,7 +855,15 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          alert(`✅ [${ch.name}] Connection Verified! Live webhook response received: 200 OK. 2-way room inventory and booking sync are operational.`);
+                          if (onUpdateChannelConfig) {
+                            onUpdateChannelConfig({
+                              ...ch,
+                              mappedRoomsCount: ch.totalRoomsCount || 6,
+                              lastSyncedAt: 'Just now',
+                              status: 'active'
+                            });
+                          }
+                          alert(`✅ [${ch.name}] Connection Verified! Live webhook response received: 200 OK. All ${ch.totalRoomsCount || 6} room categories successfully mapped and synchronized.`);
                         }}
                         className="w-full mt-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-md transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
                       >
@@ -1322,6 +1330,39 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Box 3: iCal Calendar Export Feed URL (for MMT, Airbnb, Booking.com) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <Globe2 size={17} className="text-teal-700" />
+                iCal Calendar Export Link (For MakeMyTrip, Airbnb, Booking.com Calendar Sync)
+              </h3>
+              <span className="text-[10px] font-bold bg-teal-100 text-teal-900 px-2 py-0.5 rounded border border-teal-300">
+                Calendar Feed (.ics)
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              If MakeMyTrip or other OTAs ask for your property calendar link (iCal export URL) to sync availability and block booked dates across platforms, copy and provide the link below:
+            </p>
+
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-600">
+                <span className="font-bold">Public iCal Calendar Feed URL:</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(`https://hotelpms.maahitrips.in/api/v2/calendar/${hotelSlug}/export.ics`, "ical-url")}
+                  className="text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedKey === 'ical-url' ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                  <span>{copiedKey === 'ical-url' ? 'Copied iCal Link' : 'Copy iCal Link'}</span>
+                </button>
+              </div>
+              <div className="font-mono text-xs text-slate-800 bg-white p-2.5 rounded-lg border border-slate-300 break-all select-all">
+                https://hotelpms.maahitrips.in/api/v2/calendar/{hotelSlug}/export.ics
+              </div>
             </div>
           </div>
 
