@@ -261,45 +261,51 @@ export const ChannelLoginModal: React.FC<ChannelLoginModalProps> = ({
 
             {showGuide && (
               <div className="px-4 pb-4 pt-1.5 border-t border-blue-200/70 text-xs text-slate-700 space-y-3 bg-white/75">
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
-                  <div>
-                    <strong className="text-slate-900">Booking.com Extranet Open Karein:</strong>{' '}
-                    <span>Browser me <a href="https://admin.booking.com" target="_blank" rel="noopener noreferrer" className="text-blue-700 font-bold underline inline-flex items-center gap-0.5">admin.booking.com <ExternalLink size={10} /></a> kholein aur apne partner credentials se login karein.</span>
-                  </div>
-                </div>
+                {(() => {
+                  const portalUrl = getOfficialPortalUrl(channel.id);
+                  const portalDomain = portalUrl.replace('https://', '');
+                  const steps = [
+                    {
+                      num: 1,
+                      title: `${channel.name} Extranet Open Karein:`,
+                      desc: (
+                        <span>
+                          Browser me <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 font-bold underline inline-flex items-center gap-0.5">{portalDomain} <ExternalLink size={10} /></a> kholein aur apne partner credentials se login karein.
+                        </span>
+                      )
+                    },
+                    {
+                      num: 2,
+                      title: `Channel Manager (Connectivity Provider) Chunein:`,
+                      desc: `${channel.name} Extranet ke settings ya account menu me jaakar "Channel Manager" / "Connectivity Provider" par click karein.`
+                    },
+                    {
+                      num: 3,
+                      title: `Connect Provider Select Karein:`,
+                      desc: `\"Connect your Channel Manager\" par click karein. Search me \"MaahiTrips / Custom Channel Manager\" choose karein aur Two-Way XML Connection (Rates, Availability & Bookings) confirm karein.`
+                    },
+                    {
+                      num: 4,
+                      title: `Hotel ID & API Key Enter Karein:`,
+                      desc: `${channel.name} Extranet par di gayi apni unique Property / Hotel ID ko neeche \"Hotel / Property Extranet ID\" box me paste karein.`
+                    },
+                    {
+                      num: 5,
+                      title: `Test Connection & Save Karein:`,
+                      desc: `Neeche \"Test Connection / Ping\" dabayein. Handshake OK aane par \"Save Credentials & Connect\" dabayein. Iske baad \"Room Category Mappings\" me apne PMS rooms ko link kar dein!`
+                    }
+                  ];
 
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
-                  <div>
-                    <strong className="text-slate-900">Channel Manager (Connectivity Provider) Chunein:</strong>{' '}
-                    <span>Booking.com Extranet me top-right corner par apne <strong>Account / Hotel Name</strong> par click karein aur menu me <strong>"Channel Manager"</strong> (Connectivity Provider) par click karein.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
-                  <div>
-                    <strong className="text-slate-900">Connect Provider Select Karein:</strong>{' '}
-                    <span><strong>"Connect your Channel Manager"</strong> par click karein. Search me <strong>"MaahiTrips / Custom Channel Manager"</strong> choose karein aur <strong>Two-Way XML Connection</strong> (Rates, Availability &amp; Bookings) tick karke confirm karein.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
-                  <div>
-                    <strong className="text-slate-900">Hotel ID &amp; API Key Copy Karein:</strong>{' '}
-                    <span>Booking.com Extranet ke top-left me jo <strong>7-digit Hotel ID</strong> (jaise: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-[11px] text-blue-900 font-bold">1084920</code>) likha hai, usko neeche <strong>"Hotel / Property Extranet ID"</strong> me paste karein.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">5</span>
-                  <div>
-                    <strong className="text-slate-900">Test Connection &amp; Save Karein:</strong>{' '}
-                    <span>Neeche <strong>"Test Connection / Ping"</strong> dabayein. Handshake OK aane par <strong>"Save Credentials &amp; Connect"</strong> dabayein. Iske baad <strong>"Room Category Mappings"</strong> tab me jaakar apne PMS rooms ko Booking.com ke room types se link kar dein!</span>
-                  </div>
-                </div>
+                  return steps.map((s) => (
+                    <div key={s.num} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{s.num}</span>
+                      <div>
+                        <strong className="text-slate-900">{s.title}</strong>{' '}
+                        <span>{s.desc}</span>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
