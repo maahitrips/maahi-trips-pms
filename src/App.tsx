@@ -2114,6 +2114,7 @@ export default function App() {
             }
             setUnseenOnlineBookingsCount(0);
           }}
+          onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         />
 
         {/* Quota Exceeded / Local Persistence Alert Banner */}

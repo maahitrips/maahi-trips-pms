@@ -210,6 +210,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                 <span>Password</span>
+                {onOpenForgotPassword && (
+                  <button
+                    type="button"
+                    onClick={onOpenForgotPassword}
+                    className="text-xs font-bold text-teal-700 hover:text-teal-950 underline underline-offset-2 transition-colors cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-3 text-slate-500" />

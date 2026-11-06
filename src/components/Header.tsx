@@ -23,7 +23,8 @@ import {
   Settings,
   Menu,
   Cloud,
-  Smartphone
+  Smartphone,
+  KeyRound
 } from 'lucide-react';
 import { UserAccount, Hotel, HotelProfile } from '../types';
 import { LastMinuteRuleStatus } from '../utils/pricingHelper';
@@ -64,6 +65,7 @@ interface HeaderProps {
   onOpenInstallModal?: () => void;
   unseenBookingsCount?: number;
   onOpenLatestBookingAlert?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -93,7 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLastMinuteModal,
   onOpenInstallModal,
   unseenBookingsCount = 0,
-  onOpenLatestBookingAlert
+  onOpenLatestBookingAlert,
+  onOpenChangePassword
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
@@ -453,6 +456,20 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="space-y-1">
+                {onOpenChangePassword && (
+                  <button
+                    id="btn-change-password-dropdown"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      onOpenChangePassword();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex items-center gap-2 font-medium text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <KeyRound size={15} className="text-teal-700" />
+                    <span>Change Password</span>
+                  </button>
+                )}
+
                 <button
                   id="btn-switch-account"
                   onClick={() => {
