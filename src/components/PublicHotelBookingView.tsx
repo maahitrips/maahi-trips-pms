@@ -167,7 +167,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           name: r.name,
           type: r.type || 'Standard Room',
           baseRate: Number(r.baseRate) || 0,
-          maxOccupancy: Number(r.maxOccupancy) || 2,
+          maxOccupancy: Number(r.maxOccupancy) || 7,
           amenities: r.amenities || [],
           photoUrl: r.photoUrl || ''
         })),
@@ -219,7 +219,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
           roomTypesMap[rType] = {
             type: rType,
             baseRate: Number(r.baseRate) || 0,
-            maxOccupancy: Number(r.maxOccupancy) || 2,
+            maxOccupancy: Number(r.maxOccupancy) || 7,
             totalCount: 0,
             availableCount: 0,
             photoUrl: r.photoUrl || ''

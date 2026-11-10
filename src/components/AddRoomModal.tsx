@@ -85,7 +85,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
   const [isManualCategory, setIsManualCategory] = useState<boolean>(false);
   const [floor, setFloor] = useState<number>(1);
   const [baseRate, setBaseRate] = useState<number>(2500);
-  const [maxOccupancy, setMaxOccupancy] = useState<number>(2);
+  const [maxOccupancy, setMaxOccupancy] = useState<number>(7);
   const [status, setStatus] = useState<RoomStatus>('clean');
   const [amenities, setAmenities] = useState<string[]>(['AC', 'Wi-Fi', 'Geyser', 'Smart TV']);
   const [customAmenity, setCustomAmenity] = useState('');
@@ -456,7 +456,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                 <input
                   type="number"
                   min="1"
-                  max="20"
+                  max="30"
                   value={maxOccupancy}
                   onChange={(e) => setMaxOccupancy(Number(e.target.value))}
                   className="w-full pl-9 pr-2 py-2 bg-white border-2 border-slate-300 rounded-lg font-bold text-slate-950 focus:border-teal-700 outline-hidden"
