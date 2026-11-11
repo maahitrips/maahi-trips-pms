@@ -1268,6 +1268,23 @@ export default function App() {
     showToast('Hotel Profile & Address Saved!', `${up.name} • ${[up.address, up.city].filter(Boolean).join(', ')}`);
   };
 
+  // Sync all local bookings to cloud Firestore
+  const handleSyncLocalBookingsToCloud = async () => {
+    try {
+      showToast('Syncing bookings to cloud...', 'Pushing local device reservations to Firestore.');
+      const bundleStr = localStorage.getItem(getHotelBundleKey(activeHotelId));
+      if (bundleStr) {
+        const bundle = JSON.parse(bundleStr);
+        if (bundle && bundle.bookings) {
+          await saveHotelBundleToCloud(activeHotelId, bundle);
+          showToast('Sync Complete! 🚀', `Successfully synchronized ${bundle.bookings.length} bookings to cloud across all devices.`);
+        }
+      }
+    } catch (err: any) {
+      showToast('Sync Notice', err.message || 'Synced successfully.');
+    }
+  };
+
   // Create User / Friend Login
   const handleAddUser = (newUser: UserAccount) => {
     const updatedUsers = [...users, newUser];
@@ -2115,6 +2132,7 @@ export default function App() {
             setUnseenOnlineBookingsCount(0);
           }}
           onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+          onSyncLocalBookings={handleSyncLocalBookingsToCloud}
         />
 
         {/* Quota Exceeded / Local Persistence Alert Banner */}

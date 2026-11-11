@@ -66,6 +66,7 @@ interface HeaderProps {
   unseenBookingsCount?: number;
   onOpenLatestBookingAlert?: () => void;
   onOpenChangePassword?: () => void;
+  onSyncLocalBookings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -96,7 +97,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInstallModal,
   unseenBookingsCount = 0,
   onOpenLatestBookingAlert,
-  onOpenChangePassword
+  onOpenChangePassword,
+  onSyncLocalBookings
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isPropertyMenuOpen, setIsPropertyMenuOpen] = useState(false);
@@ -467,6 +469,20 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <KeyRound size={15} className="text-teal-700" />
                     <span>Change Password</span>
+                  </button>
+                )}
+
+                {onSyncLocalBookings && (
+                  <button
+                    id="btn-sync-mobile-cloud"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      onSyncLocalBookings();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50 flex items-center gap-2 font-bold text-teal-900 transition-colors cursor-pointer border border-teal-200/60"
+                  >
+                    <RefreshCw size={15} className="text-teal-700 animate-spin-hover" />
+                    <span>Sync Mobile Bookings to Cloud</span>
                   </button>
                 )}
 
