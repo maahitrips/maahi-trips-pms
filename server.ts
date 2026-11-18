@@ -465,6 +465,50 @@ app.post('/api/public/booking', async (req, res) => {
   }
 });
 
+// 4. Sync Hotel Profile with Google Search Grounding
+app.post('/api/ai/sync-hotel-google', async (req, res) => {
+  try {
+    const { hotelName, city } = req.body;
+    if (!hotelName) {
+      return res.status(400).json({ error: 'Hotel name is required' });
+    }
+
+    const prompt = `Search Google for official hotel details about "${hotelName}" located in "${city || 'India'}". Return a JSON object with keys:
+    - "name": official hotel name
+    - "tagline": catchy tagline
+    - "address": full street address
+    - "city": city and state
+    - "phone": contact phone number if found
+    - "description": professional descriptive overview
+    - "amenities": array of strings (e.g. ["Free Wi-Fi", "Swimming Pool", "Air Conditioning", "Restaurant", "Room Service"])
+    - "heroPhotoUrl": high quality photo URL
+    - "photos": array of 3 photo URLs
+    Return ONLY valid JSON.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-4-hydrogen',
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    const text = response.text || '{}';
+    let data = {};
+    try {
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      data = JSON.parse(cleanJson);
+    } catch {
+      data = { name: hotelName, city, description: text };
+    }
+
+    return res.json({ success: true, hotelData: data });
+  } catch (err: any) {
+    console.error('Google search hotel sync error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to sync with Google Search' });
+  }
+});
+
 interface ChatMessagePayload {
   role: 'user' | 'model';
   content: string;

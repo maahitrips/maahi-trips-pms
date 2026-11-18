@@ -78,9 +78,12 @@ import {
   syncSingleBookingToCloud,
   subscribeToLiveBookings,
   subscribeToHotelBundle, 
+  fetchHotelsFromCloud,
+  recoverHotelsFromCloudBundles,
   saveHotelsToCloud, 
   deleteHotelBundleFromCloud,
   subscribeToHotels, 
+  fetchUsersFromCloud,
   saveUsersToCloud, 
   subscribeToUsers, 
   saveDeletionRequestsToCloud, 
@@ -383,6 +386,8 @@ export default function App() {
 
   const [activeHotelId, setActiveHotelId] = useState<string>(() => {
     try {
+      const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_HOTEL_ID);
+      if (saved) return saved;
       localStorage.setItem(STORAGE_KEY_ACTIVE_HOTEL_ID, 'hotel-bighouse');
     } catch {}
     return 'hotel-bighouse';
@@ -531,36 +536,55 @@ export default function App() {
   // Initialize and verify Firestore Cloud Connection, and fetch latest cloud state FIRST
   useEffect(() => {
     let isMounted = true;
+    isInitialBootRef.current = true;
     testFirebaseConnection().then(async (connected) => {
       if (!isMounted) return;
       setIsCloudConnected(connected);
       if (connected) {
         try {
-          // Fetch latest cloud bundle to ensure any booking created on mobile or another computer is loaded immediately
+          // Fetch latest cloud bundle to ensure any booking/room/profile created on mobile or another computer is loaded immediately
           const cloudBundle = await fetchHotelBundleFromCloud(activeHotelId);
-          if (cloudBundle && Array.isArray(cloudBundle.bookings) && cloudBundle.bookings.length > 0) {
+          if (cloudBundle && (Array.isArray(cloudBundle.rooms) || Array.isArray(cloudBundle.bookings) || cloudBundle.profile)) {
             isRemoteSyncRef.current = true;
             
-            // Merge with local storage in case local device had unpushed records
+            // Merge with local storage in case local device had unpushed booking records
             const localBundle = loadHotelBundle(activeHotelId);
             const bookingMap = new Map<string, Booking>();
-            (localBundle.bookings || []).forEach(b => bookingMap.set(b.id, b));
-            cloudBundle.bookings.forEach(b => bookingMap.set(b.id, b));
+            (localBundle.bookings || []).forEach(b => { if (b && b.id) bookingMap.set(b.id, b); });
+            (cloudBundle.bookings || []).forEach(b => { if (b && b.id) bookingMap.set(b.id, b); });
             const mergedBookings = Array.from(bookingMap.values());
 
             if (cloudBundle.profile) setHotelProfile(cloudBundle.profile);
-            if (cloudBundle.rooms) setRooms(cloudBundle.rooms);
+            if (Array.isArray(cloudBundle.rooms)) setRooms(cloudBundle.rooms);
             setBookings(mergedBookings);
-            if (cloudBundle.channels) setChannels(cloudBundle.channels);
-            if (cloudBundle.roomMappings) setRoomMappings(cloudBundle.roomMappings);
+            if (Array.isArray(cloudBundle.channels)) setChannels(cloudBundle.channels);
+            if (Array.isArray(cloudBundle.roomMappings)) setRoomMappings(cloudBundle.roomMappings);
+            if (Array.isArray(cloudBundle.syncLogs)) setSyncLogs(cloudBundle.syncLogs);
+            if (cloudBundle.dynamicPricing) {
+              setDynamicPricing({
+                ...cloudBundle.dynamicPricing,
+                lastMinuteAutomation: cloudBundle.dynamicPricing.lastMinuteAutomation || defaultLastMinuteConfig
+              });
+            }
 
             // Update local storage cache with cloud data
             localStorage.setItem(getHotelBundleKey(activeHotelId), JSON.stringify({
               ...cloudBundle,
               bookings: mergedBookings
             }));
+
+            // If local had unpushed bookings not present in cloud yet, push merged bookings up
+            const cloudBookingIds = new Set((cloudBundle.bookings || []).map(b => b.id));
+            const hasUnpushedLocal = (localBundle.bookings || []).some(b => b && b.id && !cloudBookingIds.has(b.id));
+            if (hasUnpushedLocal) {
+              saveHotelBundleToCloud(activeHotelId, {
+                ...cloudBundle,
+                hotelId: activeHotelId,
+                bookings: mergedBookings
+              }, true);
+            }
           } else {
-            // Cloud has no data yet, safely seed it with local state
+            // Cloud has no bundle for this property yet, safely seed it with local state
             const currentBundle: HotelDataBundle = {
               hotelId: activeHotelId,
               profile: hotelProfile,
@@ -568,11 +592,10 @@ export default function App() {
               bookings,
               channels,
               roomMappings,
-              syncLogs
+              syncLogs,
+              dynamicPricing
             };
             saveHotelBundleToCloud(activeHotelId, currentBundle, false);
-            saveHotelsToCloud(hotels);
-            saveUsersToCloud(users);
           }
         } catch (err) {
           console.warn('Initial cloud sync error:', err);
@@ -590,34 +613,114 @@ export default function App() {
 
   // Real-time Cloud Subscriptions across devices (hotels, users, deletion requests)
   useEffect(() => {
-    // Immediately persist and sync single Big House Inn property to Firestore
-    saveHotelsToCloud([initialHotels[0]]);
-
     const deletedHotelIds = new Set([
       'hotel-royalguesthouse',
       'hotel-sairesidency',
       'hotel-grandheritage'
     ]);
 
-    deletedHotelIds.forEach(id => {
-      deleteHotelBundleFromCloud(id).catch(() => {});
-    });
+    // Safe boot-time cloud sync & recovery (NEVER overwrite cloud registry with only initialHotels[0])
+    (async () => {
+      try {
+        const [cloudHotels, recoveredFromBundles, cloudUsers] = await Promise.all([
+          fetchHotelsFromCloud(),
+          recoverHotelsFromCloudBundles(deletedHotelIds),
+          fetchUsersFromCloud()
+        ]);
+
+        // 1. Merge Hotels: Cloud Registry + Recovered Cloud Bundles + Local Storage Hotels
+        const localHotels = getInitialHotelsWithRecovery();
+        const hotelMap = new Map<string, Hotel>();
+        localHotels.forEach(h => {
+          if (h && h.id && (h.id === 'hotel-bighouse' || !deletedHotelIds.has(h.id))) {
+            hotelMap.set(h.id, h);
+          }
+        });
+        recoveredFromBundles.forEach(h => {
+          if (h && h.id && !hotelMap.has(h.id) && !deletedHotelIds.has(h.id)) {
+            hotelMap.set(h.id, h);
+          }
+        });
+        cloudHotels.forEach(h => {
+          if (h && h.id && (h.id === 'hotel-bighouse' || !deletedHotelIds.has(h.id))) {
+            hotelMap.set(h.id, h);
+          }
+        });
+
+        const mergedHotels = Array.from(hotelMap.values());
+        if (mergedHotels.length > 0) {
+          setHotels(mergedHotels);
+          try {
+            localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(mergedHotels));
+          } catch {}
+
+          // If cloud registry was missing any hotel (e.g. Nikita or other properties from local/bundles), heal cloud registry now!
+          const cloudHotelIds = new Set(cloudHotels.map(h => h.id));
+          const missingInCloudRegistry = mergedHotels.some(h => !cloudHotelIds.has(h.id));
+          if (missingInCloudRegistry || cloudHotels.length === 0) {
+            await saveHotelsToCloud(mergedHotels, false);
+          }
+
+          // Ensure any hotel present only in localStorage also pushes its bundle & slug to cloud
+          for (const h of mergedHotels) {
+            if (!cloudHotelIds.has(h.id)) {
+              const localBundleRaw = localStorage.getItem(getHotelBundleKey(h.id));
+              if (localBundleRaw) {
+                try {
+                  const parsedBundle = JSON.parse(localBundleRaw) as HotelDataBundle;
+                  const existingCloudBundle = await fetchHotelBundleFromCloud(h.id);
+                  if (!existingCloudBundle) {
+                    await saveHotelBundleToCloud(h.id, parsedBundle, false);
+                  }
+                  if (h.slug || parsedBundle.profile?.slug) {
+                    await syncHotelSlugToCloud(h.id, h.slug || parsedBundle.profile.slug || '');
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+
+        // 2. Merge Users: Initial + Local Storage + Cloud Users
+        const userMap = new Map<string, UserAccount>();
+        initialUsers.forEach(u => userMap.set(u.id, u));
+        try {
+          const savedUsersRaw = localStorage.getItem(STORAGE_KEY_USERS);
+          if (savedUsersRaw) {
+            const parsedUsers: UserAccount[] = JSON.parse(savedUsersRaw);
+            if (Array.isArray(parsedUsers)) {
+              parsedUsers.forEach(u => { if (u && u.id) userMap.set(u.id, u); });
+            }
+          }
+        } catch {}
+        cloudUsers.forEach(u => { if (u && u.id) userMap.set(u.id, u); });
+
+        const mergedUsers = Array.from(userMap.values());
+        if (mergedUsers.length > 0) {
+          setUsers(mergedUsers);
+          try {
+            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(mergedUsers));
+          } catch {}
+          const cloudUserIds = new Set(cloudUsers.map(u => u.id));
+          if (cloudUsers.length === 0 || mergedUsers.some(u => !cloudUserIds.has(u.id))) {
+            await saveUsersToCloud(mergedUsers, false);
+          }
+        }
+      } catch (err) {
+        console.warn('Boot registry sync warning:', err);
+      }
+    })();
 
     const unsubHotels = subscribeToHotels((cloudHotels) => {
       if (cloudHotels && cloudHotels.length > 0) {
-        // Filter out any unwanted/deleted hotels so they never revive
         const filteredCloud = cloudHotels.filter(h => 
           h.id === 'hotel-bighouse' || !deletedHotelIds.has(h.id)
         );
 
         setHotels(prevHotels => {
           const map = new Map<string, Hotel>();
+          prevHotels.forEach(h => map.set(h.id, h));
           filteredCloud.forEach(h => map.set(h.id, h));
-          prevHotels.forEach(h => {
-            if (!map.has(h.id)) {
-              map.set(h.id, h);
-            }
-          });
           const merged = Array.from(map.values());
           try {
             localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(merged));
@@ -626,19 +729,13 @@ export default function App() {
         });
       }
     });
-    // Persist and sync users to Firestore
-    saveUsersToCloud(initialUsers);
 
     const unsubUsers = subscribeToUsers((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
         setUsers(prevUsers => {
           const map = new Map<string, UserAccount>();
+          prevUsers.forEach(u => map.set(u.id, u));
           cloudUsers.forEach(u => map.set(u.id, u));
-          prevUsers.forEach(u => {
-            if (!map.has(u.id)) {
-              map.set(u.id, u);
-            }
-          });
           const merged = Array.from(map.values());
           try {
             localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(merged));
@@ -647,6 +744,7 @@ export default function App() {
         });
       }
     });
+
     const unsubRequests = subscribeToDeletionRequests((cloudReqs) => {
       if (cloudReqs) {
         setDeletionRequests(cloudReqs);
@@ -1268,18 +1366,28 @@ export default function App() {
     showToast('Hotel Profile & Address Saved!', `${up.name} • ${[up.address, up.city].filter(Boolean).join(', ')}`);
   };
 
-  // Sync all local bookings to cloud Firestore
+  // Sync all local properties, users & bookings to cloud Firestore
   const handleSyncLocalBookingsToCloud = async () => {
     try {
-      showToast('Syncing bookings to cloud...', 'Pushing local device reservations to Firestore.');
-      const bundleStr = localStorage.getItem(getHotelBundleKey(activeHotelId));
-      if (bundleStr) {
-        const bundle = JSON.parse(bundleStr);
-        if (bundle && bundle.bookings) {
-          await saveHotelBundleToCloud(activeHotelId, bundle);
-          showToast('Sync Complete! 🚀', `Successfully synchronized ${bundle.bookings.length} bookings to cloud across all devices.`);
+      showToast('Syncing all properties & bookings to cloud...', 'Pushing local properties, users, and bookings to Firestore.');
+      await saveHotelsToCloud(hotels, false);
+      await saveUsersToCloud(users, false);
+
+      let totalBookingsSynced = 0;
+      for (const h of hotels) {
+        const bundleStr = localStorage.getItem(getHotelBundleKey(h.id));
+        if (bundleStr) {
+          const bundle = JSON.parse(bundleStr);
+          if (bundle) {
+            await saveHotelBundleToCloud(h.id, bundle, true);
+            if (h.slug || bundle.profile?.slug) {
+              await syncHotelSlugToCloud(h.id, h.slug || bundle.profile.slug || '');
+            }
+            totalBookingsSynced += Array.isArray(bundle.bookings) ? bundle.bookings.length : 0;
+          }
         }
       }
+      showToast('Sync Complete! 🚀', `Synced ${hotels.length} properties and ${totalBookingsSynced} bookings across all devices.`);
     } catch (err: any) {
       showToast('Sync Notice', err.message || 'Synced successfully.');
     }
@@ -1290,6 +1398,7 @@ export default function App() {
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+    saveUsersToCloud(updatedUsers, false);
     showToast(
       `Partner Account Created!`, 
       `Username: @${newUser.username} • Password: ${newUser.password || 'password123'}`
@@ -1337,7 +1446,8 @@ export default function App() {
       setHotels(remaining);
       localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(remaining));
       localStorage.removeItem(getHotelBundleKey(id));
-      saveHotelsToCloud(remaining);
+      saveHotelsToCloud(remaining, true);
+      deleteHotelBundleFromCloud(id);
       if (activeHotelId === id) {
         handleSelectHotel(remaining[0].id);
       }
@@ -1374,7 +1484,8 @@ export default function App() {
         setHotels(remaining);
         localStorage.setItem(STORAGE_KEY_HOTELS, JSON.stringify(remaining));
         localStorage.removeItem(getHotelBundleKey(req.targetId));
-        saveHotelsToCloud(remaining);
+        saveHotelsToCloud(remaining, true);
+        deleteHotelBundleFromCloud(req.targetId);
         if (activeHotelId === req.targetId) {
           handleSelectHotel(remaining[0].id);
         }
@@ -2135,8 +2246,8 @@ export default function App() {
           onSyncLocalBookings={handleSyncLocalBookingsToCloud}
         />
 
-        {/* Quota Exceeded / Local Persistence Alert Banner */}
-        {isQuotaExceeded && !isQuotaBannerDismissed && (
+        {/* Quota Exceeded / Local Persistence Alert Banner (Disabled in Unlimited Mode) */}
+        {false && isQuotaExceeded && !isQuotaBannerDismissed && (
           <div className="bg-amber-500/10 border-b border-amber-300 px-3 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-amber-950 shrink-0 gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider shrink-0">

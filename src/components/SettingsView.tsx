@@ -144,6 +144,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [hotelProfile, activeHotelId]);
 
   const [saved, setSaved] = useState<boolean>(false);
+  const [isGoogleSyncing, setIsGoogleSyncing] = useState<boolean>(false);
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 
@@ -238,6 +239,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onUpdateProfile(updatedProfile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleSyncWithGoogle = async () => {
+    if (!profile.name) {
+      if (onShowToast) onShowToast('Enter Hotel Name', 'Please enter a hotel name before syncing with Google Search.');
+      return;
+    }
+    try {
+      setIsGoogleSyncing(true);
+      if (onShowToast) onShowToast('Searching Google...', `Fetching live verified details for ${profile.name} from Google Search.`);
+      
+      const res = await fetch('/api/ai/sync-hotel-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hotelName: profile.name, city: profile.city })
+      });
+      const data = await res.json();
+      if (data.success && data.hotelData) {
+        const d = data.hotelData;
+        const nextProfile = {
+          ...profile,
+          name: d.name || profile.name,
+          tagline: d.tagline || profile.tagline,
+          address: d.address || profile.address,
+          city: d.city || profile.city,
+          phone: d.phone || profile.phone,
+          description: d.description || profile.description,
+          heroPhotoUrl: d.heroPhotoUrl || profile.heroPhotoUrl,
+          photos: d.photos && d.photos.length > 0 ? d.photos : profile.photos,
+          amenities: d.amenities && d.amenities.length > 0 ? d.amenities : profile.amenities
+        };
+        setProfile(nextProfile);
+        onUpdateProfile(nextProfile);
+        if (onShowToast) onShowToast('Google Search Sync Complete! 🌐', `Successfully synchronized profile and metadata for ${nextProfile.name} with Google Search.`);
+      } else {
+        throw new Error(data.error || 'Failed to sync');
+      }
+    } catch (err: any) {
+      if (onShowToast) onShowToast('Sync Notice', err.message || 'Could not reach Google Search.');
+    } finally {
+      setIsGoogleSyncing(false);
+    }
   };
 
   const copyCredentials = (u: UserAccount) => {

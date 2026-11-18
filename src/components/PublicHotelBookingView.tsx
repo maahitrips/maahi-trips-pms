@@ -62,6 +62,7 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
   const [nightsCount, setNightsCount] = useState(1);
   const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [selectedRoomDetails, setSelectedRoomDetails] = useState<any | null>(null);
 
   // Booking form state
   const [guestName, setGuestName] = useState('');
@@ -768,13 +769,23 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
                     </div>
                     <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                       <div>
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <h4 className="font-black text-base text-slate-900">{roomType.type}</h4>
                           <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
                             {roomType.availableCount} Rooms Available
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">Max Occupancy: {roomType.maxOccupancy} Guests per room</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                          <p className="text-xs text-slate-500">Max Occupancy: {roomType.maxOccupancy} Guests per room</p>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRoomDetails(roomType)}
+                            className="text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Sparkles size={13} />
+                            <span>📸 Room Photos &amp; Details</span>
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
@@ -1071,6 +1082,71 @@ export const PublicHotelBookingView: React.FC<PublicHotelBookingViewProps> = ({ 
         </div>
 
       </div>
+
+      {/* Booking.com Style Room Details & Photo Gallery Modal */}
+      {selectedRoomDetails && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="relative h-64 sm:h-80 bg-slate-900">
+              <img
+                src={selectedRoomDetails.photoUrl || profile.heroPhotoUrl || 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800'}
+                alt={selectedRoomDetails.type}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
+                <span className="text-[11px] font-bold px-2.5 py-1 bg-teal-500 text-slate-950 rounded-full w-fit mb-2">Verified Room Type</span>
+                <h2 className="text-2xl sm:text-3xl font-black">{selectedRoomDetails.type}</h2>
+                <p className="text-xs text-slate-300 mt-1">Max Occupancy: {selectedRoomDetails.maxOccupancy} Guests • {profile.currencySymbol || '₹'}{selectedRoomDetails.baseRate} per night</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRoomDetails(null)}
+                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center backdrop-blur-md cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <h4 className="font-black text-sm text-slate-900 mb-2">Room Amenities &amp; Features</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {['Air Conditioning', 'Free Wi-Fi', 'Flat-Screen TV', 'Private En-suite Bathroom', 'Balcony / City View', 'Daily Housekeeping', 'Fresh Towels & Linens'].map((am, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl text-xs font-bold text-slate-800 border border-slate-200">
+                      <CheckCircle2 size={14} className="text-teal-700 shrink-0" />
+                      <span>{am}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-black text-sm text-slate-900 mb-2">Room Description &amp; Policies</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Experience exceptional comfort in our {selectedRoomDetails.type}. Thoughtfully designed for modern travelers, featuring premium bedding, high-speed Wi-Fi, and pristine bathroom facilities. Instant confirmation with zero cancellation fee up to 24 hours prior to check-in.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div>
+                  <span className="text-xl font-black text-slate-900">{profile.currencySymbol || '₹'}{selectedRoomDetails.baseRate}</span>
+                  <span className="text-xs text-slate-500 block">+ 5% GST included</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoomCounts(prev => ({ ...prev, [selectedRoomDetails.type]: (prev[selectedRoomDetails.type] || 0) + 1 }));
+                    setSelectedRoomDetails(null);
+                  }}
+                  className="px-6 py-3 bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold text-xs transition-colors shadow-md cursor-pointer"
+                >
+                  Select This Room
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
